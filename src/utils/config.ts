@@ -137,7 +137,7 @@ export class ConfigManager {
 
   public saveConfig(global = false): void {
     const targetPath = global ? this.globalConfigPath : this.configPath;
-    
+
     try {
       // Ensure directory exists
       const dir = join(targetPath, '..');
@@ -176,11 +176,17 @@ export class ConfigManager {
   public validateConfig(): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (this.config.outputFormat && !['json', 'yaml', 'md', 'csv', 'table'].includes(this.config.outputFormat)) {
+    if (
+      this.config.outputFormat &&
+      !['json', 'yaml', 'md', 'csv', 'table'].includes(this.config.outputFormat)
+    ) {
       errors.push(`Invalid output format: ${this.config.outputFormat}`);
     }
 
-    if (this.config.defaultPriority && !['low', 'medium', 'high', 'critical'].includes(this.config.defaultPriority)) {
+    if (
+      this.config.defaultPriority &&
+      !['low', 'medium', 'high', 'critical'].includes(this.config.defaultPriority)
+    ) {
       errors.push(`Invalid default priority: ${this.config.defaultPriority}`);
     }
 
@@ -204,11 +210,11 @@ export class ConfigManager {
   public createDefaultConfigFile(format: 'json' | 'yaml' = 'json'): string {
     const filename = format === 'yaml' ? '.trackdownrc.yaml' : '.trackdownrc.json';
     const path = join(process.cwd(), filename);
-    
+
     this.configPath = path;
     this.config = { ...DEFAULT_CONFIG };
     this.saveConfig();
-    
+
     return path;
   }
 }

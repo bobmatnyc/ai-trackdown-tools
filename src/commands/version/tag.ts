@@ -5,7 +5,7 @@ import { Formatter } from '../../utils/formatter.js';
 
 export function createTagCommand(): Command {
   const command = new Command('tag');
-  
+
   command
     .description('Create a git tag for the current version')
     .option('--push', 'push the tag to remote repository')
@@ -27,7 +27,9 @@ export function createTagCommand(): Command {
 
         // Check if tag already exists
         if (GitManager.tagExists(tagName) && !options.force) {
-          console.error(Formatter.error(`Tag ${tagName} already exists. Use --force to recreate it.`));
+          console.error(
+            Formatter.error(`Tag ${tagName} already exists. Use --force to recreate it.`)
+          );
           process.exit(1);
         }
 
@@ -41,11 +43,11 @@ export function createTagCommand(): Command {
           console.log(Formatter.info('🔍 Dry run mode - no tag will be created'));
           console.log(Formatter.info(`Tag name: ${tagName}`));
           console.log(Formatter.info(`Tag message: ${tagMessage}`));
-          
+
           if (options.push) {
             console.log(Formatter.info('Would push tag to remote repository'));
           }
-          
+
           return;
         }
 
@@ -77,8 +79,14 @@ export function createTagCommand(): Command {
             GitManager.pushTags();
             console.log(Formatter.success('✅ Tag pushed successfully!'));
           } catch (error) {
-            console.error(Formatter.error(`Failed to push tag: ${error instanceof Error ? error.message : 'Unknown error'}`));
-            console.log(Formatter.info(`💡 You can push manually later with: git push origin ${tagName}`));
+            console.error(
+              Formatter.error(
+                `Failed to push tag: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+            );
+            console.log(
+              Formatter.info(`💡 You can push manually later with: git push origin ${tagName}`)
+            );
           }
         }
 
@@ -101,18 +109,21 @@ export function createTagCommand(): Command {
         if (allTags.length > 1) {
           console.log('');
           console.log(Formatter.info('📋 All tags:'));
-          allTags.slice(-5).forEach(tag => {
+          allTags.slice(-5).forEach((tag) => {
             const indicator = tag === tagName ? ' ← current' : '';
             console.log(Formatter.info(`   ${tag}${indicator}`));
           });
-          
+
           if (allTags.length > 5) {
             console.log(Formatter.info(`   ... and ${allTags.length - 5} more`));
           }
         }
-
       } catch (error) {
-        console.error(Formatter.error(`Failed to create tag: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to create tag: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });

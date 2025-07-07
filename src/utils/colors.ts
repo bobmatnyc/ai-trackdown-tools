@@ -8,22 +8,22 @@ import type { Colors } from '../types/index.js';
 export const colors: Colors = {
   // Main brand color - cyan for professional tech feel
   primary: chalk.cyan,
-  
+
   // Success operations and positive feedback
   success: chalk.green,
-  
+
   // Warnings and cautionary messages
   warning: chalk.yellow,
-  
+
   // Errors and critical issues
   error: chalk.red,
-  
+
   // Informational messages and tips
   info: chalk.blue,
-  
+
   // Secondary text and less important information
   muted: chalk.gray,
-  
+
   // Important highlights and emphasis
   highlight: chalk.bold.white,
 };
@@ -98,17 +98,15 @@ export class ColorTheme {
   // Create a bordered box for important messages
   static box(text: string, variant: 'info' | 'success' | 'warning' | 'error' = 'info'): string {
     const lines = text.split('\n');
-    const maxLength = Math.max(...lines.map(line => line.length));
+    const maxLength = Math.max(...lines.map((line) => line.length));
     const colorFn = colors[variant];
-    
+
     const border = '─'.repeat(maxLength + 2);
     const top = `┌${border}┐`;
     const bottom = `└${border}┘`;
-    
-    const content = lines.map(line => 
-      `│ ${line.padEnd(maxLength)} │`
-    ).join('\n');
-    
+
+    const content = lines.map((line) => `│ ${line.padEnd(maxLength)} │`).join('\n');
+
     return colorFn(`${top}\n${content}\n${bottom}`);
   }
 
@@ -117,9 +115,9 @@ export class ColorTheme {
     const percentage = Math.round((current / total) * 100);
     const filled = Math.round((current / total) * 20);
     const empty = 20 - filled;
-    
+
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
-    
+
     if (percentage < 30) {
       return chalk.red(`[${bar}] ${percentage}%`);
     } else if (percentage < 70) {
@@ -168,11 +166,15 @@ export function shouldUseColors(): boolean {
   if (process.env.NO_COLOR || process.env.FORCE_COLOR === '0') {
     return false;
   }
-  
-  if (process.env.FORCE_COLOR === '1' || process.env.FORCE_COLOR === '2' || process.env.FORCE_COLOR === '3') {
+
+  if (
+    process.env.FORCE_COLOR === '1' ||
+    process.env.FORCE_COLOR === '2' ||
+    process.env.FORCE_COLOR === '3'
+  ) {
     return true;
   }
-  
+
   // Check if stdout is a TTY
   return process.stdout.isTTY;
 }

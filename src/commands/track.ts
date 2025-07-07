@@ -6,14 +6,14 @@ import ora from 'ora';
 import type { TrackdownItem } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
 import { Formatter } from '../utils/formatter.js';
-import { 
-  validatePriority, 
-  validateRequired, 
+import {
+  validatePriority,
+  validateRequired,
   validateTags,
   validateAssignee,
   validateId,
   validateStoryPoints,
-  ValidationError 
+  ValidationError,
 } from '../utils/validation.js';
 
 export function createTrackCommand(): Command {
@@ -33,7 +33,9 @@ export function createTrackCommand(): Command {
     .option('--duplicate-from <id>', 'duplicate from existing task')
     .option('--labels <labels>', 'comma-separated labels')
     .option('--due-date <date>', 'due date (YYYY-MM-DD format)')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ trackdown track "Implement user login"
   $ trackdown track "Fix critical bug" --priority critical --assignee john.doe
@@ -52,118 +54,125 @@ Story Points:
   3-5       - Standard features or moderate complexity
   8-13      - Large features or complex tasks
   21+       - Epic-sized work (consider breaking down)
-`)
-    .action(async (
-      title: string,
-      options?: {
-        priority?: string;
-        assignee?: string;
-        tags?: string;
-        estimate?: string;
-        description?: string;
-        id?: string;
-        template?: string;
-        interactive?: boolean;
-        duplicateFrom?: string;
-        labels?: string;
-        dueDate?: string;
-      }
-    ) => {
-      try {
-        // Load configuration first
-        const configManager = new ConfigManager();
-        const config = configManager.getConfig();
-
-        let taskData = {
-          title: title,
-          priority: options?.priority || config.defaultPriority || 'medium',
-          assignee: options?.assignee,
-          tags: options?.tags,
-          estimate: options?.estimate,
-          description: options?.description,
-          id: options?.id,
-          template: options?.template || config.defaultTemplate || 'standard',
-          labels: options?.labels,
-          dueDate: options?.dueDate,
-        };
-
-        // Interactive mode
-        if (options?.interactive) {
-          taskData = await runInteractiveTaskCreation(taskData, config);
+`
+    )
+    .action(
+      async (
+        title: string,
+        options?: {
+          priority?: string;
+          assignee?: string;
+          tags?: string;
+          estimate?: string;
+          description?: string;
+          id?: string;
+          template?: string;
+          interactive?: boolean;
+          duplicateFrom?: string;
+          labels?: string;
+          dueDate?: string;
         }
-
-        // Duplicate from existing task
-        if (options?.duplicateFrom) {
-          taskData = await duplicateTask(options.duplicateFrom, taskData);
-        }
-
-        // Validate all inputs
-        const validatedTitle = validateRequired(taskData.title, 'Title');
-        const priority = validatePriority(taskData.priority);
-        const tags = taskData.tags ? validateTags(taskData.tags) : undefined;
-        const labels = taskData.labels ? validateTags(taskData.labels) : undefined;
-        const assignee = taskData.assignee ? validateAssignee(taskData.assignee) : 
-                        (config.autoAssign ? config.defaultAssignee : undefined);
-        const estimate = taskData.estimate ? validateStoryPoints(taskData.estimate) : undefined;
-        const itemId = taskData.id ? validateId(taskData.id) : generateId();
-
-        // Show creation progress
-        const spinner = ora('Creating trackdown task...').start();
-
+      ) => {
         try {
-          // Create trackdown item
-          const item: TrackdownItem = {
-            id: itemId,
-            title: validatedTitle,
-            description: taskData.description,
-            status: 'todo',
-            priority,
-            assignee,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            tags,
-            estimate,
-            labels,
-            metadata: {
-              template: taskData.template,
-              dueDate: taskData.dueDate,
-              source: options?.duplicateFrom ? 'duplicate' : 'new',
-              createdBy: process.env.USER || 'unknown',
-            },
+          // Load configuration first
+          const configManager = new ConfigManager();
+          const config = configManager.getConfig();
+
+          let taskData = {
+            title: title,
+            priority: options?.priority || config.defaultPriority || 'medium',
+            assignee: options?.assignee,
+            tags: options?.tags,
+            estimate: options?.estimate,
+            description: options?.description,
+            id: options?.id,
+            template: options?.template || config.defaultTemplate || 'standard',
+            labels: options?.labels,
+            dueDate: options?.dueDate,
           };
 
-          spinner.text = 'Setting up task structure...';
-
-          // Ensure trackdown directory exists
-          const trackdownDir = join(process.cwd(), 'trackdown', 'active');
-          if (!existsSync(trackdownDir)) {
-            mkdirSync(trackdownDir, { recursive: true });
+          // Interactive mode
+          if (options?.interactive) {
+            taskData = await runInteractiveTaskCreation(taskData, config);
           }
 
-          // Create the tracking file
-          const filename = `${itemId}-${sanitizeFilename(validatedTitle)}.md`;
-          const filePath = join(trackdownDir, filename);
-
-          if (existsSync(filePath)) {
-            throw new ValidationError(
-              `Item with ID "${itemId}" already exists`,
-              'Use a different ID with --id option',
-              1,
-              'track',
-              ['--id TD-NEW-001', '--id feature-auth', '--id bug-fix-123']
-            );
+          // Duplicate from existing task
+          if (options?.duplicateFrom) {
+            taskData = await duplicateTask(options.duplicateFrom, taskData);
           }
 
-          spinner.text = 'Generating task content...';
+          // Validate all inputs
+          const validatedTitle = validateRequired(taskData.title, 'Title');
+          const priority = validatePriority(taskData.priority);
+          const tags = taskData.tags ? validateTags(taskData.tags) : undefined;
+          const labels = taskData.labels ? validateTags(taskData.labels) : undefined;
+          const assignee = taskData.assignee
+            ? validateAssignee(taskData.assignee)
+            : config.autoAssign
+              ? config.defaultAssignee
+              : undefined;
+          const estimate = taskData.estimate ? validateStoryPoints(taskData.estimate) : undefined;
+          const itemId = taskData.id ? validateId(taskData.id) : generateId();
 
-          // Generate markdown content
-          const content = generateMarkdownContent(item, config);
-          writeFileSync(filePath, content);
+          // Show creation progress
+          const spinner = ora('Creating trackdown task...').start();
 
-          spinner.succeed('Task created successfully!');
+          try {
+            // Create trackdown item
+            const item: TrackdownItem = {
+              id: itemId,
+              title: validatedTitle,
+              description: taskData.description,
+              status: 'todo',
+              priority,
+              assignee,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              tags,
+              estimate,
+              labels,
+              metadata: {
+                template: taskData.template,
+                dueDate: taskData.dueDate,
+                source: options?.duplicateFrom ? 'duplicate' : 'new',
+                createdBy: process.env.USER || 'unknown',
+              },
+            };
 
-          // Show success message with details
-          console.log(Formatter.box(`
+            spinner.text = 'Setting up task structure...';
+
+            // Ensure trackdown directory exists
+            const trackdownDir = join(process.cwd(), 'trackdown', 'active');
+            if (!existsSync(trackdownDir)) {
+              mkdirSync(trackdownDir, { recursive: true });
+            }
+
+            // Create the tracking file
+            const filename = `${itemId}-${sanitizeFilename(validatedTitle)}.md`;
+            const filePath = join(trackdownDir, filename);
+
+            if (existsSync(filePath)) {
+              throw new ValidationError(
+                `Item with ID "${itemId}" already exists`,
+                'Use a different ID with --id option',
+                1,
+                'track',
+                ['--id TD-NEW-001', '--id feature-auth', '--id bug-fix-123']
+              );
+            }
+
+            spinner.text = 'Generating task content...';
+
+            // Generate markdown content
+            const content = generateMarkdownContent(item, config);
+            writeFileSync(filePath, content);
+
+            spinner.succeed('Task created successfully!');
+
+            // Show success message with details
+            console.log(
+              Formatter.box(
+                `
 🎯 Task "${validatedTitle}" tracked successfully!
 
 ID: ${itemId}
@@ -172,54 +181,60 @@ ${assignee ? `Assignee: ${assignee}` : ''}
 ${estimate ? `Estimate: ${estimate} story points` : ''}
 ${tags?.length ? `Tags: ${tags.join(', ')}` : ''}
 Location: ${filePath}
-`, 'success'));
+`,
+                'success'
+              )
+            );
 
-          // Show helpful next steps
-          console.log(Formatter.header('Next Steps'));
-          console.log(Formatter.info('• View task details:'));
-          console.log(Formatter.highlight(`  trackdown status --filter id=${itemId}`));
-          console.log(Formatter.info('• Edit the task file:'));
-          console.log(Formatter.highlight(`  ${process.env.EDITOR || 'nano'} "${filePath}"`));
-          console.log(Formatter.info('• Check project status:'));
-          console.log(Formatter.highlight('  trackdown status'));
+            // Show helpful next steps
+            console.log(Formatter.header('Next Steps'));
+            console.log(Formatter.info('• View task details:'));
+            console.log(Formatter.highlight(`  trackdown status --filter id=${itemId}`));
+            console.log(Formatter.info('• Edit the task file:'));
+            console.log(Formatter.highlight(`  ${process.env.EDITOR || 'nano'} "${filePath}"`));
+            console.log(Formatter.info('• Check project status:'));
+            console.log(Formatter.highlight('  trackdown status'));
 
-          // Auto-assign suggestions
-          if (!assignee && !config.autoAssign) {
-            console.log(Formatter.warning('💡 Consider assigning this task to someone'));
-            console.log(Formatter.info('  Use: trackdown track --assignee <name> for future tasks'));
+            // Auto-assign suggestions
+            if (!assignee && !config.autoAssign) {
+              console.log(Formatter.warning('💡 Consider assigning this task to someone'));
+              console.log(
+                Formatter.info('  Use: trackdown track --assignee <name> for future tasks')
+              );
+            }
+
+            // Story point suggestions
+            if (!estimate) {
+              console.log(Formatter.info('💡 Add story points to help with planning'));
+              console.log(Formatter.info('  Use: --estimate <points> (1-100 scale)'));
+            }
+          } catch (error) {
+            spinner.fail('Task creation failed');
+            throw error;
           }
-
-          // Story point suggestions
-          if (!estimate) {
-            console.log(Formatter.info('💡 Add story points to help with planning'));
-            console.log(Formatter.info('  Use: --estimate <points> (1-100 scale)'));
-          }
-
         } catch (error) {
-          spinner.fail('Task creation failed');
-          throw error;
-        }
-
-      } catch (error) {
-        if (error instanceof ValidationError) {
-          console.error(Formatter.error(error.message));
-          if (error.suggestion) {
-            console.log(Formatter.info(`💡 ${error.suggestion}`));
+          if (error instanceof ValidationError) {
+            console.error(Formatter.error(error.message));
+            if (error.suggestion) {
+              console.log(Formatter.info(`💡 ${error.suggestion}`));
+            }
+            if (error.validOptions?.length) {
+              console.log(Formatter.info('Valid options:'));
+              error.validOptions.forEach((option) => {
+                console.log(Formatter.highlight(`  ${option}`));
+              });
+            }
+          } else {
+            console.error(
+              Formatter.error(
+                `Failed to track task: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+            );
           }
-          if (error.validOptions?.length) {
-            console.log(Formatter.info('Valid options:'));
-            error.validOptions.forEach(option => {
-              console.log(Formatter.highlight(`  ${option}`));
-            });
-          }
-        } else {
-          console.error(Formatter.error(
-            `Failed to track task: ${error instanceof Error ? error.message : 'Unknown error'}`
-          ));
+          process.exit(1);
         }
-        process.exit(1);
       }
-    });
+    );
 
   return command;
 }
@@ -366,13 +381,9 @@ function generateMarkdownContent(item: TrackdownItem, config: any): string {
     ? `\n**Labels**: ${item.labels.map((label) => `\`${label}\``).join(', ')}`
     : '';
 
-  const estimateSection = item.estimate
-    ? `\n**Story Points**: ${item.estimate}`
-    : '';
+  const estimateSection = item.estimate ? `\n**Story Points**: ${item.estimate}` : '';
 
-  const dueDateSection = item.metadata?.dueDate
-    ? `\n**Due Date**: ${item.metadata.dueDate}`
-    : '';
+  const dueDateSection = item.metadata?.dueDate ? `\n**Due Date**: ${item.metadata.dueDate}` : '';
 
   const metadataSection = `
 ## Metadata

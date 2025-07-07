@@ -6,31 +6,36 @@ import { Formatter } from '../../utils/formatter.js';
 
 export function createChangelogCommand(): Command {
   const command = new Command('changelog');
-  
+
   command
     .description('Generate or update CHANGELOG.md')
-    .option('--since <ref>', 'generate changelog since a specific git reference (tag, commit, etc.)')
+    .option(
+      '--since <ref>',
+      'generate changelog since a specific git reference (tag, commit, etc.)'
+    )
     .option('--version <version>', 'specify version for the changelog entry')
     .option('--dry-run', 'show what would be generated without writing to file')
     .option('--format <format>', 'output format (markdown, json)', 'markdown')
     .action(async (options) => {
       try {
         if (!GitManager.isGitRepository()) {
-          console.warn(Formatter.warning('Not in a git repository. Changelog generation may be limited.'));
+          console.warn(
+            Formatter.warning('Not in a git repository. Changelog generation may be limited.')
+          );
         }
 
         const version = options.version || VersionManager.getVersion().version;
         const since = options.since || GitManager.getLastTag() || undefined;
 
         console.log(Formatter.info(`📝 Generating changelog for version ${version}...`));
-        
+
         if (since) {
           console.log(Formatter.info(`📅 Including changes since: ${since}`));
         }
 
         // Generate changelog entry
         const entry = ChangelogManager.generateChangelogEntry(version, since);
-        
+
         if (options.format === 'json') {
           if (options.dryRun) {
             console.log('📄 Generated changelog entry (JSON):');
@@ -43,7 +48,7 @@ export function createChangelogCommand(): Command {
 
         // Format as markdown
         const markdown = ChangelogManager.formatChangelogEntry(entry);
-        
+
         if (options.dryRun) {
           console.log('📄 Generated changelog entry:');
           console.log('');
@@ -53,16 +58,19 @@ export function createChangelogCommand(): Command {
 
         // Write to CHANGELOG.md
         ChangelogManager.generateChangelog(version, since);
-        
+
         console.log(Formatter.success('✅ CHANGELOG.md updated successfully!'));
-        
+
         // Show summary
-        const totalChanges = Object.values(entry.sections).reduce((sum, items) => sum + items.length, 0);
+        const totalChanges = Object.values(entry.sections).reduce(
+          (sum, items) => sum + items.length,
+          0
+        );
         console.log(Formatter.info(`📊 Summary:`));
         console.log(Formatter.info(`   - Version: ${entry.version}`));
         console.log(Formatter.info(`   - Date: ${entry.date}`));
         console.log(Formatter.info(`   - Total changes: ${totalChanges}`));
-        
+
         // Show section breakdown
         const sectionNames = {
           added: 'Added',
@@ -82,9 +90,12 @@ export function createChangelogCommand(): Command {
 
         console.log('');
         console.log(Formatter.info('💡 Tip: Review CHANGELOG.md and edit manually if needed'));
-
       } catch (error) {
-        console.error(Formatter.error(`Failed to generate changelog: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to generate changelog: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });

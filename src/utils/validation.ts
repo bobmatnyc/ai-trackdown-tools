@@ -9,9 +9,9 @@ export class ValidationError extends Error implements CliError {
   public validOptions?: string[];
 
   constructor(
-    message: string, 
-    suggestion?: string, 
-    exitCode = 1, 
+    message: string,
+    suggestion?: string,
+    exitCode = 1,
     command?: string,
     validOptions?: string[]
   ) {
@@ -95,7 +95,7 @@ export function validatePriority(priority: string): 'low' | 'medium' | 'high' | 
       `Valid priorities are: ${validPriorities.join(', ')}`,
       1,
       'track',
-      validPriorities.map(p => `--priority ${p}`)
+      validPriorities.map((p) => `--priority ${p}`)
     );
   }
 
@@ -112,14 +112,16 @@ export function validateStatus(status: string): 'todo' | 'in-progress' | 'done' 
       `Valid statuses are: ${validStatuses.join(', ')}`,
       1,
       'status',
-      validStatuses.map(s => `--filter status=${s}`)
+      validStatuses.map((s) => `--filter status=${s}`)
     );
   }
 
   return normalizedStatus as 'todo' | 'in-progress' | 'done' | 'blocked';
 }
 
-export function validateOutputFormat(format: string): 'json' | 'csv' | 'markdown' | 'yaml' | 'table' {
+export function validateOutputFormat(
+  format: string
+): 'json' | 'csv' | 'markdown' | 'yaml' | 'table' {
   const normalizedFormat = format.toLowerCase().trim();
   const validFormats = ['json', 'csv', 'markdown', 'yaml', 'table'] as const;
 
@@ -129,7 +131,7 @@ export function validateOutputFormat(format: string): 'json' | 'csv' | 'markdown
       `Valid formats are: ${validFormats.join(', ')}`,
       1,
       'export',
-      validFormats.map(f => `--format ${f}`)
+      validFormats.map((f) => `--format ${f}`)
     );
   }
 
@@ -146,7 +148,7 @@ export function validateProjectType(type: string): 'cli' | 'web' | 'api' | 'mobi
       `Valid types are: ${validTypes.join(', ')}`,
       1,
       'init',
-      validTypes.map(t => `--type ${t}`)
+      validTypes.map((t) => `--type ${t}`)
     );
   }
 
@@ -171,7 +173,7 @@ export function validateFilePath(path: string, shouldExist = false): string {
 
 export function validateConfigFormat(configPath: string): 'json' | 'yaml' {
   const ext = extname(configPath);
-  
+
   if (ext === '.json') {
     return 'json';
   } else if (ext === '.yaml' || ext === '.yml') {
@@ -189,7 +191,7 @@ export function validateConfigFormat(configPath: string): 'json' | 'yaml' {
 
 export function validateStoryPoints(points: string): number {
   const num = Number.parseFloat(points);
-  
+
   if (Number.isNaN(num)) {
     throw new ValidationError(
       `Invalid story points: ${points}`,
@@ -228,12 +230,12 @@ export function validateTags(tagsString: string): string[] {
 
   const tags = tagsString
     .split(',')
-    .map(tag => tag.trim())
+    .map((tag) => tag.trim())
     .filter(Boolean);
 
   // Validate individual tags
   const tagRegex = /^[a-zA-Z0-9-_]+$/;
-  const invalidTags = tags.filter(tag => !tagRegex.test(tag));
+  const invalidTags = tags.filter((tag) => !tagRegex.test(tag));
 
   if (invalidTags.length > 0) {
     throw new ValidationError(
@@ -248,12 +250,7 @@ export function validateTags(tagsString: string): string[] {
   // Check for duplicate tags
   const uniqueTags = [...new Set(tags)];
   if (uniqueTags.length !== tags.length) {
-    throw new ValidationError(
-      'Duplicate tags detected',
-      'Each tag should be unique',
-      1,
-      'track'
-    );
+    throw new ValidationError('Duplicate tags detected', 'Each tag should be unique', 1, 'track');
   }
 
   return uniqueTags;

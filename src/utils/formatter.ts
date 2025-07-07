@@ -49,7 +49,7 @@ export class Formatter {
         horizontalLayout: 'default',
         verticalLayout: 'default',
         width: 80,
-        whitespaceBreak: true
+        whitespaceBreak: true,
       });
       return colors.primary(ascii);
     } catch {
@@ -64,7 +64,7 @@ export class Formatter {
       info: 'cyan',
       success: 'green',
       warning: 'yellow',
-      error: 'red'
+      error: 'red',
     };
 
     return boxen(message, {
@@ -72,14 +72,20 @@ export class Formatter {
       margin: 1,
       borderStyle: 'round',
       borderColor: borderColors[variant],
-      backgroundColor: undefined
+      backgroundColor: undefined,
     });
   }
 
   // Professional item formatting with enhanced styling
   static formatItem(item: TrackdownItem, format: 'compact' | 'detailed' = 'detailed'): string {
-    const statusBadge = ColorTheme.badge(item.status.toUpperCase(), this.getStatusVariant(item.status));
-    const priorityBadge = ColorTheme.badge(item.priority.toUpperCase(), this.getPriorityVariant(item.priority));
+    const statusBadge = ColorTheme.badge(
+      item.status.toUpperCase(),
+      this.getStatusVariant(item.status)
+    );
+    const priorityBadge = ColorTheme.badge(
+      item.priority.toUpperCase(),
+      this.getPriorityVariant(item.priority)
+    );
 
     if (format === 'compact') {
       return [
@@ -87,7 +93,9 @@ export class Formatter {
         colors.muted(`ID: ${item.id}`),
         item.assignee ? colors.info(`@${item.assignee}`) : '',
         item.tags?.length ? colors.muted(`[${item.tags.join(', ')}]`) : '',
-      ].filter(Boolean).join(' ');
+      ]
+        .filter(Boolean)
+        .join(' ');
     }
 
     const sections = [
@@ -169,7 +177,7 @@ export class Formatter {
 
     const separator = ColorTheme.separator('─', headerRow.length);
 
-    const rows = items.map(item => {
+    const rows = items.map((item) => {
       const cells = [
         item.id,
         item.title.length > 30 ? item.title.substring(0, 27) + '...' : item.title,
@@ -181,9 +189,12 @@ export class Formatter {
 
       return cells
         .map((cell, i) => {
-          const colored = i === 2 ? ColorTheme.status(cell)(cell) :
-                        i === 3 ? ColorTheme.priority(cell)(cell) :
-                        cell;
+          const colored =
+            i === 2
+              ? ColorTheme.status(cell)(cell)
+              : i === 3
+                ? ColorTheme.priority(cell)(cell)
+                : cell;
           return colored.padEnd(maxWidths[i]);
         })
         .join(' | ');
@@ -210,7 +221,13 @@ export class Formatter {
   }
 
   // Enhanced help formatting
-  static formatHelp(command: string, description: string, usage: string, options: Array<{flag: string, description: string}>, examples: string[]): string {
+  static formatHelp(
+    command: string,
+    description: string,
+    usage: string,
+    options: Array<{ flag: string; description: string }>,
+    examples: string[]
+  ): string {
     const sections = [
       ColorTheme.header(`${command.toUpperCase()} COMMAND`),
       `${colors.info('Description:')} ${description}`,
@@ -218,10 +235,10 @@ export class Formatter {
       `${colors.info('Usage:')} ${ColorTheme.command(usage)}`,
       '',
       colors.info('Options:'),
-      ...options.map(opt => `  ${ColorTheme.option(opt.flag.padEnd(20))} ${opt.description}`),
+      ...options.map((opt) => `  ${ColorTheme.option(opt.flag.padEnd(20))} ${opt.description}`),
       '',
       colors.info('Examples:'),
-      ...examples.map(ex => `  ${colors.muted('$')} ${ex}`),
+      ...examples.map((ex) => `  ${colors.muted('$')} ${ex}`),
     ];
 
     return sections.join('\n');
@@ -251,32 +268,43 @@ export class Formatter {
   // Helper methods
   private static getStatusVariant(status: string): 'info' | 'success' | 'warning' | 'error' {
     switch (status) {
-      case 'done': return 'success';
-      case 'blocked': return 'error';
-      case 'in-progress': return 'warning';
-      default: return 'info';
+      case 'done':
+        return 'success';
+      case 'blocked':
+        return 'error';
+      case 'in-progress':
+        return 'warning';
+      default:
+        return 'info';
     }
   }
 
   private static getPriorityVariant(priority: string): 'info' | 'success' | 'warning' | 'error' {
     switch (priority) {
-      case 'critical': return 'error';
-      case 'high': return 'warning';
-      case 'medium': return 'info';
-      default: return 'success';
+      case 'critical':
+        return 'error';
+      case 'high':
+        return 'warning';
+      case 'medium':
+        return 'info';
+      default:
+        return 'success';
     }
   }
 
   private static groupBy<T>(items: T[], key: keyof T): Record<string, number> {
-    return items.reduce((acc, item) => {
-      const value = String(item[key]);
-      acc[value] = (acc[value] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    return items.reduce(
+      (acc, item) => {
+        const value = String(item[key]);
+        acc[value] = (acc[value] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   private static calculateColumnWidths(items: TrackdownItem[], headers: string[]): number[] {
-    const rows = items.map(item => [
+    const rows = items.map((item) => [
       item.id,
       item.title.length > 30 ? item.title.substring(0, 27) + '...' : item.title,
       item.status,
@@ -286,14 +314,24 @@ export class Formatter {
     ]);
 
     return headers.map((header, i) => {
-      const columnValues = [header, ...rows.map(row => row[i])];
-      return Math.max(...columnValues.map(val => val.length)) + 2;
+      const columnValues = [header, ...rows.map((row) => row[i])];
+      return Math.max(...columnValues.map((val) => val.length)) + 2;
     });
   }
 
   private static formatCSV(items: TrackdownItem[]): string {
-    const headers = ['ID', 'Title', 'Description', 'Status', 'Priority', 'Assignee', 'Created', 'Updated', 'Tags'];
-    const rows = items.map(item => [
+    const headers = [
+      'ID',
+      'Title',
+      'Description',
+      'Status',
+      'Priority',
+      'Assignee',
+      'Created',
+      'Updated',
+      'Tags',
+    ];
+    const rows = items.map((item) => [
       item.id,
       `"${item.title.replace(/"/g, '""')}"`,
       `"${(item.description || '').replace(/"/g, '""')}"`,
@@ -305,33 +343,36 @@ export class Formatter {
       `"${(item.tags || []).join(', ')}"`,
     ]);
 
-    return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
   }
 
   private static formatYAML(items: TrackdownItem[]): string {
     // Basic YAML formatting - would be better with yaml package
-    return items.map(item => {
-      return [
-        `- id: ${item.id}`,
-        `  title: "${item.title}"`,
-        `  description: "${item.description || ''}"`,
-        `  status: ${item.status}`,
-        `  priority: ${item.priority}`,
-        `  assignee: ${item.assignee || ''}`,
-        `  created: ${item.createdAt.toISOString()}`,
-        `  updated: ${item.updatedAt.toISOString()}`,
-        `  tags: [${(item.tags || []).map(t => `"${t}"`).join(', ')}]`,
-      ].join('\n');
-    }).join('\n');
+    return items
+      .map((item) => {
+        return [
+          `- id: ${item.id}`,
+          `  title: "${item.title}"`,
+          `  description: "${item.description || ''}"`,
+          `  status: ${item.status}`,
+          `  priority: ${item.priority}`,
+          `  assignee: ${item.assignee || ''}`,
+          `  created: ${item.createdAt.toISOString()}`,
+          `  updated: ${item.updatedAt.toISOString()}`,
+          `  tags: [${(item.tags || []).map((t) => `"${t}"`).join(', ')}]`,
+        ].join('\n');
+      })
+      .join('\n');
   }
 
   private static formatMarkdown(items: TrackdownItem[]): string {
     const table = [
       '| ID | Title | Status | Priority | Assignee | Tags |',
       '|---|---|---|---|---|---|',
-      ...items.map(item => 
-        `| ${item.id} | ${item.title} | ${item.status} | ${item.priority} | ${item.assignee || ''} | ${(item.tags || []).join(', ')} |`
-      )
+      ...items.map(
+        (item) =>
+          `| ${item.id} | ${item.title} | ${item.status} | ${item.priority} | ${item.assignee || ''} | ${(item.tags || []).join(', ')} |`
+      ),
     ].join('\n');
 
     return `# Trackdown Items\n\n${table}\n\n*Generated at ${new Date().toISOString()}*`;

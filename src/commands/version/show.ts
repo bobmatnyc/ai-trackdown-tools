@@ -4,7 +4,7 @@ import { Formatter } from '../../utils/formatter.js';
 
 export function createShowCommand(): Command {
   const command = new Command('show');
-  
+
   command
     .description('Display current version information')
     .option('--json', 'output as JSON')
@@ -12,14 +12,20 @@ export function createShowCommand(): Command {
     .action(async (options) => {
       try {
         const versionInfo = VersionManager.getVersion();
-        
+
         if (options.json) {
           if (options.checkConsistency) {
             const consistency = VersionManager.validateVersionConsistency();
-            console.log(JSON.stringify({
-              ...versionInfo,
-              consistency
-            }, null, 2));
+            console.log(
+              JSON.stringify(
+                {
+                  ...versionInfo,
+                  consistency,
+                },
+                null,
+                2
+              )
+            );
           } else {
             console.log(JSON.stringify(versionInfo, null, 2));
           }
@@ -35,7 +41,7 @@ export function createShowCommand(): Command {
         if (options.checkConsistency) {
           console.log('');
           const consistency = VersionManager.validateVersionConsistency();
-          
+
           if (consistency.consistent) {
             console.log(Formatter.success('✅ Version consistency check passed'));
           } else {
@@ -46,9 +52,12 @@ export function createShowCommand(): Command {
             }
           }
         }
-
       } catch (error) {
-        console.error(Formatter.error(`Failed to get version: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to get version: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });

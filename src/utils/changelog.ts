@@ -47,13 +47,13 @@ export class ChangelogManager {
    */
   static parseCommits(since?: string): ConventionalCommit[] {
     const projectRoot = this.getProjectRoot();
-    
+
     try {
       const sinceFlag = since ? `--since="${since}"` : '';
-      const gitLog = execSync(
-        `git log --pretty=format:"%H|%s|%b" --no-merges ${sinceFlag}`,
-        { cwd: projectRoot, encoding: 'utf8' }
-      );
+      const gitLog = execSync(`git log --pretty=format:"%H|%s|%b" --no-merges ${sinceFlag}`, {
+        cwd: projectRoot,
+        encoding: 'utf8',
+      });
 
       if (!gitLog.trim()) {
         return [];
@@ -61,12 +61,12 @@ export class ChangelogManager {
 
       return gitLog
         .split('\n')
-        .filter(line => line.trim())
-        .map(line => {
+        .filter((line) => line.trim())
+        .map((line) => {
           const [hash, subject, body] = line.split('|');
           return this.parseConventionalCommit(hash, subject, body || '');
         })
-        .filter(commit => commit !== null) as ConventionalCommit[];
+        .filter((commit) => commit !== null) as ConventionalCommit[];
     } catch (error) {
       console.warn('Warning: Could not parse git commits. Make sure you are in a git repository.');
       return [];
@@ -76,7 +76,11 @@ export class ChangelogManager {
   /**
    * Parse a single conventional commit
    */
-  private static parseConventionalCommit(hash: string, subject: string, body: string): ConventionalCommit | null {
+  private static parseConventionalCommit(
+    hash: string,
+    subject: string,
+    body: string
+  ): ConventionalCommit | null {
     // Conventional commit pattern: type(scope): description
     const conventionalPattern = /^(\w+)(\([^)]+\))?!?:\s*(.+)$/;
     const match = subject.match(conventionalPattern);
@@ -120,7 +124,7 @@ export class ChangelogManager {
     };
 
     for (const commit of commits) {
-      const entry = commit.scope 
+      const entry = commit.scope
         ? `**${commit.scope}**: ${commit.description} (${commit.hash})`
         : `${commit.description} (${commit.hash})`;
 
@@ -192,7 +196,7 @@ export class ChangelogManager {
    */
   static formatChangelogEntry(entry: ChangelogEntry): string {
     const lines: string[] = [];
-    
+
     lines.push(`## [${entry.version}] - ${entry.date}`);
     lines.push('');
 
@@ -226,16 +230,16 @@ export class ChangelogManager {
   static generateChangelog(version?: string, since?: string): void {
     const projectRoot = this.getProjectRoot();
     const changelogPath = path.join(projectRoot, this.CHANGELOG_FILE);
-    
+
     const entry = this.generateChangelogEntry(version, since);
     const entryMarkdown = this.formatChangelogEntry(entry);
 
     let changelogContent = '';
-    
+
     if (fs.existsSync(changelogPath)) {
       // Read existing changelog
       const existingContent = fs.readFileSync(changelogPath, 'utf8');
-      
+
       // Find where to insert the new entry
       const headerEndIndex = existingContent.indexOf('\n## ');
       if (headerEndIndex !== -1) {
@@ -273,14 +277,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   static getLatestChangelogVersion(): string | null {
     const projectRoot = this.getProjectRoot();
     const changelogPath = path.join(projectRoot, this.CHANGELOG_FILE);
-    
+
     if (!fs.existsSync(changelogPath)) {
       return null;
     }
 
     const content = fs.readFileSync(changelogPath, 'utf8');
     const versionMatch = content.match(/## \[([^\]]+)\]/);
-    
+
     return versionMatch ? versionMatch[1] : null;
   }
 }

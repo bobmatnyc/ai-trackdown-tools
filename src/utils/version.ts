@@ -33,13 +33,13 @@ export class VersionManager {
   static getVersion(): VersionInfo {
     const projectRoot = this.getProjectRoot();
     const versionFile = path.join(projectRoot, this.VERSION_FILE);
-    
+
     if (!fs.existsSync(versionFile)) {
       throw new Error('VERSION file not found');
     }
 
     const versionString = fs.readFileSync(versionFile, 'utf8').trim();
-    
+
     if (!semver.valid(versionString)) {
       throw new Error(`Invalid version format in VERSION file: ${versionString}`);
     }
@@ -67,7 +67,7 @@ export class VersionManager {
 
     const projectRoot = this.getProjectRoot();
     const versionFile = path.join(projectRoot, this.VERSION_FILE);
-    
+
     fs.writeFileSync(versionFile, version);
   }
 
@@ -77,7 +77,7 @@ export class VersionManager {
   static bumpVersion(type: 'major' | 'minor' | 'patch'): VersionInfo {
     const currentVersion = this.getVersion();
     const newVersion = semver.inc(currentVersion.version, type);
-    
+
     if (!newVersion) {
       throw new Error(`Could not increment version: ${currentVersion.version}`);
     }
@@ -92,7 +92,7 @@ export class VersionManager {
   static syncVersion(): void {
     const versionInfo = this.getVersion();
     const projectRoot = this.getProjectRoot();
-    
+
     // Update package.json
     this.updatePackageJsonVersion(projectRoot, versionInfo.version);
   }
@@ -102,14 +102,14 @@ export class VersionManager {
    */
   private static updatePackageJsonVersion(projectRoot: string, version: string): void {
     const packageJsonPath = path.join(projectRoot, this.PACKAGE_JSON);
-    
+
     if (!fs.existsSync(packageJsonPath)) {
       throw new Error('package.json not found');
     }
 
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     packageJson.version = version;
-    
+
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   }
 
@@ -132,7 +132,7 @@ export class VersionManager {
 
     // Check if all versions match
     const allVersions = Object.values(versions);
-    const consistent = allVersions.every(v => v === versionInfo.version);
+    const consistent = allVersions.every((v) => v === versionInfo.version);
 
     return { consistent, versions };
   }

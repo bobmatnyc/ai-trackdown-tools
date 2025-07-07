@@ -4,7 +4,7 @@ import { Formatter } from '../../utils/formatter.js';
 
 export function createSyncCommand(): Command {
   const command = new Command('sync');
-  
+
   command
     .description('Synchronize version across all files')
     .option('--check-only', 'only check consistency without making changes')
@@ -20,7 +20,7 @@ export function createSyncCommand(): Command {
         if (options.verbose || options.checkOnly) {
           console.log(Formatter.info(`📦 Source version (VERSION file): ${versionInfo.version}`));
           console.log('');
-          
+
           for (const [file, version] of Object.entries(consistency.versions)) {
             const status = version === versionInfo.version ? '✅' : '❌';
             const message = version === versionInfo.version ? 'synchronized' : 'needs update';
@@ -48,10 +48,10 @@ export function createSyncCommand(): Command {
 
         // Verify synchronization
         const newConsistency = VersionManager.validateVersionConsistency();
-        
+
         if (newConsistency.consistent) {
           console.log(Formatter.success('✅ Version synchronization completed successfully!'));
-          
+
           if (options.verbose) {
             console.log('');
             console.log(Formatter.info('📋 Updated files:'));
@@ -59,24 +59,29 @@ export function createSyncCommand(): Command {
               console.log(Formatter.info(`   ${file}: ${version} ✅`));
             }
           }
-          
+
           console.log('');
           console.log(Formatter.info(`🎯 All files now use version: ${versionInfo.version}`));
         } else {
-          console.log(Formatter.error('❌ Synchronization failed. Some files could not be updated.'));
-          
+          console.log(
+            Formatter.error('❌ Synchronization failed. Some files could not be updated.')
+          );
+
           console.log('');
           console.log(Formatter.info('📋 Current status:'));
           for (const [file, version] of Object.entries(newConsistency.versions)) {
             const status = version === versionInfo.version ? '✅' : '❌';
             console.log(Formatter.info(`   ${file}: ${version} ${status}`));
           }
-          
+
           process.exit(1);
         }
-
       } catch (error) {
-        console.error(Formatter.error(`Failed to synchronize versions: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to synchronize versions: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });

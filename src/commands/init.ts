@@ -5,11 +5,11 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import { ConfigManager } from '../utils/config.js';
 import { Formatter } from '../utils/formatter.js';
-import { 
-  validateProjectName, 
-  validateProjectType, 
+import {
+  validateProjectName,
+  validateProjectType,
   validateConfigFormat,
-  ValidationError 
+  ValidationError,
 } from '../utils/validation.js';
 import type { ProjectTemplate } from '../types/index.js';
 
@@ -29,7 +29,7 @@ const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       defaultPriority: 'medium',
       outputFormat: 'md',
       colorOutput: true,
-    }
+    },
   },
   cli: {
     name: 'CLI Tool',
@@ -45,7 +45,7 @@ const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       defaultPriority: 'high',
       outputFormat: 'table',
       integrations: { git: true },
-    }
+    },
   },
   web: {
     name: 'Web Application',
@@ -61,7 +61,7 @@ const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       defaultPriority: 'medium',
       outputFormat: 'table',
       integrations: { git: true, jira: false },
-    }
+    },
   },
   api: {
     name: 'API Development',
@@ -77,7 +77,7 @@ const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       defaultPriority: 'high',
       outputFormat: 'json',
       integrations: { git: true },
-    }
+    },
   },
   mobile: {
     name: 'Mobile App',
@@ -93,7 +93,7 @@ const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       defaultPriority: 'medium',
       outputFormat: 'table',
       integrations: { git: true },
-    }
+    },
   },
 };
 
@@ -110,7 +110,9 @@ export function createInitCommand(): Command {
     .option('--interactive', 'interactive setup mode')
     .option('--no-git', 'skip git repository initialization')
     .option('--format <format>', 'configuration file format (json, yaml)', 'json')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ trackdown init my-project --type cli --template standard
   $ trackdown init web-app --type web --interactive
@@ -130,175 +132,186 @@ Types:
   api       - REST APIs and microservices
   mobile    - Mobile applications
   general   - General purpose projects
-`)
-    .action(async (
-      projectName?: string, 
-      options?: {
-        type?: string;
-        template?: string;
-        config?: string;
-        force?: boolean;
-        interactive?: boolean;
-        git?: boolean;
-        format?: string;
-      }
-    ) => {
-      try {
-        let config = {
-          name: projectName,
-          type: options?.type || 'general',
-          template: options?.template || 'standard',
-          configFile: options?.config,
-          force: options?.force || false,
-          initGit: options?.git !== false,
-          format: options?.format || 'json',
-        };
-
-        // Interactive mode
-        if (options?.interactive || !projectName) {
-          config = await runInteractiveSetup(config);
+`
+    )
+    .action(
+      async (
+        projectName?: string,
+        options?: {
+          type?: string;
+          template?: string;
+          config?: string;
+          force?: boolean;
+          interactive?: boolean;
+          git?: boolean;
+          format?: string;
         }
-
-        // Validate inputs
-        const validatedName = validateProjectName(config.name || 'trackdown-project');
-        const validatedType = validateProjectType(config.type);
-        const configFormat = validateConfigFormat(`.${config.format}`);
-
-        // Validate template
-        if (!PROJECT_TEMPLATES[config.template]) {
-          throw new ValidationError(
-            `Unknown template: ${config.template}`,
-            `Available templates: ${Object.keys(PROJECT_TEMPLATES).join(', ')}`,
-            1,
-            'init',
-            Object.keys(PROJECT_TEMPLATES).map(t => `--template ${t}`)
-          );
-        }
-
-        const template = PROJECT_TEMPLATES[config.template];
-        const projectPath = join(process.cwd(), validatedName);
-
-        // Check if project already exists
-        if (existsSync(projectPath) && !config.force) {
-          console.error(Formatter.error(`Project "${validatedName}" already exists`));
-          console.log(Formatter.info('Use --force to overwrite existing project'));
-          console.log(Formatter.info('Or choose a different project name'));
-          process.exit(1);
-        }
-
-        // Show initialization progress
-        const spinner = ora('Initializing trackdown project...').start();
-
+      ) => {
         try {
-          // Create project directory
-          if (!existsSync(projectPath)) {
-            mkdirSync(projectPath, { recursive: true });
-          }
-          spinner.text = 'Creating project structure...';
-
-          // Create directory structure based on template
-          for (const item of template.structure) {
-            const fullPath = join(projectPath, item.path);
-            if (item.type === 'directory') {
-              mkdirSync(fullPath, { recursive: true });
-            } else if (item.type === 'file' && item.content) {
-              writeFileSync(fullPath, item.content);
-            }
-          }
-
-          spinner.text = 'Configuring project settings...';
-
-          // Create configuration
-          const configFileName = configFormat === 'yaml' ? '.trackdownrc.yaml' : '.trackdownrc.json';
-          const configManager = new ConfigManager(
-            config.configFile || join(projectPath, configFileName)
-          );
-
-          const projectConfig = {
-            projectName: validatedName,
-            outputFormat: template.config?.outputFormat || 'md',
-            templatePath: './trackdown/templates',
-            defaultTemplate: config.template,
-            colorOutput: template.config?.colorOutput ?? true,
-            defaultPriority: template.config?.defaultPriority || 'medium',
-            autoAssign: template.config?.autoAssign ?? true,
-            integrations: template.config?.integrations || { git: true },
-            ...template.config,
+          let config = {
+            name: projectName,
+            type: options?.type || 'general',
+            template: options?.template || 'standard',
+            configFile: options?.config,
+            force: options?.force || false,
+            initGit: options?.git !== false,
+            format: options?.format || 'json',
           };
 
-          configManager.updateConfig(projectConfig);
-
-          spinner.text = 'Creating project files...';
-
-          // Create enhanced README
-          const readmeContent = generateReadmeContent(validatedName, validatedType, template);
-          writeFileSync(join(projectPath, 'README.md'), readmeContent);
-
-          // Create .gitignore if git is enabled
-          if (config.initGit) {
-            const gitignoreContent = generateGitignoreContent();
-            writeFileSync(join(projectPath, '.gitignore'), gitignoreContent);
+          // Interactive mode
+          if (options?.interactive || !projectName) {
+            config = await runInteractiveSetup(config);
           }
 
-          // Create enhanced templates
-          await createProjectTemplates(projectPath, template);
+          // Validate inputs
+          const validatedName = validateProjectName(config.name || 'trackdown-project');
+          const validatedType = validateProjectType(config.type);
+          const configFormat = validateConfigFormat(`.${config.format}`);
 
-          // Create example tasks based on template type
-          await createExampleTasks(projectPath, template);
+          // Validate template
+          if (!PROJECT_TEMPLATES[config.template]) {
+            throw new ValidationError(
+              `Unknown template: ${config.template}`,
+              `Available templates: ${Object.keys(PROJECT_TEMPLATES).join(', ')}`,
+              1,
+              'init',
+              Object.keys(PROJECT_TEMPLATES).map((t) => `--template ${t}`)
+            );
+          }
 
-          spinner.succeed('Project initialized successfully!');
+          const template = PROJECT_TEMPLATES[config.template];
+          const projectPath = join(process.cwd(), validatedName);
 
-          // Show success message
-          console.log(Formatter.box(`
+          // Check if project already exists
+          if (existsSync(projectPath) && !config.force) {
+            console.error(Formatter.error(`Project "${validatedName}" already exists`));
+            console.log(Formatter.info('Use --force to overwrite existing project'));
+            console.log(Formatter.info('Or choose a different project name'));
+            process.exit(1);
+          }
+
+          // Show initialization progress
+          const spinner = ora('Initializing trackdown project...').start();
+
+          try {
+            // Create project directory
+            if (!existsSync(projectPath)) {
+              mkdirSync(projectPath, { recursive: true });
+            }
+            spinner.text = 'Creating project structure...';
+
+            // Create directory structure based on template
+            for (const item of template.structure) {
+              const fullPath = join(projectPath, item.path);
+              if (item.type === 'directory') {
+                mkdirSync(fullPath, { recursive: true });
+              } else if (item.type === 'file' && item.content) {
+                writeFileSync(fullPath, item.content);
+              }
+            }
+
+            spinner.text = 'Configuring project settings...';
+
+            // Create configuration
+            const configFileName =
+              configFormat === 'yaml' ? '.trackdownrc.yaml' : '.trackdownrc.json';
+            const configManager = new ConfigManager(
+              config.configFile || join(projectPath, configFileName)
+            );
+
+            const projectConfig = {
+              projectName: validatedName,
+              outputFormat: template.config?.outputFormat || 'md',
+              templatePath: './trackdown/templates',
+              defaultTemplate: config.template,
+              colorOutput: template.config?.colorOutput ?? true,
+              defaultPriority: template.config?.defaultPriority || 'medium',
+              autoAssign: template.config?.autoAssign ?? true,
+              integrations: template.config?.integrations || { git: true },
+              ...template.config,
+            };
+
+            configManager.updateConfig(projectConfig);
+
+            spinner.text = 'Creating project files...';
+
+            // Create enhanced README
+            const readmeContent = generateReadmeContent(validatedName, validatedType, template);
+            writeFileSync(join(projectPath, 'README.md'), readmeContent);
+
+            // Create .gitignore if git is enabled
+            if (config.initGit) {
+              const gitignoreContent = generateGitignoreContent();
+              writeFileSync(join(projectPath, '.gitignore'), gitignoreContent);
+            }
+
+            // Create enhanced templates
+            await createProjectTemplates(projectPath, template);
+
+            // Create example tasks based on template type
+            await createExampleTasks(projectPath, template);
+
+            spinner.succeed('Project initialized successfully!');
+
+            // Show success message
+            console.log(
+              Formatter.box(
+                `
 🎉 Trackdown project "${validatedName}" created successfully!
 
 Project Type: ${template.name} (${validatedType})
 Template: ${config.template}
 Configuration: ${configFileName}
 Location: ${projectPath}
-`, 'success'));
+`,
+                'success'
+              )
+            );
 
-          // Show next steps
-          console.log(Formatter.header('Next Steps'));
-          console.log(Formatter.info('1. Navigate to your project:'));
-          console.log(Formatter.highlight(`   cd ${validatedName}`));
-          console.log(Formatter.info('2. Create your first task:'));
-          console.log(Formatter.highlight('   trackdown track "Set up development environment"'));
-          console.log(Formatter.info('3. Check project status:'));
-          console.log(Formatter.highlight('   trackdown status'));
-          console.log(Formatter.info('4. View available commands:'));
-          console.log(Formatter.highlight('   trackdown --help'));
+            // Show next steps
+            console.log(Formatter.header('Next Steps'));
+            console.log(Formatter.info('1. Navigate to your project:'));
+            console.log(Formatter.highlight(`   cd ${validatedName}`));
+            console.log(Formatter.info('2. Create your first task:'));
+            console.log(Formatter.highlight('   trackdown track "Set up development environment"'));
+            console.log(Formatter.info('3. Check project status:'));
+            console.log(Formatter.highlight('   trackdown status'));
+            console.log(Formatter.info('4. View available commands:'));
+            console.log(Formatter.highlight('   trackdown --help'));
 
-          if (config.initGit) {
-            console.log(Formatter.info('5. Initialize git repository:'));
-            console.log(Formatter.highlight('   git init && git add . && git commit -m "Initial commit"'));
+            if (config.initGit) {
+              console.log(Formatter.info('5. Initialize git repository:'));
+              console.log(
+                Formatter.highlight('   git init && git add . && git commit -m "Initial commit"')
+              );
+            }
+          } catch (error) {
+            spinner.fail('Project initialization failed');
+            throw error;
           }
-
         } catch (error) {
-          spinner.fail('Project initialization failed');
-          throw error;
-        }
-
-      } catch (error) {
-        if (error instanceof ValidationError) {
-          console.error(Formatter.error(error.message));
-          if (error.suggestion) {
-            console.log(Formatter.info(`💡 ${error.suggestion}`));
+          if (error instanceof ValidationError) {
+            console.error(Formatter.error(error.message));
+            if (error.suggestion) {
+              console.log(Formatter.info(`💡 ${error.suggestion}`));
+            }
+            if (error.validOptions?.length) {
+              console.log(Formatter.info('Valid options:'));
+              error.validOptions.forEach((option) => {
+                console.log(Formatter.highlight(`  ${option}`));
+              });
+            }
+          } else {
+            console.error(
+              Formatter.error(
+                `Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+            );
           }
-          if (error.validOptions?.length) {
-            console.log(Formatter.info('Valid options:'));
-            error.validOptions.forEach(option => {
-              console.log(Formatter.highlight(`  ${option}`));
-            });
-          }
-        } else {
-          console.error(Formatter.error(
-            `Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`
-          ));
+          process.exit(1);
         }
-        process.exit(1);
       }
-    });
+    );
 
   return command;
 }
@@ -402,7 +415,7 @@ trackdown --help
 \`\`\`
 ${name}/
 ├── trackdown/          # Main trackdown directory
-${template.structure.map(item => `│   ├── ${item.path.replace('trackdown/', '')}/`).join('\n')}
+${template.structure.map((item) => `│   ├── ${item.path.replace('trackdown/', '')}/`).join('\n')}
 ├── .trackdownrc.json   # Project configuration
 ├── .gitignore         # Git ignore patterns
 └── README.md          # This file
@@ -524,9 +537,12 @@ Thumbs.db
 `;
 }
 
-async function createProjectTemplates(projectPath: string, template: ProjectTemplate): Promise<void> {
+async function createProjectTemplates(
+  projectPath: string,
+  template: ProjectTemplate
+): Promise<void> {
   const templatesDir = join(projectPath, 'trackdown', 'templates');
-  
+
   // Enhanced task template
   const taskTemplate = `# {title}
 
@@ -628,7 +644,7 @@ async function createExampleTasks(projectPath: string, template: ProjectTemplate
   // This would create example tasks based on the template type
   // For now, we'll just create the directory structure
   const activeDir = join(projectPath, 'trackdown', 'active');
-  
+
   // Create a welcome task
   const welcomeTask = `# Welcome to Trackdown
 

@@ -6,12 +6,12 @@ import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
 import { Formatter } from '../utils/formatter.js';
-import { 
-  validateStatus, 
-  validatePriority, 
+import {
+  validateStatus,
+  validatePriority,
   validateAssignee,
   validateId,
-  ValidationError 
+  ValidationError,
 } from '../utils/validation.js';
 
 export function createStatusCommand(): Command {
@@ -35,14 +35,20 @@ export function createStatusCommand(): Command {
     .option('--updated-before <date>', 'show items updated before date (YYYY-MM-DD)')
     .option('--estimate-min <points>', 'minimum story points')
     .option('--estimate-max <points>', 'maximum story points')
-    .option('--sort <field>', 'sort by field (created, updated, priority, status, title)', 'updated')
+    .option(
+      '--sort <field>',
+      'sort by field (created, updated, priority, status, title)',
+      'updated'
+    )
     .option('--order <direction>', 'sort order (asc, desc)', 'desc')
     .option('--limit <count>', 'limit number of results shown')
     .option('--offset <count>', 'skip number of results (for pagination)')
     .option('--interactive', 'interactive filtering and display mode')
     .option('--watch', 'continuously monitor and refresh status')
     .option('--export <file>', 'export filtered results to file')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ trackdown status
   $ trackdown status --verbose --stats
@@ -77,7 +83,8 @@ Sort Fields:
   priority      - Priority level (critical > high > medium > low)
   status        - Status progression (todo > in-progress > blocked > done)
   title         - Alphabetical by title
-`)
+`
+    )
     .action(
       async (options?: {
         verbose?: boolean;
@@ -114,7 +121,9 @@ Sort Fields:
           if (!existsSync(trackdownDir)) {
             console.error(Formatter.error('No trackdown project found in current directory'));
             console.log(Formatter.info('Run "trackdown init" to initialize a new project'));
-            console.log(Formatter.info('Or navigate to a directory with an existing trackdown project'));
+            console.log(
+              Formatter.info('Or navigate to a directory with an existing trackdown project')
+            );
             process.exit(1);
           }
 
@@ -135,22 +144,28 @@ Sort Fields:
           try {
             // Get and parse all items
             const items = await getAllItemsEnhanced(trackdownDir);
-            
+
             spinner.text = 'Applying filters...';
 
             // Parse and validate filters
             const filters = parseFilters(options);
-            
+
             // Apply all filters
             const filteredItems = applyAdvancedFilters(items, filters);
 
             spinner.text = 'Processing results...';
 
             // Apply sorting and pagination
-            const sortedItems = applySorting(filteredItems, options?.sort || 'updated', options?.order || 'desc');
+            const sortedItems = applySorting(
+              filteredItems,
+              options?.sort || 'updated',
+              options?.order || 'desc'
+            );
             const paginatedItems = applyPagination(sortedItems, options?.limit, options?.offset);
 
-            spinner.succeed(`Found ${filteredItems.length} items${filteredItems.length !== items.length ? ` (${items.length} total)` : ''}`);
+            spinner.succeed(
+              `Found ${filteredItems.length} items${filteredItems.length !== items.length ? ` (${items.length} total)` : ''}`
+            );
 
             // Display banner
             console.log(Formatter.header(`📊 ${config.projectName || 'Trackdown'} Project Status`));
@@ -162,7 +177,11 @@ Sort Fields:
 
             if (filteredItems.length === 0) {
               console.log(Formatter.box('No items match the current filters', 'info'));
-              console.log(Formatter.info('Try adjusting your filter criteria or use --help for filter examples'));
+              console.log(
+                Formatter.info(
+                  'Try adjusting your filter criteria or use --help for filter examples'
+                )
+              );
               return;
             }
 
@@ -206,12 +225,10 @@ Sort Fields:
             if (!options?.compact && !options?.table) {
               displayNextSteps(filteredItems, config);
             }
-
           } catch (error) {
             spinner.fail('Status analysis failed');
             throw error;
           }
-
         } catch (error) {
           if (error instanceof ValidationError) {
             console.error(Formatter.error(error.message));
@@ -220,14 +237,16 @@ Sort Fields:
             }
             if (error.validOptions?.length) {
               console.log(Formatter.info('Valid options:'));
-              error.validOptions.forEach(option => {
+              error.validOptions.forEach((option) => {
                 console.log(Formatter.highlight(`  ${option}`));
               });
             }
           } else {
-            console.error(Formatter.error(
-              `Failed to get status: ${error instanceof Error ? error.message : 'Unknown error'}`
-            ));
+            console.error(
+              Formatter.error(
+                `Failed to get status: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+            );
           }
           process.exit(1);
         }
@@ -321,7 +340,7 @@ async function runInteractiveStatusMode(currentOptions: any): Promise<any> {
 
   // Convert answers to options format
   const [sortField, sortOrder] = answers.sortBy.split(':');
-  
+
   return {
     verbose: answers.outputFormat === 'verbose',
     compact: answers.outputFormat === 'compact',
@@ -340,7 +359,7 @@ async function runInteractiveStatusMode(currentOptions: any): Promise<any> {
 
 function buildFilterExpression(answers: any): string {
   const filters = [];
-  
+
   if (answers.statusFilter.length > 1) {
     filters.push(`status=${answers.statusFilter.join(',')}`);
   }
@@ -367,22 +386,32 @@ async function runWatchMode(trackdownDir: string, options: any, config: any): Pr
     try {
       // Clear console
       console.clear();
-      
+
       // Show current time
-      console.log(Formatter.header(`📊 ${config.projectName || 'Trackdown'} Live Status - ${new Date().toLocaleTimeString()}`));
-      
+      console.log(
+        Formatter.header(
+          `📊 ${config.projectName || 'Trackdown'} Live Status - ${new Date().toLocaleTimeString()}`
+        )
+      );
+
       // Get items and generate hash for change detection
       const items = await getAllItemsEnhanced(trackdownDir);
-      const currentHash = JSON.stringify(items.map(i => `${i.id}-${i.updatedAt.getTime()}`)).substring(0, 20);
-      
+      const currentHash = JSON.stringify(
+        items.map((i) => `${i.id}-${i.updatedAt.getTime()}`)
+      ).substring(0, 20);
+
       if (currentHash !== lastHash) {
         const filters = parseFilters(options);
         const filteredItems = applyAdvancedFilters(items, filters);
-        const sortedItems = applySorting(filteredItems, options?.sort || 'updated', options?.order || 'desc');
+        const sortedItems = applySorting(
+          filteredItems,
+          options?.sort || 'updated',
+          options?.order || 'desc'
+        );
         const paginatedItems = applyPagination(sortedItems, options?.limit, options?.offset);
 
         displayProjectOverview(trackdownDir, items, config);
-        
+
         if (paginatedItems.length > 0) {
           if (options?.table) {
             console.log(Formatter.formatTable(paginatedItems));
@@ -392,14 +421,18 @@ async function runWatchMode(trackdownDir: string, options: any, config: any): Pr
         } else {
           console.log(Formatter.box('No items match current filters', 'info'));
         }
-        
+
         lastHash = currentHash;
         console.log(Formatter.info(`🔄 Last updated: ${new Date().toLocaleTimeString()}`));
       } else {
         console.log(Formatter.info('No changes detected'));
       }
     } catch (error) {
-      console.error(Formatter.error(`Watch mode error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      console.error(
+        Formatter.error(
+          `Watch mode error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      );
     }
   };
 
@@ -509,19 +542,19 @@ function parseFilters(options: any): StatusFilter {
   if (options?.status) {
     filters.status = validateStatus(options.status);
   }
-  
+
   if (options?.priority) {
     filters.priority = validatePriority(options.priority);
   }
-  
+
   if (options?.assignee) {
     filters.assignee = validateAssignee(options.assignee);
   }
-  
+
   if (options?.id) {
     filters.id = validateId(options.id);
   }
-  
+
   if (options?.tags) {
     filters.tags = validateTags(options.tags);
   }
@@ -530,15 +563,15 @@ function parseFilters(options: any): StatusFilter {
   if (options?.createdAfter) {
     filters.createdAfter = new Date(options.createdAfter);
   }
-  
+
   if (options?.createdBefore) {
     filters.createdBefore = new Date(options.createdBefore);
   }
-  
+
   if (options?.updatedAfter) {
     filters.updatedAfter = new Date(options.updatedAfter);
   }
-  
+
   if (options?.updatedBefore) {
     filters.updatedBefore = new Date(options.updatedBefore);
   }
@@ -547,7 +580,7 @@ function parseFilters(options: any): StatusFilter {
   if (options?.estimateMin) {
     filters.estimateMin = parseFloat(options.estimateMin);
   }
-  
+
   if (options?.estimateMax) {
     filters.estimateMax = parseFloat(options.estimateMax);
   }
@@ -562,25 +595,25 @@ function parseFilters(options: any): StatusFilter {
 
 function parseAdvancedFilter(filterExpr: string, filters: StatusFilter): void {
   const parts = filterExpr.split(',');
-  
+
   for (const part of parts) {
     const [key, value] = part.split('=');
     if (!key || !value) continue;
-    
+
     const trimmedKey = key.trim();
     const trimmedValue = value.trim();
-    
+
     switch (trimmedKey) {
       case 'status':
         if (trimmedValue.includes(',')) {
-          filters.statusIn = trimmedValue.split(',').map(s => s.trim());
+          filters.statusIn = trimmedValue.split(',').map((s) => s.trim());
         } else {
           filters.status = trimmedValue;
         }
         break;
       case 'priority':
         if (trimmedValue.includes(',')) {
-          filters.priorityIn = trimmedValue.split(',').map(p => p.trim());
+          filters.priorityIn = trimmedValue.split(',').map((p) => p.trim());
         } else {
           filters.priority = trimmedValue;
         }
@@ -589,7 +622,7 @@ function parseAdvancedFilter(filterExpr: string, filters: StatusFilter): void {
         filters.assignee = trimmedValue;
         break;
       case 'tags':
-        filters.tags = trimmedValue.split(',').map(t => t.trim());
+        filters.tags = trimmedValue.split(',').map((t) => t.trim());
         break;
       case 'estimate':
         if (trimmedValue.includes('-')) {
@@ -607,42 +640,48 @@ function applyAdvancedFilters(items: TrackdownItem[], filters: StatusFilter): Tr
     // Status filters
     if (filters.status && item.status !== filters.status) return false;
     if (filters.statusIn && !filters.statusIn.includes(item.status)) return false;
-    
+
     // Priority filters
     if (filters.priority && item.priority !== filters.priority) return false;
     if (filters.priorityIn && !filters.priorityIn.includes(item.priority)) return false;
-    
+
     // Assignee filter
     if (filters.assignee && item.assignee !== filters.assignee) return false;
-    
+
     // ID filter
     if (filters.id && item.id !== filters.id) return false;
-    
+
     // Tags filter - item must have at least one matching tag
     if (filters.tags && filters.tags.length > 0) {
-      if (!item.tags || !filters.tags.some(tag => item.tags!.includes(tag))) return false;
+      if (!item.tags || !filters.tags.some((tag) => item.tags!.includes(tag))) return false;
     }
-    
+
     // Date filters
     if (filters.createdAfter && item.createdAt < filters.createdAfter) return false;
     if (filters.createdBefore && item.createdAt > filters.createdBefore) return false;
     if (filters.updatedAfter && item.updatedAt < filters.updatedAfter) return false;
     if (filters.updatedBefore && item.updatedAt > filters.updatedBefore) return false;
-    
+
     // Story point filters
-    if (filters.estimateMin && (!item.estimate || item.estimate < filters.estimateMin)) return false;
-    if (filters.estimateMax && (!item.estimate || item.estimate > filters.estimateMax)) return false;
-    
+    if (filters.estimateMin && (!item.estimate || item.estimate < filters.estimateMin))
+      return false;
+    if (filters.estimateMax && (!item.estimate || item.estimate > filters.estimateMax))
+      return false;
+
     return true;
   });
 }
 
-function applySorting(items: TrackdownItem[], sortField: string, sortOrder: string): TrackdownItem[] {
+function applySorting(
+  items: TrackdownItem[],
+  sortField: string,
+  sortOrder: string
+): TrackdownItem[] {
   const direction = sortOrder === 'desc' ? -1 : 1;
-  
+
   return [...items].sort((a, b) => {
     let comparison = 0;
-    
+
     switch (sortField) {
       case 'created':
         comparison = a.createdAt.getTime() - b.createdAt.getTime();
@@ -664,7 +703,7 @@ function applySorting(items: TrackdownItem[], sortField: string, sortOrder: stri
       default:
         comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
     }
-    
+
     return comparison * direction;
   });
 }
@@ -672,19 +711,19 @@ function applySorting(items: TrackdownItem[], sortField: string, sortOrder: stri
 function applyPagination(items: TrackdownItem[], limit?: string, offset?: string): TrackdownItem[] {
   let start = 0;
   let end = items.length;
-  
+
   if (offset) {
     start = parseInt(offset);
     if (isNaN(start) || start < 0) start = 0;
   }
-  
+
   if (limit) {
     const limitNum = parseInt(limit);
     if (!isNaN(limitNum) && limitNum > 0) {
       end = start + limitNum;
     }
   }
-  
+
   return items.slice(start, end);
 }
 
@@ -694,22 +733,25 @@ function displayProjectOverview(trackdownDir: string, items: TrackdownItem[], co
 }
 
 function getProjectSummaryEnhanced(trackdownDir: string, items: TrackdownItem[]): string {
-  const activeItems = items.filter(item => item.status !== 'done');
-  const completedItems = items.filter(item => item.status === 'done');
+  const activeItems = items.filter((item) => item.status !== 'done');
+  const completedItems = items.filter((item) => item.status === 'done');
   const total = items.length;
   const completionRate = total > 0 ? Math.round((completedItems.length / total) * 100) : 0;
-  
+
   // Calculate velocity metrics
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
-  const recentlyCompleted = completedItems.filter(item => item.updatedAt >= lastWeek).length;
-  const recentlyCreated = items.filter(item => item.createdAt >= lastWeek).length;
-  
+  const recentlyCompleted = completedItems.filter((item) => item.updatedAt >= lastWeek).length;
+  const recentlyCreated = items.filter((item) => item.createdAt >= lastWeek).length;
+
   // Priority breakdown
-  const byPriority = items.reduce((acc, item) => {
-    acc[item.priority] = (acc[item.priority] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const byPriority = items.reduce(
+    (acc, item) => {
+      acc[item.priority] = (acc[item.priority] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   return [
     `📊 Project Overview`,
@@ -718,7 +760,9 @@ function getProjectSummaryEnhanced(trackdownDir: string, items: TrackdownItem[])
     `   Total Items: ${Formatter.highlight(total.toString())}`,
     `   Completion Rate: ${Formatter.highlight(`${completionRate}%`)}`,
     `   Weekly Velocity: ${Formatter.highlight(`${recentlyCompleted} completed, ${recentlyCreated} created`)}`,
-    `   Priority Breakdown: ${Object.entries(byPriority).map(([p, c]) => `${p}: ${c}`).join(', ')}`,
+    `   Priority Breakdown: ${Object.entries(byPriority)
+      .map(([p, c]) => `${p}: ${c}`)
+      .join(', ')}`,
     '',
   ].join('\n');
 }
@@ -747,8 +791,12 @@ function displayGroupedView(items: TrackdownItem[]): void {
 
   for (const [status, statusItems] of Object.entries(groupedItems)) {
     if (statusItems.length > 0) {
-      console.log(Formatter.subheader(`${getStatusIcon(status)} ${status.toUpperCase()} (${statusItems.length})`));
-      
+      console.log(
+        Formatter.subheader(
+          `${getStatusIcon(status)} ${status.toUpperCase()} (${statusItems.length})`
+        )
+      );
+
       statusItems.forEach((item, index) => {
         const priorityColor = getPriorityColor(item.priority);
         const assigneeInfo = item.assignee ? ` @${item.assignee}` : '';
@@ -762,28 +810,39 @@ function displayGroupedView(items: TrackdownItem[]): void {
   }
 }
 
-function displayAdvancedStatistics(filteredItems: TrackdownItem[], allItems: TrackdownItem[]): void {
+function displayAdvancedStatistics(
+  filteredItems: TrackdownItem[],
+  allItems: TrackdownItem[]
+): void {
   const stats = Formatter.generateStats(filteredItems);
   console.log(stats);
-  
+
   // Additional analytics
   if (allItems.length > filteredItems.length) {
-    console.log(Formatter.info(`📊 Showing ${filteredItems.length} of ${allItems.length} total items`));
+    console.log(
+      Formatter.info(`📊 Showing ${filteredItems.length} of ${allItems.length} total items`)
+    );
   }
-  
+
   // Estimate statistics
-  const withEstimates = filteredItems.filter(item => item.estimate);
+  const withEstimates = filteredItems.filter((item) => item.estimate);
   if (withEstimates.length > 0) {
     const totalPoints = withEstimates.reduce((sum, item) => sum + (item.estimate || 0), 0);
-    const avgPoints = Math.round(totalPoints / withEstimates.length * 10) / 10;
-    console.log(Formatter.info(`📊 Story Points: ${totalPoints} total, ${avgPoints} average (${withEstimates.length} estimated)`));
+    const avgPoints = Math.round((totalPoints / withEstimates.length) * 10) / 10;
+    console.log(
+      Formatter.info(
+        `📊 Story Points: ${totalPoints} total, ${avgPoints} average (${withEstimates.length} estimated)`
+      )
+    );
   }
-  
+
   // Recent activity
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
-  const recentActivity = filteredItems.filter(item => item.updatedAt >= lastWeek).length;
-  console.log(Formatter.info(`🔄 Recent Activity: ${recentActivity} items updated in the last 7 days`));
+  const recentActivity = filteredItems.filter((item) => item.updatedAt >= lastWeek).length;
+  console.log(
+    Formatter.info(`🔄 Recent Activity: ${recentActivity} items updated in the last 7 days`)
+  );
 }
 
 function hasActiveFilters(filters: StatusFilter): boolean {
@@ -792,9 +851,9 @@ function hasActiveFilters(filters: StatusFilter): boolean {
 
 function displayActiveFilters(filters: StatusFilter): void {
   console.log(Formatter.header('🔍 Active Filters'));
-  
+
   const filterDescriptions = [];
-  
+
   if (filters.status) filterDescriptions.push(`Status: ${filters.status}`);
   if (filters.statusIn) filterDescriptions.push(`Status in: ${filters.statusIn.join(', ')}`);
   if (filters.priority) filterDescriptions.push(`Priority: ${filters.priority}`);
@@ -802,42 +861,54 @@ function displayActiveFilters(filters: StatusFilter): void {
   if (filters.assignee) filterDescriptions.push(`Assignee: ${filters.assignee}`);
   if (filters.id) filterDescriptions.push(`ID: ${filters.id}`);
   if (filters.tags) filterDescriptions.push(`Tags: ${filters.tags.join(', ')}`);
-  if (filters.createdAfter) filterDescriptions.push(`Created after: ${filters.createdAfter.toDateString()}`);
-  if (filters.createdBefore) filterDescriptions.push(`Created before: ${filters.createdBefore.toDateString()}`);
-  if (filters.updatedAfter) filterDescriptions.push(`Updated after: ${filters.updatedAfter.toDateString()}`);
-  if (filters.updatedBefore) filterDescriptions.push(`Updated before: ${filters.updatedBefore.toDateString()}`);
+  if (filters.createdAfter)
+    filterDescriptions.push(`Created after: ${filters.createdAfter.toDateString()}`);
+  if (filters.createdBefore)
+    filterDescriptions.push(`Created before: ${filters.createdBefore.toDateString()}`);
+  if (filters.updatedAfter)
+    filterDescriptions.push(`Updated after: ${filters.updatedAfter.toDateString()}`);
+  if (filters.updatedBefore)
+    filterDescriptions.push(`Updated before: ${filters.updatedBefore.toDateString()}`);
   if (filters.estimateMin) filterDescriptions.push(`Min estimate: ${filters.estimateMin}`);
   if (filters.estimateMax) filterDescriptions.push(`Max estimate: ${filters.estimateMax}`);
-  
-  filterDescriptions.forEach(desc => {
+
+  filterDescriptions.forEach((desc) => {
     console.log(Formatter.info(`  • ${desc}`));
   });
-  
+
   console.log('');
 }
 
 function displayPaginationInfo(totalCount: number, displayedCount: number, options: any): void {
   const offset = options?.offset ? parseInt(options.offset) : 0;
   const limit = options?.limit ? parseInt(options.limit) : displayedCount;
-  
-  console.log(Formatter.info(`📄 Pagination: Showing ${displayedCount} items (${offset + 1}-${offset + displayedCount} of ${totalCount})`));
-  
+
+  console.log(
+    Formatter.info(
+      `📄 Pagination: Showing ${displayedCount} items (${offset + 1}-${offset + displayedCount} of ${totalCount})`
+    )
+  );
+
   if (offset + displayedCount < totalCount) {
     console.log(Formatter.info(`   Next page: --offset ${offset + limit} --limit ${limit}`));
   }
-  
+
   console.log('');
 }
 
-async function exportResults(items: TrackdownItem[], exportFile: string, config: any): Promise<void> {
+async function exportResults(
+  items: TrackdownItem[],
+  exportFile: string,
+  config: any
+): Promise<void> {
   const spinner = ora('Exporting filtered results...').start();
-  
+
   try {
     const format = exportFile.split('.').pop() || 'json';
     const exportData = Formatter.formatExport(items, format);
-    
+
     writeFileSync(exportFile, exportData);
-    
+
     spinner.succeed(`Exported ${items.length} items to ${exportFile}`);
     console.log(Formatter.info(`📄 Export completed: ${exportFile}`));
   } catch (error) {
@@ -848,38 +919,43 @@ async function exportResults(items: TrackdownItem[], exportFile: string, config:
 
 function displayNextSteps(items: TrackdownItem[], config: any): void {
   console.log(Formatter.header('💡 Quick Actions'));
-  
-  const todoItems = items.filter(item => item.status === 'todo');
-  const inProgressItems = items.filter(item => item.status === 'in-progress');
-  const blockedItems = items.filter(item => item.status === 'blocked');
-  
+
+  const todoItems = items.filter((item) => item.status === 'todo');
+  const inProgressItems = items.filter((item) => item.status === 'in-progress');
+  const blockedItems = items.filter((item) => item.status === 'blocked');
+
   if (todoItems.length > 0) {
     console.log(Formatter.info('📝 Create a new task:'));
     console.log(Formatter.highlight('  trackdown track "New task title"'));
   }
-  
+
   if (inProgressItems.length > 0) {
     console.log(Formatter.info('🔄 Update task status:'));
     console.log(Formatter.highlight(`  # Edit file: ${inProgressItems[0].id}*.md`));
   }
-  
+
   if (blockedItems.length > 0) {
     console.log(Formatter.warning('🚫 Review blocked items for resolution'));
   }
-  
+
   console.log(Formatter.info('📊 View detailed item:'));
   console.log(Formatter.highlight('  trackdown status --id <item-id> --verbose'));
-  
+
   console.log('');
 }
 
 function getStatusIcon(status: string): string {
   switch (status) {
-    case 'todo': return '📝';
-    case 'in-progress': return '🔄';
-    case 'blocked': return '🚫';
-    case 'done': return '✅';
-    default: return '📄';
+    case 'todo':
+      return '📝';
+    case 'in-progress':
+      return '🔄';
+    case 'blocked':
+      return '🚫';
+    case 'done':
+      return '✅';
+    default:
+      return '📄';
   }
 }
 
@@ -918,16 +994,16 @@ function getPriorityColor(priority: string): (text: string) => string {
 function validateStatus(status: string): string {
   const validStatuses = ['todo', 'in-progress', 'blocked', 'done'];
   const normalizedStatus = status.toLowerCase().trim();
-  
+
   if (!validStatuses.includes(normalizedStatus)) {
     throw new ValidationError(
       `Invalid status: ${status}`,
       `Valid statuses are: ${validStatuses.join(', ')}`,
       1,
       'status',
-      validStatuses.map(s => `--status ${s}`)
+      validStatuses.map((s) => `--status ${s}`)
     );
   }
-  
+
   return normalizedStatus;
 }

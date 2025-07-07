@@ -6,12 +6,12 @@ import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
 import { Formatter } from '../utils/formatter.js';
-import { 
-  validateStatus, 
-  validatePriority, 
+import {
+  validateStatus,
+  validatePriority,
   validateAssignee,
   validateId,
-  ValidationError 
+  ValidationError,
 } from '../utils/validation.js';
 
 export function createExportCommand(): Command {
@@ -36,14 +36,20 @@ export function createExportCommand(): Command {
     .option('--include-completed', 'include completed items', false)
     .option('--include-descriptions', 'include full descriptions in export', true)
     .option('--include-metadata', 'include export metadata and statistics', true)
-    .option('--sort <field>', 'sort by field (created, updated, priority, status, title)', 'updated')
+    .option(
+      '--sort <field>',
+      'sort by field (created, updated, priority, status, title)',
+      'updated'
+    )
     .option('--order <direction>', 'sort order (asc, desc)', 'desc')
     .option('--limit <count>', 'limit number of results exported')
     .option('--interactive', 'interactive export configuration mode')
     .option('--preview', 'preview export without saving to file')
     .option('--compress', 'compress output for large exports')
     .option('--template <name>', 'use export template (summary, detailed, minimal)')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ trackdown export
   $ trackdown export --format csv --output project-data.csv
@@ -72,7 +78,8 @@ Export Templates:
   summary       - Basic information only
   detailed      - Full item details with descriptions
   minimal       - ID, title, status only
-`)
+`
+    )
     .action(
       async (options?: {
         format?: string;
@@ -120,9 +127,9 @@ Export Templates:
 
           // Validate and process options with professional UX
           const exportConfig = await validateAndProcessExportOptions(currentOptions, config);
-          
+
           console.log(Formatter.header('🚀 Starting Export Process'));
-          
+
           const spinner = ora('Collecting trackdown items...').start();
 
           try {
@@ -133,18 +140,20 @@ Export Templates:
             // Parse and apply filters
             const filters = parseAdvancedFilters(exportConfig);
             const filteredItems = applyAdvancedFilters(items, filters);
-            
+
             if (filteredItems.length === 0) {
               spinner.fail('No items match the specified filters');
-              console.log(Formatter.info('Try adjusting your filter criteria or use --interactive mode'));
+              console.log(
+                Formatter.info('Try adjusting your filter criteria or use --interactive mode')
+              );
               return;
             }
 
             // Sort items
             const sortedItems = sortItems(filteredItems, exportConfig.sort, exportConfig.order);
-            
+
             // Apply limit if specified
-            const finalItems = exportConfig.limit 
+            const finalItems = exportConfig.limit
               ? sortedItems.slice(0, parseInt(exportConfig.limit))
               : sortedItems;
 
@@ -160,41 +169,43 @@ Export Templates:
             // Generate export data
             const progressSpinner = ora('Generating export data...').start();
             const exportedData = await generateAdvancedExportData(
-              finalItems, 
-              exportConfig, 
+              finalItems,
+              exportConfig,
               config.projectName
             );
-            
+
             // Handle output
             if (exportConfig.output) {
               const outputPath = resolveOutputPath(exportConfig.output, trackdownDir);
               ensureDirectoryExists(outputPath);
-              
+
               progressSpinner.text = 'Writing export file...';
               writeFileSync(outputPath, exportedData);
               progressSpinner.succeed(`Export saved to ${outputPath}`);
-              
+
               // Display comprehensive export summary
               displayExportSummary(finalItems, exportConfig, outputPath);
             } else {
               progressSpinner.succeed('Export data generated');
               console.log(exportedData);
             }
-
           } catch (processingError) {
             spinner.fail('Export processing failed');
             throw processingError;
           }
-
         } catch (error) {
-          console.error(Formatter.error(
-            `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-          ));
-          
+          console.error(
+            Formatter.error(
+              `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          );
+
           if (error instanceof ValidationError) {
-            console.log(Formatter.info('Use --help for usage information or --interactive for guided setup'));
+            console.log(
+              Formatter.info('Use --help for usage information or --interactive for guided setup')
+            );
           }
-          
+
           process.exit(1);
         }
       }
@@ -207,7 +218,7 @@ Export Templates:
 
 async function runInteractiveExportMode(currentOptions: any): Promise<any> {
   console.log(Formatter.header('📤 Interactive Export Configuration'));
-  
+
   const answers = await inquirer.prompt([
     {
       type: 'list',
@@ -218,15 +229,15 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
         { name: 'CSV - Spreadsheet compatible', value: 'csv' },
         { name: 'YAML - Configuration friendly', value: 'yaml' },
         { name: 'Markdown - Documentation format', value: 'md' },
-        { name: 'Table - Human readable', value: 'table' }
+        { name: 'Table - Human readable', value: 'table' },
       ],
-      default: currentOptions?.format || 'json'
+      default: currentOptions?.format || 'json',
     },
     {
       type: 'input',
       name: 'output',
       message: 'Output file path (leave empty for auto-generated):',
-      default: currentOptions?.output || ''
+      default: currentOptions?.output || '',
     },
     {
       type: 'list',
@@ -235,9 +246,9 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
       choices: [
         { name: 'Detailed - Full information with descriptions', value: 'detailed' },
         { name: 'Summary - Essential information only', value: 'summary' },
-        { name: 'Minimal - ID, title, status only', value: 'minimal' }
+        { name: 'Minimal - ID, title, status only', value: 'minimal' },
       ],
-      default: currentOptions?.template || 'detailed'
+      default: currentOptions?.template || 'detailed',
     },
     {
       type: 'checkbox',
@@ -247,9 +258,9 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
         { name: 'Todo', value: 'todo' },
         { name: 'In Progress', value: 'in-progress' },
         { name: 'Blocked', value: 'blocked' },
-        { name: 'Done', value: 'done' }
+        { name: 'Done', value: 'done' },
       ],
-      default: currentOptions?.status ? [currentOptions.status] : []
+      default: currentOptions?.status ? [currentOptions.status] : [],
     },
     {
       type: 'checkbox',
@@ -259,27 +270,27 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
         { name: 'Critical', value: 'critical' },
         { name: 'High', value: 'high' },
         { name: 'Medium', value: 'medium' },
-        { name: 'Low', value: 'low' }
+        { name: 'Low', value: 'low' },
       ],
-      default: currentOptions?.priority ? [currentOptions.priority] : []
+      default: currentOptions?.priority ? [currentOptions.priority] : [],
     },
     {
       type: 'input',
       name: 'assignee',
       message: 'Filter by assignee (leave empty for all):',
-      default: currentOptions?.assignee || ''
+      default: currentOptions?.assignee || '',
     },
     {
       type: 'input',
       name: 'tags',
       message: 'Filter by tags (comma-separated):',
-      default: currentOptions?.tags || ''
+      default: currentOptions?.tags || '',
     },
     {
       type: 'input',
       name: 'limit',
       message: 'Limit number of items (leave empty for all):',
-      default: currentOptions?.limit || ''
+      default: currentOptions?.limit || '',
     },
     {
       type: 'list',
@@ -290,9 +301,9 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
         { name: 'Created Date', value: 'created' },
         { name: 'Priority', value: 'priority' },
         { name: 'Status', value: 'status' },
-        { name: 'Title', value: 'title' }
+        { name: 'Title', value: 'title' },
       ],
-      default: currentOptions?.sort || 'updated'
+      default: currentOptions?.sort || 'updated',
     },
     {
       type: 'list',
@@ -300,34 +311,34 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
       message: 'Sort order:',
       choices: [
         { name: 'Descending (newest first)', value: 'desc' },
-        { name: 'Ascending (oldest first)', value: 'asc' }
+        { name: 'Ascending (oldest first)', value: 'asc' },
       ],
-      default: currentOptions?.order || 'desc'
+      default: currentOptions?.order || 'desc',
     },
     {
       type: 'confirm',
       name: 'includeCompleted',
       message: 'Include completed items?',
-      default: currentOptions?.includeCompleted || false
+      default: currentOptions?.includeCompleted || false,
     },
     {
       type: 'confirm',
       name: 'includeDescriptions',
       message: 'Include item descriptions?',
-      default: currentOptions?.includeDescriptions !== false
+      default: currentOptions?.includeDescriptions !== false,
     },
     {
       type: 'confirm',
       name: 'includeMetadata',
       message: 'Include export metadata and statistics?',
-      default: currentOptions?.includeMetadata !== false
+      default: currentOptions?.includeMetadata !== false,
     },
     {
       type: 'confirm',
       name: 'preview',
       message: 'Preview export without saving?',
-      default: currentOptions?.preview || false
-    }
+      default: currentOptions?.preview || false,
+    },
   ]);
 
   // Process answers
@@ -346,7 +357,7 @@ async function runInteractiveExportMode(currentOptions: any): Promise<any> {
     includeCompleted: answers.includeCompleted,
     includeDescriptions: answers.includeDescriptions,
     includeMetadata: answers.includeMetadata,
-    preview: answers.preview
+    preview: answers.preview,
   };
 
   console.log(Formatter.success('Export configuration completed!'));
@@ -366,19 +377,23 @@ async function validateAndProcessExportOptions(options: any, config: any): Promi
     template: options?.template || 'detailed',
     preview: options?.preview || false,
     compress: options?.compress || false,
-    ...options
+    ...options,
   };
 
   // Validate format
   const supportedFormats = ['json', 'yaml', 'csv', 'md', 'table'];
   if (!supportedFormats.includes(exportConfig.format)) {
-    throw new ValidationError(`Unsupported format: ${exportConfig.format}. Supported: ${supportedFormats.join(', ')}`);
+    throw new ValidationError(
+      `Unsupported format: ${exportConfig.format}. Supported: ${supportedFormats.join(', ')}`
+    );
   }
 
   // Validate template
   const supportedTemplates = ['summary', 'detailed', 'minimal'];
   if (exportConfig.template && !supportedTemplates.includes(exportConfig.template)) {
-    throw new ValidationError(`Unsupported template: ${exportConfig.template}. Supported: ${supportedTemplates.join(', ')}`);
+    throw new ValidationError(
+      `Unsupported template: ${exportConfig.template}. Supported: ${supportedTemplates.join(', ')}`
+    );
   }
 
   // Validate status if provided
@@ -413,7 +428,9 @@ async function validateAndProcessExportOptions(options: any, config: any): Promi
   // Validate sort field
   const validSortFields = ['created', 'updated', 'priority', 'status', 'title'];
   if (!validSortFields.includes(exportConfig.sort)) {
-    throw new ValidationError(`Invalid sort field: ${exportConfig.sort}. Valid: ${validSortFields.join(', ')}`);
+    throw new ValidationError(
+      `Invalid sort field: ${exportConfig.sort}. Valid: ${validSortFields.join(', ')}`
+    );
   }
 
   // Validate sort order
@@ -435,23 +452,23 @@ function parseAdvancedFilters(options: any): StatusFilter {
       if (key && value) {
         const trimmedKey = key.trim();
         const trimmedValue = value.trim();
-        
+
         switch (trimmedKey) {
           case 'status':
-            filters.status = trimmedValue.split(',').map(s => s.trim());
+            filters.status = trimmedValue.split(',').map((s) => s.trim());
             break;
           case 'priority':
-            filters.priority = trimmedValue.split(',').map(p => p.trim());
+            filters.priority = trimmedValue.split(',').map((p) => p.trim());
             break;
           case 'assignee':
             filters.assignee = trimmedValue;
             break;
           case 'tags':
-            filters.tags = trimmedValue.split(',').map(t => t.trim());
+            filters.tags = trimmedValue.split(',').map((t) => t.trim());
             break;
           case 'estimate':
             if (trimmedValue.includes('-')) {
-              const [min, max] = trimmedValue.split('-').map(n => parseInt(n.trim()));
+              const [min, max] = trimmedValue.split('-').map((n) => parseInt(n.trim()));
               filters.estimateMin = min;
               filters.estimateMax = max;
             } else {
@@ -502,7 +519,7 @@ function parseAdvancedFilters(options: any): StatusFilter {
 }
 
 function applyAdvancedFilters(items: TrackdownItem[], filters: StatusFilter): TrackdownItem[] {
-  return items.filter(item => {
+  return items.filter((item) => {
     // Status filter
     if (filters.status && !filters.status.includes(item.status)) {
       return false;
@@ -525,7 +542,7 @@ function applyAdvancedFilters(items: TrackdownItem[], filters: StatusFilter): Tr
 
     // Tags filter (item must have at least one of the specified tags)
     if (filters.tags && filters.tags.length > 0) {
-      if (!item.tags || !filters.tags.some(tag => item.tags?.includes(tag))) {
+      if (!item.tags || !filters.tags.some((tag) => item.tags?.includes(tag))) {
         return false;
       }
     }
@@ -561,10 +578,10 @@ function applyAdvancedFilters(items: TrackdownItem[], filters: StatusFilter): Tr
 
 function sortItems(items: TrackdownItem[], sortField: string, order: string): TrackdownItem[] {
   const sortedItems = [...items];
-  
+
   sortedItems.sort((a, b) => {
     let comparison = 0;
-    
+
     switch (sortField) {
       case 'created':
         comparison = a.createdAt.getTime() - b.createdAt.getTime();
@@ -574,13 +591,15 @@ function sortItems(items: TrackdownItem[], sortField: string, order: string): Tr
         break;
       case 'priority':
         const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-        comparison = (priorityOrder[a.priority as keyof typeof priorityOrder] || 0) - 
-                    (priorityOrder[b.priority as keyof typeof priorityOrder] || 0);
+        comparison =
+          (priorityOrder[a.priority as keyof typeof priorityOrder] || 0) -
+          (priorityOrder[b.priority as keyof typeof priorityOrder] || 0);
         break;
       case 'status':
         const statusOrder = { todo: 1, 'in-progress': 2, blocked: 3, done: 4 };
-        comparison = (statusOrder[a.status as keyof typeof statusOrder] || 0) - 
-                    (statusOrder[b.status as keyof typeof statusOrder] || 0);
+        comparison =
+          (statusOrder[a.status as keyof typeof statusOrder] || 0) -
+          (statusOrder[b.status as keyof typeof statusOrder] || 0);
         break;
       case 'title':
         comparison = a.title.localeCompare(b.title);
@@ -588,16 +607,18 @@ function sortItems(items: TrackdownItem[], sortField: string, order: string): Tr
       default:
         comparison = 0;
     }
-    
+
     return order === 'desc' ? -comparison : comparison;
   });
-  
+
   return sortedItems;
 }
 
 async function displayExportPreview(items: TrackdownItem[], config: any): Promise<void> {
-  console.log(Formatter.subheader(`Preview: ${items.length} items in ${config.format.toUpperCase()} format`));
-  
+  console.log(
+    Formatter.subheader(`Preview: ${items.length} items in ${config.format.toUpperCase()} format`)
+  );
+
   if (config.format === 'table' || items.length <= 10) {
     // Show full preview for table format or small datasets
     const previewData = await generateAdvancedExportData(items, config, 'preview-project');
@@ -610,7 +631,7 @@ async function displayExportPreview(items: TrackdownItem[], config: any): Promis
     console.log(sampleData);
     console.log(Formatter.dim('... (additional items truncated for preview)'));
   }
-  
+
   console.log(Formatter.info(`Full export would contain ${items.length} items`));
 }
 
@@ -634,37 +655,43 @@ function ensureDirectoryExists(filePath: string): void {
 function displayExportSummary(items: TrackdownItem[], config: any, outputPath: string): void {
   console.log('');
   console.log(Formatter.header('📊 Export Summary'));
-  
+
   // Basic stats
   console.log(Formatter.success(`✅ Successfully exported ${items.length} items`));
   console.log(Formatter.info(`📁 Output: ${outputPath}`));
   console.log(Formatter.info(`📋 Format: ${config.format.toUpperCase()}`));
   console.log(Formatter.info(`📝 Template: ${config.template}`));
-  
+
   // Status breakdown
-  const statusCounts = items.reduce((acc, item) => {
-    acc[item.status] = (acc[item.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
+  const statusCounts = items.reduce(
+    (acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   console.log('');
   console.log(Formatter.subheader('Status Breakdown:'));
   Object.entries(statusCounts).forEach(([status, count]) => {
     console.log(`  ${status}: ${count}`);
   });
-  
+
   // Priority breakdown
-  const priorityCounts = items.reduce((acc, item) => {
-    acc[item.priority] = (acc[item.priority] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
+  const priorityCounts = items.reduce(
+    (acc, item) => {
+      acc[item.priority] = (acc[item.priority] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   console.log('');
   console.log(Formatter.subheader('Priority Breakdown:'));
   Object.entries(priorityCounts).forEach(([priority, count]) => {
     console.log(`  ${priority}: ${count}`);
   });
-  
+
   // File size info
   try {
     const stats = require('fs').statSync(outputPath);
@@ -677,8 +704,8 @@ function displayExportSummary(items: TrackdownItem[], config: any, outputPath: s
 }
 
 async function generateAdvancedExportData(
-  items: TrackdownItem[], 
-  config: any, 
+  items: TrackdownItem[],
+  config: any,
   projectName?: string
 ): Promise<string> {
   const metadata = {
@@ -690,8 +717,8 @@ async function generateAdvancedExportData(
     filters: getAppliedFiltersInfo(config),
     sorting: {
       field: config.sort,
-      order: config.order
-    }
+      order: config.order,
+    },
   };
 
   // Apply template filtering
@@ -700,19 +727,19 @@ async function generateAdvancedExportData(
   switch (config.format) {
     case 'json':
       return generateJSONExport(processedItems, metadata, config);
-    
+
     case 'yaml':
       return generateYAMLExport(processedItems, metadata, config);
-    
+
     case 'csv':
       return generateCSVExport(processedItems, metadata, config);
-    
+
     case 'md':
       return generateMarkdownExport(processedItems, metadata, config);
-    
+
     case 'table':
       return generateTableExport(processedItems, metadata, config);
-    
+
     default:
       throw new Error(`Unsupported format: ${config.format}`);
   }
@@ -721,14 +748,14 @@ async function generateAdvancedExportData(
 function applyTemplate(items: TrackdownItem[], template: string, config: any): any[] {
   switch (template) {
     case 'minimal':
-      return items.map(item => ({
+      return items.map((item) => ({
         id: item.id,
         title: item.title,
-        status: item.status
+        status: item.status,
       }));
-    
+
     case 'summary':
-      return items.map(item => ({
+      return items.map((item) => ({
         id: item.id,
         title: item.title,
         status: item.status,
@@ -736,14 +763,14 @@ function applyTemplate(items: TrackdownItem[], template: string, config: any): a
         assignee: item.assignee,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
-        tags: item.tags
+        tags: item.tags,
       }));
-    
+
     case 'detailed':
     default:
-      return items.map(item => ({
+      return items.map((item) => ({
         ...item,
-        description: config.includeDescriptions ? item.description : undefined
+        description: config.includeDescriptions ? item.description : undefined,
       }));
   }
 }
@@ -751,15 +778,15 @@ function applyTemplate(items: TrackdownItem[], template: string, config: any): a
 function generateJSONExport(items: any[], metadata: any, config: any): string {
   const exportData = {
     ...(config.includeMetadata ? { metadata } : {}),
-    items
+    items,
   };
-  
+
   return JSON.stringify(exportData, null, 2);
 }
 
 function generateYAMLExport(items: any[], metadata: any, config: any): string {
   const lines: string[] = [];
-  
+
   if (config.includeMetadata) {
     lines.push('metadata:');
     lines.push(`  project: "${metadata.project}"`);
@@ -769,14 +796,14 @@ function generateYAMLExport(items: any[], metadata: any, config: any): string {
     lines.push(`  template: "${metadata.template}"`);
     lines.push('');
   }
-  
+
   lines.push('items:');
-  
+
   for (const item of items) {
     lines.push(`  - id: "${item.id}"`);
     lines.push(`    title: "${item.title}"`);
     lines.push(`    status: "${item.status}"`);
-    
+
     if (item.priority) lines.push(`    priority: "${item.priority}"`);
     if (item.assignee) lines.push(`    assignee: "${item.assignee}"`);
     if (item.description) lines.push(`    description: "${item.description.replace(/"/g, '\\"')}"`);
@@ -787,35 +814,38 @@ function generateYAMLExport(items: any[], metadata: any, config: any): string {
       lines.push(`    tags: [${item.tags.map((tag: string) => `"${tag}"`).join(', ')}]`);
     }
   }
-  
+
   return lines.join('\n');
 }
 
 function generateCSVExport(items: any[], metadata: any, config: any): string {
-  const headers = Object.keys(items[0] || {}).filter(key => 
-    key !== 'createdAt' && key !== 'updatedAt' || config.template === 'detailed'
+  const headers = Object.keys(items[0] || {}).filter(
+    (key) => (key !== 'createdAt' && key !== 'updatedAt') || config.template === 'detailed'
   );
-  
+
   // Add date columns if detailed template
   if (config.template === 'detailed') {
     headers.push('createdAt', 'updatedAt');
   }
-  
+
   const headerRow = headers.join(',');
-  
-  const dataRows = items.map(item => {
-    return headers.map(header => {
-      const value = item[header];
-      if (value === undefined || value === null) return '';
-      if (Array.isArray(value)) return `"${value.join(', ')}"`;
-      if (typeof value === 'string' && value.includes(',')) return `"${value.replace(/"/g, '""')}"`;
-      if (value instanceof Date) return value.toISOString();
-      return String(value);
-    }).join(',');
+
+  const dataRows = items.map((item) => {
+    return headers
+      .map((header) => {
+        const value = item[header];
+        if (value === undefined || value === null) return '';
+        if (Array.isArray(value)) return `"${value.join(', ')}"`;
+        if (typeof value === 'string' && value.includes(','))
+          return `"${value.replace(/"/g, '""')}"`;
+        if (value instanceof Date) return value.toISOString();
+        return String(value);
+      })
+      .join(',');
   });
-  
+
   const csvContent = [headerRow, ...dataRows].join('\n');
-  
+
   if (config.includeMetadata) {
     const metadataLines = [
       `# Export Metadata`,
@@ -824,20 +854,20 @@ function generateCSVExport(items: any[], metadata: any, config: any): string {
       `# Items: ${metadata.itemCount}`,
       `# Template: ${metadata.template}`,
       `#`,
-      csvContent
+      csvContent,
     ];
     return metadataLines.join('\n');
   }
-  
+
   return csvContent;
 }
 
 function generateMarkdownExport(items: any[], metadata: any, config: any): string {
   const lines: string[] = [];
-  
+
   lines.push(`# ${metadata.project} Export`);
   lines.push('');
-  
+
   if (config.includeMetadata) {
     lines.push(`**Exported**: ${metadata.exportedAt}`);
     lines.push(`**Items**: ${metadata.itemCount}`);
@@ -845,16 +875,16 @@ function generateMarkdownExport(items: any[], metadata: any, config: any): strin
     lines.push(`**Template**: ${metadata.template}`);
     lines.push('');
   }
-  
+
   lines.push('## Items');
   lines.push('');
-  
+
   for (const item of items) {
     lines.push(`### ${item.title}`);
     lines.push('');
     lines.push(`- **ID**: ${item.id}`);
     lines.push(`- **Status**: ${item.status}`);
-    
+
     if (item.priority) lines.push(`- **Priority**: ${item.priority}`);
     if (item.assignee) lines.push(`- **Assignee**: ${item.assignee}`);
     if (item.estimate) lines.push(`- **Estimate**: ${item.estimate} story points`);
@@ -863,18 +893,18 @@ function generateMarkdownExport(items: any[], metadata: any, config: any): strin
     if (item.tags && item.tags.length > 0) {
       lines.push(`- **Tags**: ${item.tags.join(', ')}`);
     }
-    
+
     lines.push('');
-    
+
     if (item.description) {
       lines.push(item.description);
       lines.push('');
     }
-    
+
     lines.push('---');
     lines.push('');
   }
-  
+
   return lines.join('\n');
 }
 
@@ -885,7 +915,7 @@ function generateTableExport(items: any[], metadata: any, config: any): string {
 
 function getAppliedFiltersInfo(config: any): Record<string, any> {
   const filters: Record<string, any> = {};
-  
+
   if (config.status) filters.status = config.status;
   if (config.priority) filters.priority = config.priority;
   if (config.assignee) filters.assignee = config.assignee;
@@ -897,7 +927,7 @@ function getAppliedFiltersInfo(config: any): Record<string, any> {
   if (config.estimateMin) filters.estimateMin = config.estimateMin;
   if (config.estimateMax) filters.estimateMax = config.estimateMax;
   if (config.limit) filters.limit = config.limit;
-  
+
   return filters;
 }
 

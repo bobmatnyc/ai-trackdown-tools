@@ -6,7 +6,7 @@ import { Formatter } from '../../utils/formatter.js';
 
 export function createBumpCommand(): Command {
   const command = new Command('bump');
-  
+
   command
     .description('Bump version following semantic versioning')
     .argument('<type>', 'version bump type (major, minor, patch)')
@@ -23,31 +23,37 @@ export function createBumpCommand(): Command {
         }
 
         const currentVersion = VersionManager.getVersion();
-        
+
         // Check for uncommitted changes
-        if (GitManager.isGitRepository() && GitManager.hasUncommittedChanges() && !options.noCommit) {
-          console.error(Formatter.error('Uncommitted changes detected. Please commit or stash changes first.'));
+        if (
+          GitManager.isGitRepository() &&
+          GitManager.hasUncommittedChanges() &&
+          !options.noCommit
+        ) {
+          console.error(
+            Formatter.error('Uncommitted changes detected. Please commit or stash changes first.')
+          );
           process.exit(1);
         }
 
         if (options.dryRun) {
           console.log(Formatter.info('🔍 Dry run mode - no changes will be made'));
-          
+
           // Simulate version bump
           const semver = await import('semver');
           const newVersion = semver.inc(currentVersion.version, type as any);
-          
+
           console.log(Formatter.info(`📦 Current version: ${currentVersion.version}`));
           console.log(Formatter.info(`🚀 New version: ${newVersion}`));
-          
+
           if (!options.noChangelog) {
             console.log(Formatter.info('📝 Would generate changelog entry'));
           }
-          
+
           if (!options.noCommit && GitManager.isGitRepository()) {
             console.log(Formatter.info('📝 Would commit changes to git'));
           }
-          
+
           return;
         }
 
@@ -55,7 +61,7 @@ export function createBumpCommand(): Command {
 
         // Get last tag for changelog generation
         const lastTag = GitManager.getLastTag();
-        
+
         // Bump version
         const newVersion = VersionManager.bumpVersion(type as 'major' | 'minor' | 'patch');
         console.log(Formatter.success(`🚀 Version bumped to ${newVersion.version}`));
@@ -74,7 +80,7 @@ export function createBumpCommand(): Command {
         // Commit changes
         if (!options.noCommit && GitManager.isGitRepository()) {
           const commitMessage = options.message || `chore: bump version to ${newVersion.version}`;
-          
+
           const filesToCommit = ['VERSION', 'package.json'];
           if (!options.noChangelog) {
             filesToCommit.push('CHANGELOG.md');
@@ -88,17 +94,22 @@ export function createBumpCommand(): Command {
         console.log(Formatter.success(`✅ Version bump complete!`));
         console.log(Formatter.info(`   Previous: ${currentVersion.version}`));
         console.log(Formatter.info(`   Current:  ${newVersion.version}`));
-        
+
         if (GitManager.isGitRepository()) {
           console.log('');
           console.log(Formatter.info('💡 Next steps:'));
           console.log(Formatter.info('   - Review the changes'));
           console.log(Formatter.info(`   - Create a release tag: trackdown version tag`));
-          console.log(Formatter.info(`   - Push changes: git push origin ${GitManager.getCurrentBranch()}`));
+          console.log(
+            Formatter.info(`   - Push changes: git push origin ${GitManager.getCurrentBranch()}`)
+          );
         }
-
       } catch (error) {
-        console.error(Formatter.error(`Failed to bump version: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to bump version: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });

@@ -103,7 +103,10 @@ export class GitManager {
 
     try {
       const output = execSync('git tag -l', { encoding: 'utf8' });
-      return output.trim().split('\n').filter(tag => tag.trim());
+      return output
+        .trim()
+        .split('\n')
+        .filter((tag) => tag.trim());
     } catch {
       return [];
     }
@@ -158,7 +161,10 @@ export class GitManager {
 
     try {
       const output = execSync(`git log ${since}..HEAD --oneline`, { encoding: 'utf8' });
-      return output.trim().split('\n').filter(line => line.trim());
+      return output
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim());
     } catch {
       return [];
     }
