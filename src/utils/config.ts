@@ -5,7 +5,7 @@ import YAML from 'yaml';
 import type { TrackdownConfig } from '../types/index.js';
 
 const DEFAULT_CONFIG: TrackdownConfig = {
-  projectName: 'trackdown-project',
+  projectName: 'aitrackdown-project',
   outputFormat: 'md',
   defaultAssignee: 'unassigned',
   templatePath: './templates',

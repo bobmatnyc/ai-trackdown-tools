@@ -1,0 +1,167 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed the following
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't been requested
+          required: true
+        - label: I have checked the roadmap to see if this feature is already planned
+          required: true
+        - label: I have considered if this could be implemented as a plugin or extension
+          required: true
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - New CLI command
+        - Enhancement to existing command
+        - New flag/option
+        - API improvement
+        - Performance improvement
+        - Developer experience
+        - Documentation
+        - Integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the motivation?
+      placeholder: |
+        Describe the problem you're trying to solve...
+        
+        Current situation:
+        - What are you currently doing?
+        - What's difficult or impossible to do?
+        - What's the impact of this limitation?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution
+      placeholder: |
+        Describe how you'd like this feature to work...
+        
+        Proposed behavior:
+        - What should happen?
+        - How should it be used?
+        - What should the interface look like?
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: Provide concrete examples of how this feature would be used
+      render: shell
+      placeholder: |
+        # Example 1: Basic usage
+        aitrackdown new-command --option value
+        
+        # Example 2: Advanced usage
+        aitrackdown new-command --advanced-option
+        
+        # Expected output:
+        # ✅ Action completed successfully
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternative solutions have you considered?
+      placeholder: |
+        Describe any alternative approaches you've considered...
+        
+        - Alternative 1: ...
+        - Alternative 2: ...
+        - Why these alternatives don't work as well...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Nice to have
+        - Would be helpful
+        - Important for workflow
+        - Critical/blocking
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Implementation Complexity (if known)
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Unknown
+        - Simple (small change)
+        - Medium (moderate effort)
+        - Complex (significant effort)
+        - Very complex (major undertaking)
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      description: Please check any relevant compatibility concerns
+      options:
+        - label: This is a breaking change
+        - label: This affects the public API
+        - label: This requires new dependencies
+        - label: This affects performance
+        - label: This affects security
+        - label: This affects cross-platform compatibility
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas (Optional)
+      description: If you have ideas about how this could be implemented, share them here
+      placeholder: |
+        Technical thoughts on implementation...
+        
+        - Potential approach: ...
+        - Required changes: ...
+        - Challenges: ...
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Contribution Interest
+      description: Would you be interested in contributing to this feature?
+      options:
+        - "Yes, I'd like to implement this"
+        - "Yes, I'd like to help with testing"
+        - "Yes, I'd like to help with documentation"
+        - "Maybe, depending on complexity"
+        - "No, but I'd like to see it implemented"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or examples that would help
+      placeholder: Links to similar features in other tools, mockups, related discussions, etc.

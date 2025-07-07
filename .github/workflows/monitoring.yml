@@ -1,0 +1,375 @@
+name: Monitoring & Metrics
+
+on:
+  schedule:
+    # Run daily at 8 AM UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  bundle-size-report:
+    name: Bundle Size Report
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate bundle report
+        run: |
+          echo "# 📦 Bundle Size Report - $(date '+%Y-%m-%d')" > bundle-report.md
+          echo "" >> bundle-report.md
+          echo "## Current Bundle Sizes" >> bundle-report.md
+          echo "" >> bundle-report.md
+          echo "| File | Size (bytes) | Size (KB) | Gzipped (bytes) |" >> bundle-report.md
+          echo "|------|--------------|-----------|-----------------|" >> bundle-report.md
+          
+          total_size=0
+          total_gzipped=0
+          
+          for file in dist/*.js; do
+            if [ -f "$file" ]; then
+              size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+              gzipped=$(gzip -c "$file" | wc -c)
+              size_kb=$((size / 1024))
+              filename=$(basename "$file")
+              
+              echo "| $filename | $size | $size_kb KB | $gzipped |" >> bundle-report.md
+              
+              total_size=$((total_size + size))
+              total_gzipped=$((total_gzipped + gzipped))
+            fi
+          done
+          
+          total_kb=$((total_size / 1024))
+          total_gzipped_kb=$((total_gzipped / 1024))
+          
+          echo "|------|--------------|-----------|-----------------|" >> bundle-report.md
+          echo "| **Total** | **$total_size** | **$total_kb KB** | **$total_gzipped** |" >> bundle-report.md
+          echo "" >> bundle-report.md
+          
+          # Check if bundle size increased significantly
+          if [ $total_size -gt 500000 ]; then
+            echo "⚠️ **Warning**: Total bundle size exceeds 500KB threshold" >> bundle-report.md
+            echo "" >> bundle-report.md
+          fi
+          
+          # Historical comparison (if previous report exists)
+          echo "## Bundle Size Trends" >> bundle-report.md
+          echo "" >> bundle-report.md
+          
+          # Store current size for trending
+          echo "$total_size" > .bundle-size-current
+          
+          if [ -f .bundle-size-previous ]; then
+            previous_size=$(cat .bundle-size-previous)
+            diff=$((total_size - previous_size))
+            percent_change=$((diff * 100 / previous_size))
+            
+            if [ $diff -gt 0 ]; then
+              echo "📈 Bundle size increased by $diff bytes ($percent_change%)" >> bundle-report.md
+            elif [ $diff -lt 0 ]; then
+              echo "📉 Bundle size decreased by $((diff * -1)) bytes ($((percent_change * -1))%)" >> bundle-report.md
+            else
+              echo "➡️ Bundle size unchanged" >> bundle-report.md
+            fi
+          else
+            echo "📊 First bundle size measurement" >> bundle-report.md
+          fi
+          
+          mv .bundle-size-current .bundle-size-previous
+
+      - name: Upload bundle report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-report
+          path: bundle-report.md
+
+  dependency-analysis:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Analyze dependencies
+        run: |
+          echo "# 📊 Dependency Analysis - $(date '+%Y-%m-%d')" > dependency-report.md
+          echo "" >> dependency-report.md
+          
+          # Count dependencies
+          prod_deps=$(cat package.json | jq '.dependencies | length')
+          dev_deps=$(cat package.json | jq '.devDependencies | length')
+          total_deps=$((prod_deps + dev_deps))
+          
+          echo "## Dependency Summary" >> dependency-report.md
+          echo "" >> dependency-report.md
+          echo "| Type | Count |" >> dependency-report.md
+          echo "|------|-------|" >> dependency-report.md
+          echo "| Production | $prod_deps |" >> dependency-report.md
+          echo "| Development | $dev_deps |" >> dependency-report.md
+          echo "| **Total** | **$total_deps** |" >> dependency-report.md
+          echo "" >> dependency-report.md
+          
+          # Check for outdated packages
+          echo "## Outdated Dependencies" >> dependency-report.md
+          echo "" >> dependency-report.md
+          echo '```' >> dependency-report.md
+          npm outdated >> dependency-report.md || echo "All dependencies are up to date" >> dependency-report.md
+          echo '```' >> dependency-report.md
+          echo "" >> dependency-report.md
+          
+          # License analysis
+          echo "## License Analysis" >> dependency-report.md
+          echo "" >> dependency-report.md
+          echo "| Package | License |" >> dependency-report.md
+          echo "|---------|---------|" >> dependency-report.md
+          
+          # Extract licenses from package.json of dependencies
+          for dep in $(cat package.json | jq -r '.dependencies | keys[]'); do
+            license=$(npm view $dep license 2>/dev/null || echo "Unknown")
+            echo "| $dep | $license |" >> dependency-report.md
+          done
+
+      - name: Upload dependency report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: dependency-report.md
+
+  performance-tracking:
+    name: Performance Tracking
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Performance benchmarks
+        run: |
+          echo "# ⚡ Performance Report - $(date '+%Y-%m-%d')" > performance-report.md
+          echo "" >> performance-report.md
+          
+          echo "## CLI Startup Performance" >> performance-report.md
+          echo "" >> performance-report.md
+          echo "| Command | Iterations | Avg (ms) | Min (ms) | Max (ms) | P95 (ms) |" >> performance-report.md
+          echo "|---------|------------|----------|----------|----------|----------|" >> performance-report.md
+          
+          commands=("--version" "--help" "status")
+          
+          for cmd in "${commands[@]}"; do
+            times=()
+            for i in {1..50}; do
+              start=$(date +%s%N)
+              timeout 10s ./dist/index.js $cmd > /dev/null 2>&1 || true
+              end=$(date +%s%N)
+              time_ms=$(( (end - start) / 1000000 ))
+              times+=($time_ms)
+            done
+            
+            # Sort times for percentile calculation
+            IFS=$'\n' sorted_times=($(sort -n <<<"${times[*]}"))
+            unset IFS
+            
+            # Calculate statistics
+            min=${sorted_times[0]}
+            max=${sorted_times[-1]}
+            p95_index=$(( 50 * 95 / 100 ))
+            p95=${sorted_times[$p95_index]}
+            
+            sum=0
+            for time in "${times[@]}"; do
+              sum=$((sum + time))
+            done
+            avg=$((sum / 50))
+            
+            echo "| \`aitrackdown $cmd\` | 50 | $avg | $min | $max | $p95 |" >> performance-report.md
+          done
+          
+          echo "" >> performance-report.md
+          echo "## Memory Usage" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          # Memory usage test
+          memory_kb=$(/usr/bin/time -f "%M" ./dist/index.js --version 2>&1 | tail -n1)
+          memory_mb=$((memory_kb / 1024))
+          
+          echo "- Peak memory usage: ${memory_kb} KB (${memory_mb} MB)" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          # Performance thresholds
+          echo "## Performance Thresholds" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          if [ $avg -gt 1000 ]; then
+            echo "⚠️ **Warning**: Average startup time exceeds 1 second" >> performance-report.md
+          elif [ $avg -gt 500 ]; then
+            echo "⚠️ **Caution**: Average startup time is approaching 500ms threshold" >> performance-report.md
+          else
+            echo "✅ **Good**: Startup performance within acceptable limits" >> performance-report.md
+          fi
+          
+          if [ $memory_mb -gt 50 ]; then
+            echo "⚠️ **Warning**: Memory usage exceeds 50MB" >> performance-report.md
+          else
+            echo "✅ **Good**: Memory usage within acceptable limits" >> performance-report.md
+          fi
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.md
+
+  test-coverage-tracking:
+    name: Test Coverage Tracking
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage --reporter=json > test-results.json
+
+      - name: Generate coverage report
+        run: |
+          echo "# 🧪 Test Coverage Report - $(date '+%Y-%m-%d')" > coverage-report.md
+          echo "" >> coverage-report.md
+          
+          # Extract coverage data
+          if [ -f coverage/coverage-summary.json ]; then
+            lines_pct=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+            functions_pct=$(cat coverage/coverage-summary.json | jq '.total.functions.pct')
+            branches_pct=$(cat coverage/coverage-summary.json | jq '.total.branches.pct')
+            statements_pct=$(cat coverage/coverage-summary.json | jq '.total.statements.pct')
+            
+            echo "## Overall Coverage" >> coverage-report.md
+            echo "" >> coverage-report.md
+            echo "| Metric | Coverage |" >> coverage-report.md
+            echo "|--------|----------|" >> coverage-report.md
+            echo "| Lines | $lines_pct% |" >> coverage-report.md
+            echo "| Functions | $functions_pct% |" >> coverage-report.md
+            echo "| Branches | $branches_pct% |" >> coverage-report.md
+            echo "| Statements | $statements_pct% |" >> coverage-report.md
+            echo "" >> coverage-report.md
+            
+            # Coverage status
+            min_coverage=90
+            if (( $(echo "$lines_pct >= $min_coverage" | bc -l) )); then
+              echo "✅ **Excellent**: All coverage metrics meet the $min_coverage% threshold" >> coverage-report.md
+            else
+              echo "⚠️ **Warning**: Some coverage metrics below $min_coverage% threshold" >> coverage-report.md
+            fi
+          else
+            echo "❌ **Error**: Coverage data not found" >> coverage-report.md
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report.md
+
+  consolidate-reports:
+    name: Consolidate Reports
+    runs-on: ubuntu-latest
+    needs: [bundle-size-report, dependency-analysis, performance-tracking, test-coverage-tracking]
+    
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+
+      - name: Consolidate reports
+        run: |
+          echo "# 📊 Daily Monitoring Report - $(date '+%Y-%m-%d')" > daily-report.md
+          echo "" >> daily-report.md
+          echo "Generated by GitHub Actions monitoring workflow" >> daily-report.md
+          echo "" >> daily-report.md
+          
+          # Bundle size report
+          if [ -f bundle-report/bundle-report.md ]; then
+            cat bundle-report/bundle-report.md >> daily-report.md
+            echo "" >> daily-report.md
+          fi
+          
+          # Performance report
+          if [ -f performance-report/performance-report.md ]; then
+            cat performance-report/performance-report.md >> daily-report.md
+            echo "" >> daily-report.md
+          fi
+          
+          # Coverage report
+          if [ -f coverage-report/coverage-report.md ]; then
+            cat coverage-report/coverage-report.md >> daily-report.md
+            echo "" >> daily-report.md
+          fi
+          
+          # Dependency report
+          if [ -f dependency-report/dependency-report.md ]; then
+            cat dependency-report/dependency-report.md >> daily-report.md
+            echo "" >> daily-report.md
+          fi
+          
+          echo "---" >> daily-report.md
+          echo "Report generated at: $(date)" >> daily-report.md
+
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-monitoring-report
+          path: daily-report.md

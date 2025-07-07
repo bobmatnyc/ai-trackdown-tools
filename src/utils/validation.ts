@@ -71,14 +71,14 @@ export function validateProjectName(name: string): string {
   }
 
   // Check for reserved names
-  const reservedNames = ['trackdown', 'td', 'config', 'help', 'version'];
+  const reservedNames = ['aitrackdown', 'atd', 'config', 'help', 'version'];
   if (reservedNames.includes(validName.toLowerCase())) {
     throw new ValidationError(
       `Project name '${validName}' is reserved`,
       'Please choose a different name',
       1,
       'init',
-      ['my-trackdown-project', 'awesome-tracker']
+      ['my-aitrackdown-project', 'awesome-tracker']
     );
   }
 

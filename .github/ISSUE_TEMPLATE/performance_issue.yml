@@ -1,0 +1,157 @@
+name: ⚡ Performance Issue
+description: Report performance problems or slow operations
+title: "[Performance]: "
+labels: ["performance", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a performance issue! Performance data helps us optimize the tool.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: Describe what's slow or unresponsive...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Affected Operation
+      description: What operation is experiencing performance issues?
+      options:
+        - CLI startup time
+        - Command execution
+        - File processing
+        - Network operations
+        - Data parsing
+        - Output rendering
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the performance issue
+      render: shell
+      placeholder: |
+        1. Run command: aitrackdown ...
+        2. With data size: ...
+        3. Observe slow performance
+    validations:
+      required: true
+
+  - type: textarea
+    id: timing
+    attributes:
+      label: Performance Measurements
+      description: Provide timing information if available
+      placeholder: |
+        Expected time: < 1 second
+        Actual time: 10+ seconds
+        
+        Or use timing commands:
+        time aitrackdown your-command
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-size
+    attributes:
+      label: Data Size
+      description: How much data are you processing?
+      options:
+        - Small (< 100 items)
+        - Medium (100-1000 items)
+        - Large (1000-10000 items)
+        - Very Large (> 10000 items)
+        - Not applicable
+
+  - type: input
+    id: system-specs
+    attributes:
+      label: System Specifications
+      description: Provide your system specs (CPU, RAM, etc.)
+      placeholder: "MacBook Pro M1, 16GB RAM, SSD"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      render: shell
+      description: Provide environment information
+      placeholder: |
+        Node.js version: v18.17.0
+        ai-trackdown-tooling version: 0.4.0
+        Operating System: macOS 13.5
+        Terminal: iTerm2
+        Available Memory: 16GB
+        CPU Usage: High/Normal/Low
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data (Optional)
+      description: If you have profiling data or system monitoring info, include it here
+      render: shell
+      placeholder: |
+        CPU usage during operation: ...
+        Memory usage: ...
+        Disk I/O: ...
+        Network activity: ...
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      description: How often does this performance issue occur?
+      options:
+        - Always
+        - Usually (> 75% of the time)
+        - Sometimes (25-75% of the time)
+        - Rarely (< 25% of the time)
+        - Only in specific conditions
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Performance Impact
+      description: How severe is the performance impact?
+      options:
+        - Low - Slightly slower than expected
+        - Medium - Noticeably slow but usable
+        - High - Significantly impacts productivity
+        - Critical - Unusably slow or causes timeouts
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workarounds
+      description: Have you found any workarounds for this performance issue?
+      placeholder: Describe any workarounds you've discovered...
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Performance Comparison
+      description: How does performance compare to similar tools or previous versions?
+      placeholder: |
+        Compared to version X.X.X: ...
+        Compared to similar tool Y: ...
+        Performance regression since: ...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context that might help diagnose the performance issue
+      placeholder: Logs, screenshots, system monitoring data, etc.

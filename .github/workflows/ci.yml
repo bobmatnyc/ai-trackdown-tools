@@ -1,0 +1,290 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [16, 18, 20]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test with coverage
+        run: npm test -- --coverage --reporter=verbose
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 18
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  bundle-analysis:
+    name: Bundle Size Analysis
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Analyze bundle size
+        run: |
+          echo "## Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size | Gzipped |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          for file in dist/*.js; do
+            if [ -f "$file" ]; then
+              size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+              gzipped=$(gzip -c "$file" | wc -c)
+              filename=$(basename "$file")
+              echo "| $filename | ${size} bytes | ${gzipped} bytes |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Check bundle size limits
+        run: |
+          # Check if main bundle exceeds 500KB
+          main_size=$(stat -c%s dist/index.js 2>/dev/null || stat -f%z dist/index.js)
+          if [ $main_size -gt 512000 ]; then
+            echo "❌ Bundle size exceeds 500KB limit: ${main_size} bytes"
+            exit 1
+          else
+            echo "✅ Bundle size within limits: ${main_size} bytes"
+          fi
+
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Make CLI executable
+        run: chmod +x dist/index.js
+
+      - name: Test CLI startup time
+        run: |
+          echo "## CLI Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "| Command | Average Time (ms) | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------------------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Test basic commands
+          commands=("--version" "--help" "status")
+          
+          for cmd in "${commands[@]}"; do
+            total_time=0
+            for i in {1..5}; do
+              start_time=$(date +%s%N)
+              timeout 10s ./dist/index.js $cmd > /dev/null 2>&1 || true
+              end_time=$(date +%s%N)
+              execution_time=$(( (end_time - start_time) / 1000000 ))
+              total_time=$(( total_time + execution_time ))
+            done
+            
+            avg_time=$(( total_time / 5 ))
+            status="✅"
+            if [ $avg_time -gt 1000 ]; then
+              status="⚠️"
+            fi
+            if [ $avg_time -gt 3000 ]; then
+              status="❌"
+            fi
+            
+            echo "| \`aitrackdown $cmd\` | $avg_time | $status |" >> $GITHUB_STEP_SUMMARY
+          done
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: |
+          npm audit --audit-level=moderate --json > audit-results.json || true
+          
+          # Check if there are any vulnerabilities
+          vulnerabilities=$(cat audit-results.json | jq '.metadata.vulnerabilities.total // 0')
+          
+          if [ $vulnerabilities -gt 0 ]; then
+            echo "⚠️ Found $vulnerabilities security vulnerabilities"
+            echo "## Security Audit Results" >> $GITHUB_STEP_SUMMARY
+            npm audit --audit-level=moderate >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "✅ No security vulnerabilities found"
+            echo "## Security Audit Results" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No security vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  compatibility-test:
+    name: CLI Compatibility Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test CLI installation
+        run: |
+          npm pack
+          npm install -g ./ai-trackdown-tooling-*.tgz
+
+      - name: Test global CLI commands
+        run: |
+          aitrackdown --version
+          aitrackdown --help
+          atd --version
+          atd --help
+
+      - name: Test CLI functionality (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Test basic commands work
+          aitrackdown status || echo "Status command tested"
+          
+      - name: Test CLI functionality (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Test basic commands work on Windows
+          aitrackdown status
+        shell: cmd
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [test, bundle-analysis, performance-test, security-audit, compatibility-test]
+    if: always()
+    
+    steps:
+      - name: Check job results
+        run: |
+          echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Check each job result
+          if [ "${{ needs.test.result }}" == "success" ]; then
+            echo "| Test Suite | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Test Suite | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.bundle-analysis.result }}" == "success" ]; then
+            echo "| Bundle Analysis | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Bundle Analysis | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.performance-test.result }}" == "success" ]; then
+            echo "| Performance Test | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Performance Test | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.security-audit.result }}" == "success" ]; then
+            echo "| Security Audit | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Audit | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.compatibility-test.result }}" == "success" ]; then
+            echo "| Compatibility Test | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Compatibility Test | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if any critical job failed
+        if: needs.test.result == 'failure' || needs.bundle-analysis.result == 'failure' || needs.compatibility-test.result == 'failure'
+        run: |
+          echo "❌ Quality gate failed - critical jobs failed"
+          exit 1

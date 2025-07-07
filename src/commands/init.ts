@@ -114,10 +114,10 @@ export function createInitCommand(): Command {
       'after',
       `
 Examples:
-  $ trackdown init my-project --type cli --template standard
-  $ trackdown init web-app --type web --interactive
-  $ trackdown init api-service --config ./custom.yaml --format yaml
-  $ trackdown init --interactive
+  $ aitrackdown init my-project --type cli --template standard
+  $ aitrackdown init web-app --type web --interactive
+  $ aitrackdown init api-service --config ./custom.yaml --format yaml
+  $ aitrackdown init --interactive
 
 Templates:
   standard  - Basic project with essential features

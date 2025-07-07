@@ -13,14 +13,14 @@ export function createVersionCommand(): Command {
     'after',
     `
 Examples:
-  $ trackdown version show                    # Display current version
-  $ trackdown version bump patch             # Bump patch version (0.1.0 → 0.1.1)
-  $ trackdown version bump minor             # Bump minor version (0.1.0 → 0.2.0)
-  $ trackdown version bump major             # Bump major version (0.1.0 → 1.0.0)
-  $ trackdown version changelog generate     # Generate/update CHANGELOG.md
-  $ trackdown version tag --push             # Create and push git tag
-  $ trackdown version sync                   # Sync version across all files
-  $ trackdown version release minor --push   # Complete release process
+  $ aitrackdown version show                    # Display current version
+  $ aitrackdown version bump patch             # Bump patch version (0.1.0 → 0.1.1)
+  $ aitrackdown version bump minor             # Bump minor version (0.1.0 → 0.2.0)
+  $ aitrackdown version bump major             # Bump major version (0.1.0 → 1.0.0)
+  $ aitrackdown version changelog generate     # Generate/update CHANGELOG.md
+  $ aitrackdown version tag --push             # Create and push git tag
+  $ aitrackdown version sync                   # Sync version across all files
+  $ aitrackdown version release minor --push   # Complete release process
 
 Version Management:
   This tool follows semantic versioning (semver.org) and conventional commits.

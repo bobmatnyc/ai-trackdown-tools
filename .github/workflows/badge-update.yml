@@ -1,0 +1,101 @@
+name: Update Badges
+
+on:
+  schedule:
+    # Update badges daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'package.json'
+
+jobs:
+  update-badges:
+    name: Update README Badges
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests for coverage
+        run: npm test -- --coverage
+
+      - name: Get coverage percentage
+        id: coverage
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            coverage=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+            echo "coverage=$coverage" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get package version
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Get bundle size
+        id: bundle
+        run: |
+          npm run build
+          size=$(stat -c%s dist/index.js 2>/dev/null || stat -f%z dist/index.js)
+          size_kb=$((size / 1024))
+          echo "size_kb=$size_kb" >> $GITHUB_OUTPUT
+
+      - name: Generate badge data
+        run: |
+          echo "## Available Badges" >> badge-info.md
+          echo "" >> badge-info.md
+          echo "### CI/CD Status" >> badge-info.md
+          echo '![CI Pipeline](https://github.com/${{ github.repository }}/workflows/CI%20Pipeline/badge.svg)' >> badge-info.md
+          echo '![Release Pipeline](https://github.com/${{ github.repository }}/workflows/Release%20Pipeline/badge.svg)' >> badge-info.md
+          echo '![Nightly Builds](https://github.com/${{ github.repository }}/workflows/Nightly%20Builds/badge.svg)' >> badge-info.md
+          echo "" >> badge-info.md
+          echo "### Package Info" >> badge-info.md
+          echo '![NPM Version](https://img.shields.io/npm/v/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo '![Node.js Version](https://img.shields.io/node/v/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo '![License](https://img.shields.io/npm/l/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo "" >> badge-info.md
+          echo "### Quality Metrics" >> badge-info.md
+          echo '![Test Coverage](https://img.shields.io/badge/coverage-${{ steps.coverage.outputs.coverage }}%25-brightgreen?style=flat-square)' >> badge-info.md
+          echo '![Bundle Size](https://img.shields.io/badge/bundle%20size-${{ steps.bundle.outputs.size_kb }}KB-blue?style=flat-square)' >> badge-info.md
+          echo '![Code Quality](https://img.shields.io/badge/code%20quality-A-brightgreen?style=flat-square)' >> badge-info.md
+          echo "" >> badge-info.md
+          echo "### Downloads" >> badge-info.md
+          echo '![NPM Downloads](https://img.shields.io/npm/dm/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo '![NPM Downloads Total](https://img.shields.io/npm/dt/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+
+      - name: Upload badge info
+        uses: actions/upload-artifact@v4
+        with:
+          name: badge-info
+          path: badge-info.md
+
+      - name: Comment on workflow status
+        run: |
+          echo "## 📊 Badge Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:** ${{ steps.coverage.outputs.coverage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Bundle Size:** ${{ steps.bundle.outputs.size_kb }}KB" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Recommended Badges for README.md:" >> $GITHUB_STEP_SUMMARY
+          echo '```markdown' >> $GITHUB_STEP_SUMMARY
+          cat badge-info.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

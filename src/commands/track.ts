@@ -37,11 +37,11 @@ export function createTrackCommand(): Command {
       'after',
       `
 Examples:
-  $ trackdown track "Implement user login"
-  $ trackdown track "Fix critical bug" --priority critical --assignee john.doe
-  $ trackdown track "Add API endpoint" --tags backend,api --estimate 5
-  $ trackdown track "Design homepage" --interactive
-  $ trackdown track "Update docs" --duplicate-from TD-123
+  $ aitrackdown track "Implement user login"
+  $ aitrackdown track "Fix critical bug" --priority critical --assignee john.doe
+  $ aitrackdown track "Add API endpoint" --tags backend,api --estimate 5
+  $ aitrackdown track "Design homepage" --interactive
+  $ aitrackdown track "Update docs" --duplicate-from TD-123
 
 Priority Levels:
   low       - Nice to have, non-urgent

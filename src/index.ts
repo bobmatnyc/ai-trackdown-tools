@@ -5,6 +5,11 @@ import { createInitCommand } from './commands/init.js';
 import { createStatusCommand } from './commands/status.js';
 import { createTrackCommand } from './commands/track.js';
 import { createVersionCommand } from './commands/version.js';
+import { createIssueCommand } from './commands/issue.js';
+import { createLabelCommand } from './commands/label.js';
+import { createMilestoneCommand } from './commands/milestone.js';
+import { createProjectCommand } from './commands/project.js';
+import { createBulkCommand } from './commands/bulk.js';
 import { VersionManager } from './utils/version.js';
 import { Formatter } from './utils/formatter.js';
 
@@ -29,7 +34,7 @@ async function main(): Promise<void> {
 
   // Configure main program
   program
-    .name('trackdown')
+    .name('aitrackdown')
     .description(packageInfo.description)
     .version(packageInfo.version, '-v, --version', 'display version number')
     .helpOption('-h, --help', 'display help for command');
@@ -61,34 +66,52 @@ async function main(): Promise<void> {
   program.addCommand(createStatusCommand());
   program.addCommand(createExportCommand());
   program.addCommand(createVersionCommand());
+  
+  // GitHub Issues API commands
+  program.addCommand(createIssueCommand());
+  program.addCommand(createLabelCommand());
+  program.addCommand(createMilestoneCommand());
+  program.addCommand(createProjectCommand());
+  program.addCommand(createBulkCommand());
 
   // Add helpful aliases
   program
-    .command('td')
-    .alias('trackdown')
-    .description('alias for trackdown command')
+    .command('atd')
+    .alias('aitrackdown')
+    .description('alias for aitrackdown command')
     .action(() => {
-      console.log(Formatter.info('Use "trackdown --help" to see available commands'));
+      console.log(Formatter.info('Use "aitrackdown --help" to see available commands'));
     });
 
   // Handle unknown commands
   program.on('command:*', (operands) => {
     console.error(Formatter.error(`Unknown command: ${operands[0]}`));
-    console.log(Formatter.info('Run "trackdown --help" to see available commands'));
+    console.log(Formatter.info('Run "aitrackdown --help" to see available commands'));
     process.exit(1);
   });
 
   // Custom help
   program.on('--help', () => {
     console.log('');
-    console.log(chalk.bold.cyan('Examples:'));
-    console.log('  $ trackdown init my-project');
-    console.log('  $ trackdown track "Implement user login"');
-    console.log('  $ trackdown status --verbose');
-    console.log('  $ trackdown export --format json');
+    console.log(chalk.bold.cyan('GitHub Issues API Commands:'));
+    console.log('  $ aitrackdown issue create "Bug in login flow" --labels bug,high-priority');
+    console.log('  $ aitrackdown issue list --state open --assignee @me');
+    console.log('  $ aitrackdown issue search "is:open label:bug created:>1w"');
+    console.log('  $ aitrackdown label create "priority:high" --color ff0000');
+    console.log('  $ aitrackdown label apply 123 bug enhancement');
+    console.log('  $ aitrackdown milestone create "Sprint 1" --due-date "2025-01-15"');
+    console.log('  $ aitrackdown milestone list --show-progress');
+    console.log('  $ aitrackdown project create "Q1 Roadmap" --template "roadmap"');
+    console.log('  $ aitrackdown bulk assign --issues "123-130" --assignee "johndoe"');
+    console.log('');
+    console.log(chalk.bold.cyan('Traditional Commands:'));
+    console.log('  $ aitrackdown init my-project');
+    console.log('  $ aitrackdown track "Implement user login"');
+    console.log('  $ aitrackdown status --verbose');
+    console.log('  $ aitrackdown export --format json');
     console.log('');
     console.log(chalk.bold.cyan('Aliases:'));
-    console.log('  td = trackdown (shorter command)');
+    console.log('  atd = aitrackdown (shorter command)');
     console.log('');
     console.log(chalk.bold.cyan('Learn more:'));
     console.log('  Documentation: https://github.com/your-org/ai-trackdown-tooling');

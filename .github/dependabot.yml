@@ -1,0 +1,94 @@
+version: 2
+
+updates:
+  # NPM dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@ai-trackdown-tooling/maintainers"
+    assignees:
+      - "@ai-trackdown-tooling/maintainers"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "automated"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # Ignore major version updates for these packages (require manual review)
+      - dependency-name: "chalk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "commander"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "inquirer"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group development dependencies
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "@biomejs/*"
+          - "@vitest/*"
+          - "vitest"
+          - "tsup"
+          - "tsx"
+          - "turbo"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group testing dependencies
+      testing:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group TypeScript ecosystem
+      typescript:
+        patterns:
+          - "typescript"
+          - "@types/*"
+          - "tsup"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "ci/cd"
+      - "automated"
+    groups:
+      github-actions:
+        patterns:
+          - "actions/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"

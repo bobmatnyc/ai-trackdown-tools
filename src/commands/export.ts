@@ -51,14 +51,14 @@ export function createExportCommand(): Command {
       'after',
       `
 Examples:
-  $ trackdown export
-  $ trackdown export --format csv --output project-data.csv
-  $ trackdown export --filter "status=todo,priority=high" --format json
-  $ trackdown export --assignee john.doe --created-after 2024-01-01
-  $ trackdown export --tags backend,security --format yaml
-  $ trackdown export --interactive
-  $ trackdown export --preview --format table
-  $ trackdown export --template summary --format md
+  $ aitrackdown export
+  $ aitrackdown export --format csv --output project-data.csv
+  $ aitrackdown export --filter "status=todo,priority=high" --format json
+  $ aitrackdown export --assignee john.doe --created-after 2024-01-01
+  $ aitrackdown export --tags backend,security --format yaml
+  $ aitrackdown export --interactive
+  $ aitrackdown export --preview --format table
+  $ aitrackdown export --template summary --format md
 
 Export Formats:
   json          - Structured JSON with metadata

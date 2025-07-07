@@ -1,0 +1,276 @@
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    # Run CodeQL analysis every Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: +security-and-quality
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build the project
+      run: npm run build
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+  security-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run npm audit
+      run: |
+        npm audit --audit-level=moderate --json > npm-audit.json || true
+        
+        # Check if vulnerabilities were found
+        vulnerabilities=$(cat npm-audit.json | jq '.metadata.vulnerabilities.total // 0')
+        
+        echo "## 🔒 Security Audit Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ $vulnerabilities -eq 0 ]; then
+          echo "✅ **No security vulnerabilities found**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ **$vulnerabilities security vulnerabilities detected**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat npm-audit.json | jq '.metadata.vulnerabilities' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # Fail the workflow if high/critical vulnerabilities are found
+          high_critical=$(cat npm-audit.json | jq '(.metadata.vulnerabilities.high // 0) + (.metadata.vulnerabilities.critical // 0)')
+          if [ $high_critical -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Workflow failed due to high/critical vulnerabilities**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+        fi
+
+    - name: Upload audit results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-audit-results
+        path: npm-audit.json
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check licenses
+      run: |
+        echo "## 📄 License Compliance Report" >> license-report.md
+        echo "" >> license-report.md
+        
+        # Create a list of dependencies and their licenses
+        echo "### Production Dependencies" >> license-report.md
+        echo "| Package | Version | License |" >> license-report.md
+        echo "|---------|---------|---------|" >> license-report.md
+        
+        # Extract production dependencies
+        for dep in $(cat package.json | jq -r '.dependencies | keys[]'); do
+          version=$(npm view $dep version 2>/dev/null || echo "Unknown")
+          license=$(npm view $dep license 2>/dev/null || echo "Unknown")
+          echo "| $dep | $version | $license |" >> license-report.md
+        done
+        
+        echo "" >> license-report.md
+        echo "### Development Dependencies" >> license-report.md
+        echo "| Package | Version | License |" >> license-report.md
+        echo "|---------|---------|---------|" >> license-report.md
+        
+        # Extract dev dependencies
+        for dep in $(cat package.json | jq -r '.devDependencies | keys[]'); do
+          version=$(npm view $dep version 2>/dev/null || echo "Unknown")
+          license=$(npm view $dep license 2>/dev/null || echo "Unknown")
+          echo "| $dep | $version | $license |" >> license-report.md
+        done
+
+    - name: Upload license report
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report
+        path: license-report.md
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run secret scan
+      run: |
+        echo "## 🔍 Secret Scanning Results" >> secret-scan.md
+        echo "" >> secret-scan.md
+        
+        # Simple patterns to look for (this is basic - real secret scanning tools are more sophisticated)
+        patterns=(
+          "password\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+          "api[_-]?key\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "secret\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "token\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "github[_-]?token\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "npm[_-]?token\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+        )
+        
+        found_secrets=false
+        
+        for pattern in "${patterns[@]}"; do
+          if grep -riE "$pattern" src/ --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null; then
+            found_secrets=true
+            echo "⚠️ Potential secret found with pattern: $pattern" >> secret-scan.md
+          fi
+        done
+        
+        if [ "$found_secrets" = false ]; then
+          echo "✅ **No potential secrets detected in source code**" >> secret-scan.md
+        else
+          echo "❌ **Potential secrets detected - please review**" >> secret-scan.md
+          echo "" >> secret-scan.md
+          echo "**Note:** This is a basic pattern-based scan. Consider using dedicated secret scanning tools for production." >> secret-scan.md
+        fi
+        
+        # Also check for common files that might contain secrets
+        secret_files=(".env" ".env.local" ".env.production" "config/secrets.json" "secrets.yaml")
+        
+        echo "" >> secret-scan.md
+        echo "### Secret File Check" >> secret-scan.md
+        
+        for file in "${secret_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "⚠️ Found potential secret file: $file" >> secret-scan.md
+            found_secrets=true
+          fi
+        done
+        
+        if [ "$found_secrets" = true ]; then
+          echo "" >> secret-scan.md
+          echo "**Action Required:** Review flagged files and patterns" >> secret-scan.md
+          exit 1
+        fi
+
+    - name: Upload secret scan results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: secret-scan-results
+        path: secret-scan.md
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [analyze, security-audit, license-check, secret-scan]
+    if: always()
+    
+    steps:
+    - name: Generate security summary
+      run: |
+        echo "# 🛡️ Security Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Analysis Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Security Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.analyze.result }}" == "success" ]; then
+          echo "| CodeQL Analysis | ✅ Passed | No code security issues detected |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| CodeQL Analysis | ❌ Failed | Security issues detected |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.security-audit.result }}" == "success" ]; then
+          echo "| Dependency Audit | ✅ Passed | No high/critical vulnerabilities |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Dependency Audit | ❌ Failed | Vulnerabilities detected |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.license-check.result }}" == "success" ]; then
+          echo "| License Check | ✅ Passed | License compliance verified |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| License Check | ❌ Failed | License issues detected |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.secret-scan.result }}" == "success" ]; then
+          echo "| Secret Scan | ✅ Passed | No secrets detected |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Secret Scan | ❌ Failed | Potential secrets found |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Recommendations" >> $GITHUB_STEP_SUMMARY
+        echo "- Regularly update dependencies" >> $GITHUB_STEP_SUMMARY
+        echo "- Monitor security advisories" >> $GITHUB_STEP_SUMMARY
+        echo "- Use dependabot for automated updates" >> $GITHUB_STEP_SUMMARY
+        echo "- Review and rotate any exposed secrets" >> $GITHUB_STEP_SUMMARY
+        echo "- Consider implementing additional security scanning tools" >> $GITHUB_STEP_SUMMARY

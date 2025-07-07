@@ -1,11 +1,11 @@
 {
   "name": "ai-trackdown-tooling",
-  "version": "0.1.1",
+  "version": "0.4.0",
   "description": "Professional CLI tool for ai-trackdown functionality",
   "type": "module",
   "bin": {
-    "trackdown": "./dist/index.js",
-    "td": "./dist/index.js"
+    "aitrackdown": "./dist/index.js",
+    "atd": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
@@ -34,7 +34,7 @@
   },
   "keywords": [
     "cli",
-    "trackdown",
+    "aitrackdown",
     "ai",
     "project-management",
     "typescript"

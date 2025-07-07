@@ -73,8 +73,8 @@ describe('CLI Package Structure', () => {
 
     expect(packageJson.name).toBe('ai-trackdown-tooling');
     expect(packageJson.type).toBe('module');
-    expect(packageJson.bin).toHaveProperty('trackdown');
-    expect(packageJson.bin).toHaveProperty('td');
+    expect(packageJson.bin).toHaveProperty('aitrackdown');
+    expect(packageJson.bin).toHaveProperty('atd');
     expect(packageJson.main).toBe('./dist/index.js');
     expect(packageJson.exports).toHaveProperty('.');
   });

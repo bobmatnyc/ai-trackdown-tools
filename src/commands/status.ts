@@ -50,13 +50,13 @@ export function createStatusCommand(): Command {
       'after',
       `
 Examples:
-  $ trackdown status
-  $ trackdown status --verbose --stats
-  $ trackdown status --filter "status=todo,priority=high"
-  $ trackdown status --assignee john.doe --created-after 2024-01-01
-  $ trackdown status --tags backend,security --table
-  $ trackdown status --interactive
-  $ trackdown status --stats --export project-status.json
+  $ aitrackdown status
+  $ aitrackdown status --verbose --stats
+  $ aitrackdown status --filter "status=todo,priority=high"
+  $ aitrackdown status --assignee john.doe --created-after 2024-01-01
+  $ aitrackdown status --tags backend,security --table
+  $ aitrackdown status --interactive
+  $ aitrackdown status --stats --export project-status.json
 
 Filter Expressions:
   status=todo,blocked        - Multiple status values
