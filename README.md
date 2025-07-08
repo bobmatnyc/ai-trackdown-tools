@@ -1,11 +1,13 @@
-# AI Trackdown CLI v1.0.0
+# AI Trackdown CLI v2.0.0
 
-A professional CLI tool for AI-first project management with hierarchical Epic→Issue→Task workflows, token tracking, and YAML frontmatter support.
+A professional CLI tool for AI-first project management with hierarchical Epic→Issue→Task workflows, comprehensive Pull Request management, token tracking, and YAML frontmatter support.
 
 ## Features
 
 ✅ **AI-First Design**: Built for AI collaboration with context generation and token tracking  
 ✅ **Hierarchical Structure**: Epic → Issue → Task relationships with YAML frontmatter  
+✅ **Complete PR Management**: 12 comprehensive PR commands with GitHub-independent workflows  
+✅ **Agent-Optimized**: Batch operations and intelligent automation for AI-driven development  
 ✅ **Token Management**: Comprehensive token tracking and budget alerts  
 ✅ **AI Context Generation**: Automatic llms.txt generation for AI workflows  
 ✅ **Template System**: Consistent project templates and initialization  
@@ -14,7 +16,7 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 ## Installation
 
 ```bash
-npm install -g ai-trackdown-tooling
+npm install -g ai-trackdown-tools
 ```
 
 ## Quick Start
@@ -61,6 +63,42 @@ aitrackdown ai track-tokens --report --format table
 aitrackdown ai context --item-id EP-0001 --add "requirements context"
 ```
 
+## Pull Request Management
+
+Version 2.0.0 introduces comprehensive PR management with 12 powerful commands:
+
+```bash
+# Create PR from completed tasks
+aitrackdown pr create "Implement user authentication" --issue ISS-0001 --from-tasks TSK-0001,TSK-0002
+
+# List and filter PRs
+aitrackdown pr list --status open --assignee @developer --priority high
+aitrackdown pr list --format table --show-stats
+
+# Review and approve PRs
+aitrackdown pr review PR-0001 --approve --comments "LGTM! Great implementation"
+aitrackdown pr approve PR-0001 --auto-merge --merge-strategy squash
+
+# Batch operations for multiple PRs
+aitrackdown pr batch --operation approve --filter status:open --filter assignee:@team
+aitrackdown pr batch --operation merge --filter status:approved --merge-strategy squash
+
+# Advanced PR management
+aitrackdown pr dependencies PR-0001 --add-dependency PR-0002
+aitrackdown pr sync --github --repo owner/repo --update-status
+aitrackdown pr archive --status merged --older-than 6months
+```
+
+### PR Features
+
+- **GitHub-Independent**: Complete PR lifecycle without external dependencies
+- **File-based Storage**: PRs stored as markdown files with YAML frontmatter
+- **Status-based Organization**: Automatic file movement (draft → open → review → approved → merged)
+- **Template Integration**: Full and quick PR templates with variable substitution
+- **Batch Operations**: Efficient bulk operations for agent-driven workflows
+- **Review System**: Structured reviews with approval tracking
+- **Performance Optimized**: 60-70ms average response times
+
 ## Project Structure
 
 ai-trackdown creates a hierarchical project structure:
@@ -77,6 +115,20 @@ project/
 │   └── ISS-0001-issue-name.md   # Issues linked to epics
 ├── tasks/
 │   └── TSK-0001-task-name.md    # Tasks linked to issues
+├── prs/                         # Pull Request management (v2.0.0)
+│   ├── draft/                   # Draft PRs
+│   ├── active/
+│   │   ├── open/                # Open PRs ready for review
+│   │   ├── review/              # PRs under review
+│   │   └── approved/            # Approved PRs ready to merge
+│   ├── merged/                  # Successfully merged PRs
+│   ├── closed/                  # Closed/rejected PRs
+│   ├── reviews/                 # PR review files
+│   └── logs/                    # Operation logs
+├── templates/
+│   ├── pr-review-default.yaml   # Default PR review template
+│   ├── pr-review-quick.yaml     # Quick PR review template
+│   └── pr-review-security.yaml  # Security PR review template
 └── llms.txt                     # Generated AI context
 ```
 
@@ -135,6 +187,20 @@ aitrackdown migrate --from-csv tasks.csv
 - `task complete` - Complete task with time/token tracking
 - `task list` - List tasks with time tracking display
 - `task update` - Update task status and metadata
+
+### Pull Request Commands (v2.0.0)
+- `pr create` - Create PR from templates with auto-linking
+- `pr list` - List PRs with advanced filtering
+- `pr show` - Show detailed PR with relationships
+- `pr update` - Update PR properties and metadata
+- `pr review` - Create structured PR reviews
+- `pr approve` - Approve PR with optional auto-merge
+- `pr merge` - Merge PR with strategy selection
+- `pr close` - Close PR without merging
+- `pr batch` - Perform bulk operations on multiple PRs
+- `pr dependencies` - Manage PR dependencies
+- `pr sync` - Synchronize with external systems
+- `pr archive` - Archive old PRs with compression
 
 ### AI Commands
 - `ai generate-llms-txt` - Generate AI context file

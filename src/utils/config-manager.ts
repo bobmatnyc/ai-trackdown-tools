@@ -76,16 +76,20 @@ export class ConfigManager {
       name: projectName,
       description: options.description || `AI-Trackdown project: ${projectName}`,
       version: '1.0.0',
+      // NEW: Default tasks directory for unified structure
+      tasks_directory: options.tasks_directory || 'tasks',
       structure: {
         epics_dir: 'epics',
         issues_dir: 'issues',
         tasks_dir: 'tasks',
-        templates_dir: 'templates'
+        templates_dir: 'templates',
+        prs_dir: 'prs' // NEW: PR directory
       },
       naming_conventions: {
         epic_prefix: 'EP',
         issue_prefix: 'ISS',
         task_prefix: 'TSK',
+        pr_prefix: 'PR', // NEW: PR prefix
         file_extension: '.md'
       },
       default_assignee: options.default_assignee || 'unassigned',
@@ -158,26 +162,35 @@ export class ConfigManager {
   }
 
   /**
-   * Get absolute paths for project structure
+   * Get absolute paths for project structure using unified directory layout
    */
-  public getAbsolutePaths(): {
+  public getAbsolutePaths(cliTasksDir?: string): {
     projectRoot: string;
     configDir: string;
+    tasksRoot: string;
     epicsDir: string;
     issuesDir: string;
     tasksDir: string;
+    prsDir: string;
     templatesDir: string;
   } {
     const config = this.getConfig();
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    const pathResolver = new UnifiedPathResolver(config, projectRoot, cliTasksDir);
+    const unifiedPaths = pathResolver.getUnifiedPaths();
+    
     return {
-      projectRoot,
-      configDir: path.dirname(this.configPath),
-      epicsDir: path.resolve(projectRoot, config.structure.epics_dir),
-      issuesDir: path.resolve(projectRoot, config.structure.issues_dir),
-      tasksDir: path.resolve(projectRoot, config.structure.tasks_dir),
-      templatesDir: path.resolve(projectRoot, config.structure.templates_dir)
+      projectRoot: unifiedPaths.projectRoot,
+      configDir: unifiedPaths.configDir,
+      tasksRoot: unifiedPaths.tasksRoot,
+      epicsDir: unifiedPaths.epicsDir,
+      issuesDir: unifiedPaths.issuesDir,
+      tasksDir: unifiedPaths.tasksDir,
+      prsDir: unifiedPaths.prsDir,
+      templatesDir: unifiedPaths.templatesDir
     };
   }
 
@@ -268,20 +281,17 @@ export class ConfigManager {
   }
 
   /**
-   * Create project directory structure
+   * Create project directory structure using unified layout
    */
   private createProjectStructure(config: ProjectConfig): void {
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
-    const directories = [
-      path.join(projectRoot, config.structure.epics_dir),
-      path.join(projectRoot, config.structure.issues_dir),
-      path.join(projectRoot, config.structure.tasks_dir),
-      path.join(projectRoot, config.structure.templates_dir),
-      path.dirname(this.configPath) // .ai-trackdown directory
-    ];
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    const pathResolver = new UnifiedPathResolver(config, projectRoot);
+    const requiredDirs = pathResolver.getRequiredDirectories();
 
-    for (const dir of directories) {
+    for (const dir of requiredDirs) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
@@ -292,10 +302,13 @@ export class ConfigManager {
    * Create default templates
    */
   private createDefaultTemplates(config: ProjectConfig): void {
-    const templatesDir = path.join(
-      path.dirname(path.dirname(this.configPath)),
-      config.structure.templates_dir
-    );
+    const projectRoot = path.dirname(path.dirname(this.configPath));
+    
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    const pathResolver = new UnifiedPathResolver(config, projectRoot);
+    const paths = pathResolver.getUnifiedPaths();
+    const templatesDir = paths.templatesDir;
 
     const templates: ItemTemplate[] = [
       {
@@ -404,6 +417,52 @@ Add any additional notes here.`
 
 ## Notes
 Add any additional notes here.`
+      },
+      {
+        type: 'pr',
+        name: 'default',
+        description: 'Default PR template',
+        frontmatter_template: {
+          title: 'PR Title',
+          description: 'PR description',
+          status: 'planning',
+          priority: 'medium',
+          assignee: config.default_assignee || 'unassigned',
+          created_date: '',
+          updated_date: '',
+          estimated_tokens: 0,
+          actual_tokens: 0,
+          ai_context: config.ai_context_templates || [],
+          sync_status: 'local'
+        },
+        content_template: `# PR: {{title}}
+
+## Description
+{{description}}
+
+## Changes
+- Change 1
+- Change 2
+- Change 3
+
+## Testing
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Checklist
+- [ ] Code follows style guidelines
+- [ ] Self-review completed
+- [ ] Documentation updated
+- [ ] Tests added/updated
+
+## Related
+- Issue: {{issue_id}}
+- Branch: {{branch_name}}
+- Target: {{target_branch}}
+
+## Notes
+Add any additional notes here.`
       }
     ];
 
@@ -439,11 +498,15 @@ Add any additional notes here.`
   /**
    * Get template by type and name
    */
-  public getTemplate(type: 'epic' | 'issue' | 'task', name: string = 'default'): ItemTemplate | null {
-    const templatesDir = path.join(
-      path.dirname(path.dirname(this.configPath)),
-      this.getConfig().structure.templates_dir
-    );
+  public getTemplate(type: 'epic' | 'issue' | 'task' | 'pr', name: string = 'default'): ItemTemplate | null {
+    const config = this.getConfig();
+    const projectRoot = path.dirname(path.dirname(this.configPath));
+    
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    const pathResolver = new UnifiedPathResolver(config, projectRoot);
+    const paths = pathResolver.getUnifiedPaths();
+    const templatesDir = paths.templatesDir;
     
     const templatePath = path.join(templatesDir, `${type}-${name}.yaml`);
     
@@ -465,10 +528,13 @@ Add any additional notes here.`
    */
   public listTemplates(): { type: string; name: string; description: string }[] {
     const config = this.getConfig();
-    const templatesDir = path.join(
-      path.dirname(path.dirname(this.configPath)),
-      config.structure.templates_dir
-    );
+    const projectRoot = path.dirname(path.dirname(this.configPath));
+    
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    const pathResolver = new UnifiedPathResolver(config, projectRoot);
+    const paths = pathResolver.getUnifiedPaths();
+    const templatesDir = paths.templatesDir;
     
     if (!fs.existsSync(templatesDir)) {
       return [];
