@@ -4,8 +4,8 @@
   "description": "Professional CLI tool for ai-trackdown functionality with comprehensive PR management system",
   "type": "module",
   "bin": {
-    "aitrackdown": "dist/index.cjs",
-    "atd": "dist/index.cjs"
+    "aitrackdown": "dist/index.js",
+    "atd": "dist/index.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
