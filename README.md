@@ -109,8 +109,9 @@ Convert existing projects to ai-trackdown format:
 # Migrate from old trackdown structure
 aitrackdown migrate --from-trackdown ./old-project
 
-# Convert GitHub Issues to ai-trackdown
-aitrackdown migrate --from-github-export issues.json
+# Import from various formats
+aitrackdown migrate --from-json project-data.json
+aitrackdown migrate --from-csv tasks.csv
 ```
 
 ## Command Reference

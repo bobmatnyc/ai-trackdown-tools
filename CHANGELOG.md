@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Major Release - Complete Redesign for ai-trackdown Compliance
 
-**BREAKING CHANGES**: Complete architectural transformation from GitHub API tool to ai-trackdown framework
+**BREAKING CHANGES**: Complete architectural redesign for ai-trackdown framework compliance
 
 ### Added
 - **AI-First Architecture**: Complete YAML frontmatter support for Epic/Issue/Task hierarchy
@@ -22,9 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration System**: `.ai-trackdown/config.yaml` project configuration
 
 ### Removed
-- **GitHub API Integration**: Complete removal of GitHub dependencies (BREAKING)
-- **Legacy Commands**: Removed GitHub Issues-specific commands
-- **OAuth Requirements**: No longer requires GitHub authentication
+- **Legacy Commands**: Simplified to focus on ai-trackdown core functionality
+- **External Dependencies**: Now operates with zero external API requirements
 
 ### Changed
 - **Project Structure**: New `epics/issues/tasks/` directory structure (BREAKING)
@@ -33,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration**: `.ai-trackdown/config.yaml` replaces `.trackdownrc.json` (BREAKING)
 
 ### Technical Improvements
-- **Zero Dependencies**: Git-native storage with local file operations
+- **Git-Native Storage**: Local file operations with version control integration
 - **Type Safety**: Complete TypeScript implementation
 - **Performance**: Fast CLI startup and efficient file operations
 - **Build System**: Clean build configuration with proper module bundling
