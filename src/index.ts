@@ -5,11 +5,11 @@ import { createInitCommand } from './commands/init.js';
 import { createStatusCommand } from './commands/status.js';
 import { createTrackCommand } from './commands/track.js';
 import { createVersionCommand } from './commands/version.js';
+import { createEpicCommand } from './commands/epic.js';
 import { createIssueCommand } from './commands/issue.js';
-import { createLabelCommand } from './commands/label.js';
-import { createMilestoneCommand } from './commands/milestone.js';
-import { createProjectCommand } from './commands/project.js';
-import { createBulkCommand } from './commands/bulk.js';
+import { createTaskCommand } from './commands/task.js';
+import { createAiCommand } from './commands/ai.js';
+import { createMigrateCommand } from './commands/migrate.js';
 import { VersionManager } from './utils/version.js';
 import { Formatter } from './utils/formatter.js';
 
@@ -43,7 +43,9 @@ async function main(): Promise<void> {
   program
     .option('--verbose', 'enable verbose output')
     .option('--config <path>', 'path to config file')
-    .option('--no-color', 'disable colored output');
+    .option('--no-color', 'disable colored output')
+    .option('--root-dir <path>', 'root directory for trackdown files (default: tasks/)')
+    .option('--tasks-dir <path>', 'alias for --root-dir');
 
   // Handle global options
   program.hook('preAction', (thisCommand) => {
@@ -60,19 +62,21 @@ async function main(): Promise<void> {
     }
   });
 
-  // Add commands
+  // Add core commands
   program.addCommand(createInitCommand());
   program.addCommand(createTrackCommand());
   program.addCommand(createStatusCommand());
   program.addCommand(createExportCommand());
   program.addCommand(createVersionCommand());
   
-  // GitHub Issues API commands
+  // AI-Trackdown hierarchical commands
+  program.addCommand(createEpicCommand());
   program.addCommand(createIssueCommand());
-  program.addCommand(createLabelCommand());
-  program.addCommand(createMilestoneCommand());
-  program.addCommand(createProjectCommand());
-  program.addCommand(createBulkCommand());
+  program.addCommand(createTaskCommand());
+  program.addCommand(createAiCommand());
+  
+  // Migration command
+  program.addCommand(createMigrateCommand());
 
   // Add helpful aliases
   program
@@ -93,22 +97,27 @@ async function main(): Promise<void> {
   // Custom help
   program.on('--help', () => {
     console.log('');
-    console.log(chalk.bold.cyan('GitHub Issues API Commands:'));
-    console.log('  $ aitrackdown issue create "Bug in login flow" --labels bug,high-priority');
-    console.log('  $ aitrackdown issue list --state open --assignee @me');
-    console.log('  $ aitrackdown issue search "is:open label:bug created:>1w"');
-    console.log('  $ aitrackdown label create "priority:high" --color ff0000');
-    console.log('  $ aitrackdown label apply 123 bug enhancement');
-    console.log('  $ aitrackdown milestone create "Sprint 1" --due-date "2025-01-15"');
-    console.log('  $ aitrackdown milestone list --show-progress');
-    console.log('  $ aitrackdown project create "Q1 Roadmap" --template "roadmap"');
-    console.log('  $ aitrackdown bulk assign --issues "123-130" --assignee "johndoe"');
+    console.log(chalk.bold.cyan('AI-Trackdown Hierarchical Commands:'));
+    console.log('  $ aitrackdown epic create "User Authentication System"');
+    console.log('  $ aitrackdown issue create "Implement login form" --epic EP-0001');
+    console.log('  $ aitrackdown task create "Create login UI" --issue ISS-0001');
+    console.log('  $ aitrackdown epic list --status active --show-progress');
+    console.log('  $ aitrackdown issue complete ISS-0001 --actual-tokens 500');
+    console.log('  $ aitrackdown task complete TSK-0001 --time-spent 2h');
     console.log('');
-    console.log(chalk.bold.cyan('Traditional Commands:'));
+    console.log(chalk.bold.cyan('AI-Specific Commands:'));
+    console.log('  $ aitrackdown ai generate-llms-txt --format detailed');
+    console.log('  $ aitrackdown ai track-tokens --report');
+    console.log('  $ aitrackdown ai context --item-id EP-0001 --add "context/requirements"');
+    console.log('');
+    console.log(chalk.bold.cyan('Core Project Commands:'));
     console.log('  $ aitrackdown init my-project');
-    console.log('  $ aitrackdown track "Implement user login"');
     console.log('  $ aitrackdown status --verbose');
     console.log('  $ aitrackdown export --format json');
+    console.log('');
+    console.log(chalk.bold.cyan('Migration Commands:'));
+    console.log('  $ aitrackdown migrate --dry-run --verbose');
+    console.log('  $ aitrackdown migrate --backup');
     console.log('');
     console.log(chalk.bold.cyan('Aliases:'));
     console.log('  atd = aitrackdown (shorter command)');

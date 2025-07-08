@@ -1,5 +1,8 @@
 // Core CLI types and interfaces
 
+// Export new AI-Trackdown types
+export * from './ai-trackdown.js';
+
 export interface CommandOptions {
   verbose?: boolean;
   config?: string;
@@ -16,6 +19,8 @@ export interface TrackdownConfig {
   colorOutput?: boolean;
   defaultPriority?: 'low' | 'medium' | 'high' | 'critical';
   autoAssign?: boolean;
+  rootDirectory?: string; // NEW: configurable root directory
+  migrateFromTrackdown?: boolean; // NEW: migration flag
   customFields?: Array<{
     name: string;
     type: 'string' | 'number' | 'boolean' | 'date';

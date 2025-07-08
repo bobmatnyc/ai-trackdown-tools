@@ -5,6 +5,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
+import { PathResolver } from '../utils/path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
 import {
   validateStatus,
@@ -114,16 +115,33 @@ Export Templates:
             currentOptions = await runInteractiveExportMode(options);
           }
 
-          const trackdownDir = join(process.cwd(), 'trackdown');
-
-          if (!existsSync(trackdownDir)) {
-            console.error(Formatter.error('No trackdown project found in current directory'));
-            console.log(Formatter.info('Run "trackdown init" to initialize a new project'));
-            process.exit(1);
-          }
+          // Get CLI root directory option
+          const parentCommand = command.parent;
+          const rootDirOption = parentCommand?.opts()?.rootDir || parentCommand?.opts()?.tasksDir;
 
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
+          
+          // Initialize path resolver with CLI override
+          const pathResolver = new PathResolver(configManager, rootDirOption);
+
+          const trackdownDir = join(process.cwd(), pathResolver.getRootDirectory());
+
+          if (!existsSync(trackdownDir)) {
+            // Check for migration scenario
+            if (pathResolver.shouldMigrate()) {
+              pathResolver.showMigrationWarning();
+              console.log('\nMigration commands:');
+              pathResolver.getMigrationCommands().forEach(cmd => {
+                console.log(Formatter.highlight(cmd));
+              });
+              process.exit(1);
+            }
+            
+            console.error(Formatter.error(`No ${pathResolver.getRootDirectory()} project found in current directory`));
+            console.log(Formatter.info('Run "aitrackdown init" to initialize a new project'));
+            process.exit(1);
+          }
 
           // Validate and process options with professional UX
           const exportConfig = await validateAndProcessExportOptions(currentOptions, config);
@@ -134,7 +152,7 @@ Export Templates:
 
           try {
             // Collect all items
-            const items = collectItems(trackdownDir, exportConfig.includeCompleted);
+            const items = collectItems(trackdownDir, exportConfig.includeCompleted, pathResolver);
             spinner.text = `Processing ${items.length} items...`;
 
             // Parse and apply filters
@@ -176,7 +194,7 @@ Export Templates:
 
             // Handle output
             if (exportConfig.output) {
-              const outputPath = resolveOutputPath(exportConfig.output, trackdownDir);
+              const outputPath = resolveOutputPath(exportConfig.output, trackdownDir, pathResolver);
               ensureDirectoryExists(outputPath);
 
               progressSpinner.text = 'Writing export file...';
@@ -635,13 +653,13 @@ async function displayExportPreview(items: TrackdownItem[], config: any): Promis
   console.log(Formatter.info(`Full export would contain ${items.length} items`));
 }
 
-function resolveOutputPath(outputPath: string, trackdownDir: string): string {
+function resolveOutputPath(outputPath: string, trackdownDir: string, pathResolver: PathResolver): string {
   if (outputPath.startsWith('/') || outputPath.includes(':')) {
     // Absolute path
     return outputPath;
   } else {
-    // Relative path - resolve from trackdown/exports directory
-    return join(trackdownDir, 'exports', outputPath);
+    // Relative path - resolve from exports directory
+    return join(process.cwd(), pathResolver.getExportsDir(), outputPath);
   }
 }
 
@@ -932,16 +950,16 @@ function getAppliedFiltersInfo(config: any): Record<string, any> {
 }
 
 // Keep the enhanced collectItems and parseTrackdownFile functions from the original
-function collectItems(trackdownDir: string, includeCompleted: boolean): TrackdownItem[] {
+function collectItems(trackdownDir: string, includeCompleted: boolean, pathResolver: PathResolver): TrackdownItem[] {
   const items: TrackdownItem[] = [];
-  const directories = ['active'];
+  const directories = [pathResolver.getActiveDir()];
 
   if (includeCompleted) {
-    directories.push('completed');
+    directories.push(pathResolver.getCompletedDir());
   }
 
   for (const dir of directories) {
-    const fullPath = join(trackdownDir, dir);
+    const fullPath = join(process.cwd(), dir);
     if (existsSync(fullPath)) {
       const files = readdirSync(fullPath).filter((file) => file.endsWith('.md'));
 

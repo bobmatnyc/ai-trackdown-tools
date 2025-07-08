@@ -1,37 +1,48 @@
 /**
- * Issue search command - Advanced search with GitHub-compatible query syntax
+ * Issue search command - Advanced search for ai-trackdown issues
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { createGitHubClient, GitHubAPIClientError } from '../../utils/github-api.js';
-import { OutputFormatter, formatError, formatInfo, formatWarning, formatSuccess } from '../../utils/formatters.js';
-import { SearchQueryParser, buildSearchQuery } from '../../utils/search-parser.js';
-import type { IssueSearchOptions } from '../../types/commands.js';
-import type { SearchQuery } from '../../types/github.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as YAML from 'yaml';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { ConfigManager } from '../../utils/config-manager.js';
+import { formatError, formatInfo, formatWarning, formatSuccess } from '../../utils/formatters.js';
+import type { IssueData, IssueFrontmatter } from '../../types/ai-trackdown.js';
+
+interface IssueSearchOptions {
+  state?: string;
+  sort?: string;
+  order?: string;
+  limit?: number;
+  page?: number;
+  assignee?: string;
+  labels?: string;
+  priority?: string;
+  epic?: string;
+  format?: string;
+  verbose?: boolean;
+}
 
 export function createIssueSearchCommand(): Command {
   const cmd = new Command('search');
   
   cmd
-    .description('Search issues with GitHub-compatible query syntax')
-    .argument('<query>', 'Search query (GitHub-compatible syntax)')
-    .option('-s, --state <state>', 'Issue state (open, closed, all)', 'all')
-    .option('--sort <field>', 'Sort by field (comments, reactions, reactions-+1, reactions--1, interactions, created, updated)')
+    .description('Search issues in the current ai-trackdown project')
+    .argument('<query>', 'Search query (searches in title and content)')
+    .option('-s, --state <state>', 'Issue state (todo, in_progress, completed, all)', 'all')
+    .option('--sort <field>', 'Sort by field (created, updated, priority, status)', 'updated')
     .option('--order <direction>', 'Sort direction (asc, desc)', 'desc')
     .option('-n, --limit <number>', 'Maximum number of results to return', parseInt, 30)
     .option('-p, --page <number>', 'Page number for pagination', parseInt, 1)
-    .option('--created <date>', 'Filter by creation date (e.g., ">2024-01-01", "<1w")')
-    .option('--updated <date>', 'Filter by update date')
-    .option('--author <user>', 'Filter by author')
     .option('--assignee <user>', 'Filter by assignee')
-    .option('--mentions <user>', 'Filter by mentioned user')
     .option('--labels <labels>', 'Filter by labels (comma-separated)')
-    .option('--milestone <milestone>', 'Filter by milestone')
-    .option('--in <fields>', 'Search in specific fields (title, body, comments)')
-    .option('--web', 'Open search results in web browser')
-    .option('--format <format>', 'Output format (table, json, yaml, csv)', 'table')
-    .option('--validate', 'Validate search query syntax without executing')
+    .option('--priority <priority>', 'Filter by priority (low, medium, high, critical)')
+    .option('--epic <epic-id>', 'Filter by epic ID')
+    .option('--format <format>', 'Output format (table, json, yaml)', 'table')
+    .option('-v, --verbose', 'Show detailed output')
     .action(async (query: string, options: IssueSearchOptions) => {
       try {
         await handleSearchIssues(query, options);
@@ -50,161 +61,138 @@ async function handleSearchIssues(query: string, options: IssueSearchOptions): P
     throw new Error('Search query is required');
   }
 
-  // Validate and parse query if requested
-  if (options.validate) {
-    console.log(chalk.blue('Validating search query...'));
-    const validation = SearchQueryParser.validate(query);
-    
-    if (validation.valid) {
-      console.log(formatSuccess('Query syntax is valid'));
-      if (validation.parsedQuery) {
-        console.log('');
-        console.log(chalk.bold('Parsed query:'));
-        console.log(JSON.stringify(validation.parsedQuery, null, 2));
-      }
-    } else {
-      console.log(formatError('Query syntax is invalid'));
-      validation.errors.forEach(error => {
-        console.log(formatError(`  ${error.message}`));
-        if (error.suggestion) {
-          console.log(formatInfo(`  Suggestion: ${error.suggestion}`));
-        }
-      });
-    }
-    
-    if (validation.warnings.length > 0) {
-      console.log('');
-      console.log(chalk.bold.yellow('Warnings:'));
-      validation.warnings.forEach(warning => {
-        console.log(formatWarning(warning));
-      });
-    }
-    
-    return;
+  // Initialize config and frontmatter parser
+  const configManager = new ConfigManager();
+  const config = configManager.getConfig();
+  const frontmatterParser = new FrontmatterParser();
+
+  const rootDir = path.resolve(config.directory_root || '.ai-trackdown');
+  const issuesDir = path.join(rootDir, 'issues');
+
+  if (!fs.existsSync(issuesDir)) {
+    throw new Error(`Issues directory not found: ${issuesDir}. Run 'aitrackdown init' to set up the project.`);
   }
 
-  // Create GitHub client
-  const client = createGitHubClient();
-  
-  // Get repository info
-  const repository = client.getRepository();
-  if (!repository) {
-    throw new Error('No repository configured. Run "trackdown config repo" to set up repository.');
-  }
-
-  // Parse search query
-  const parsed = SearchQueryParser.parse(query);
-  
-  // Build advanced filters from options and parsed query
-  const filters: any = {};
-  
-  // Apply command-line options to override/supplement query
-  if (options.state && options.state !== 'all') {
-    filters.state = options.state;
-  }
-  
-  if (options.author) {
-    filters.author = options.author;
-  }
-  
-  if (options.assignee) {
-    filters.assignee = options.assignee;
-  }
-  
-  if (options.mentions) {
-    filters.mentions = options.mentions;
-  }
-  
-  if (options.labels) {
-    filters.labels = options.labels.split(',').map(l => l.trim());
-  }
-  
-  if (options.milestone) {
-    filters.milestone = options.milestone;
-  }
-  
-  if (options.created) {
-    filters.created = options.created;
-  }
-  
-  if (options.updated) {
-    filters.updated = options.updated;
-  }
-  
-  if (options.in) {
-    filters.in = options.in.split(',').map(f => f.trim());
-  }
-
-  // Build GitHub search query
-  let searchQuery = SearchQueryParser.toGitHubQuery(parsed, `${repository.owner}/${repository.name}`);
-  
-  // Apply additional filters from command line options
-  const additionalFilters = buildSearchQuery(filters);
-  if (additionalFilters) {
-    searchQuery = searchQuery ? `${searchQuery} ${additionalFilters}` : additionalFilters;
-  }
-
-  // Ensure repository is included in search
-  if (!searchQuery.includes('repo:') && !searchQuery.includes('user:') && !searchQuery.includes('org:')) {
-    searchQuery += ` repo:${repository.owner}/${repository.name}`;
-  }
-
-  // Build GitHub search API parameters
-  const searchParams: SearchQuery = {
-    q: searchQuery,
-    sort: options.sort as any,
-    order: options.order,
-    per_page: options.limit,
-    page: options.page
-  };
-
-  // Show search details if verbose
   if (options.verbose) {
     console.log(chalk.blue('Search details:'));
     console.log(chalk.gray('─'.repeat(40)));
-    console.log(`${chalk.bold('Original query:')} ${query}`);
-    console.log(`${chalk.bold('GitHub query:')} ${searchQuery}`);
-    console.log(`${chalk.bold('Repository:')} ${repository.owner}/${repository.name}`);
-    if (options.sort) {
-      console.log(`${chalk.bold('Sort:')} ${options.sort} ${options.order || 'desc'}`);
-    }
+    console.log(`${chalk.bold('Query:')} ${query}`);
+    console.log(`${chalk.bold('Issues directory:')} ${issuesDir}`);
+    console.log(`${chalk.bold('Filters applied:')}`);
+    if (options.state && options.state !== 'all') console.log(`  - State: ${options.state}`);
+    if (options.assignee) console.log(`  - Assignee: ${options.assignee}`);
+    if (options.labels) console.log(`  - Labels: ${options.labels}`);
+    if (options.priority) console.log(`  - Priority: ${options.priority}`);
+    if (options.epic) console.log(`  - Epic: ${options.epic}`);
     console.log(chalk.gray('─'.repeat(40)));
     console.log('');
   }
 
   try {
-    console.log(chalk.blue(`Searching issues in ${repository.owner}/${repository.name}...`));
+    console.log(chalk.blue('Searching issues...'));
     
-    // Execute search
-    const searchResponse = await client.searchIssues(searchParams);
-    const searchResult = searchResponse.data;
+    // Load all issues
+    const allIssues = frontmatterParser.parseDirectory(issuesDir, 'issue');
     
-    // Filter out pull requests (GitHub includes PRs in issues search)
-    const issues = searchResult.items.filter(issue => !issue.pull_request);
-    const totalIssues = issues.length;
-    
-    // Show search results summary
-    console.log(formatInfo(`Found ${totalIssues} issue${totalIssues === 1 ? '' : 's'} (${searchResult.total_count} total items including PRs)`));
-    
-    if (searchResult.incomplete_results) {
-      console.log(formatWarning('Search results may be incomplete due to timeout'));
+    if (allIssues.length === 0) {
+      console.log(formatWarning('No issues found in the project'));
+      return;
     }
+
+    // Filter issues based on criteria
+    let filteredIssues = allIssues.filter(issue => {
+      const issueData = issue as IssueData;
+      
+      // Text search in title and content
+      const searchableText = `${issueData.title.toLowerCase()} ${issueData.content.toLowerCase()}`;
+      if (!searchableText.includes(query.toLowerCase())) {
+        return false;
+      }
+
+      // State filter
+      if (options.state && options.state !== 'all' && issueData.status !== options.state) {
+        return false;
+      }
+
+      // Assignee filter
+      if (options.assignee && issueData.assignee !== options.assignee) {
+        return false;
+      }
+
+      // Priority filter
+      if (options.priority && issueData.priority !== options.priority) {
+        return false;
+      }
+
+      // Epic filter
+      if (options.epic && issueData.epic_id !== options.epic) {
+        return false;
+      }
+
+      // Labels filter
+      if (options.labels) {
+        const requestedLabels = options.labels.split(',').map(l => l.trim());
+        const hasAllLabels = requestedLabels.every(label => 
+          issueData.labels && issueData.labels.includes(label)
+        );
+        if (!hasAllLabels) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort issues
+    filteredIssues.sort((a, b) => {
+      const issueA = a as IssueData;
+      const issueB = b as IssueData;
+      
+      let comparison = 0;
+      
+      switch (options.sort) {
+        case 'created':
+          comparison = new Date(issueA.created_date).getTime() - new Date(issueB.created_date).getTime();
+          break;
+        case 'updated':
+          comparison = new Date(issueA.updated_date).getTime() - new Date(issueB.updated_date).getTime();
+          break;
+        case 'priority':
+          const priorityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
+          comparison = (priorityOrder[issueA.priority as keyof typeof priorityOrder] || 0) - 
+                      (priorityOrder[issueB.priority as keyof typeof priorityOrder] || 0);
+          break;
+        case 'status':
+          comparison = issueA.status.localeCompare(issueB.status);
+          break;
+        default:
+          comparison = new Date(issueA.updated_date).getTime() - new Date(issueB.updated_date).getTime();
+      }
+      
+      return options.order === 'asc' ? comparison : -comparison;
+    });
+
+    // Apply pagination
+    const limit = options.limit || 30;
+    const page = options.page || 1;
+    const startIndex = (page - 1) * limit;
+    const paginatedIssues = filteredIssues.slice(startIndex, startIndex + limit);
+
+    console.log(formatInfo(`Found ${filteredIssues.length} issue${filteredIssues.length === 1 ? '' : 's'} matching your criteria`));
     
-    if (totalIssues === 0) {
+    if (filteredIssues.length === 0) {
       console.log('');
       console.log(chalk.gray('No issues found matching your search criteria.'));
       
-      // Provide search tips
       console.log('');
       console.log(chalk.bold.cyan('Search Tips:'));
       console.log(chalk.gray('─'.repeat(20)));
-      console.log('• Use quotes for exact phrases: "bug in login"');
-      console.log('• Filter by state: is:open, is:closed');
-      console.log('• Filter by labels: label:bug');
-      console.log('• Filter by assignee: assignee:username');
-      console.log('• Filter by author: author:username');
-      console.log('• Date ranges: created:>2024-01-01');
-      console.log('• Combine filters: is:open label:bug assignee:@me');
+      console.log('• Search matches title and content');
+      console.log('• Use --state to filter by status (todo, in_progress, completed)');
+      console.log('• Use --assignee to filter by assignee');
+      console.log('• Use --priority to filter by priority level');
+      console.log('• Use --epic to filter by epic ID');
+      console.log('• Use --labels to filter by labels (comma-separated)');
       
       return;
     }
@@ -215,111 +203,90 @@ async function handleSearchIssues(query: string, options: IssueSearchOptions): P
     switch (options.format) {
       case 'json':
         const jsonData = {
-          query: searchQuery,
-          total_count: searchResult.total_count,
-          incomplete_results: searchResult.incomplete_results,
-          issues: issues,
+          query,
+          total_found: filteredIssues.length,
+          page: page,
+          per_page: limit,
+          issues: paginatedIssues,
           meta: {
-            repository: `${repository.owner}/${repository.name}`,
-            searched_at: new Date().toISOString()
+            searched_at: new Date().toISOString(),
+            issues_directory: issuesDir
           }
         };
-        console.log(OutputFormatter.formatJSON(jsonData, { pretty: true }));
+        console.log(JSON.stringify(jsonData, null, 2));
         break;
       
       case 'yaml':
         const yamlData = {
-          query: searchQuery,
-          total_count: searchResult.total_count,
-          incomplete_results: searchResult.incomplete_results,
-          issues: issues
+          query,
+          total_found: filteredIssues.length,
+          page,
+          per_page: limit,
+          issues: paginatedIssues
         };
-        console.log(OutputFormatter.formatYAML(yamlData));
-        break;
-      
-      case 'csv':
-        const csvHeaders = ['number', 'title', 'state', 'author', 'created_at', 'updated_at'];
-        console.log(OutputFormatter.formatCSV(issues, csvHeaders));
+        console.log(YAML.stringify(yamlData));
         break;
       
       default:
-        console.log(OutputFormatter.formatIssuesTable(issues, {
-          format: 'table'
-        }));
+        // Table format
+        if (paginatedIssues.length > 0) {
+          console.log(chalk.bold.cyan('Issues:'));
+          console.log(chalk.gray('─'.repeat(80)));
+          
+          paginatedIssues.forEach(issue => {
+            const issueData = issue as IssueData;
+            const statusColor = issueData.status === 'completed' ? 'green' : 
+                              issueData.status === 'in_progress' ? 'yellow' : 'gray';
+            const priorityColor = issueData.priority === 'critical' ? 'red' : 
+                                 issueData.priority === 'high' ? 'yellow' : 'white';
+            
+            console.log(`${chalk[statusColor]('●')} ${chalk.bold(issueData.issue_id)} ${issueData.title}`);
+            console.log(`  ${chalk.gray('Epic:')} ${issueData.epic_id} ${chalk.gray('|')} ${chalk.gray('Status:')} ${chalk[statusColor](issueData.status)} ${chalk.gray('|')} ${chalk.gray('Priority:')} ${chalk[priorityColor](issueData.priority)}`);
+            console.log(`  ${chalk.gray('Assignee:')} ${issueData.assignee} ${chalk.gray('|')} ${chalk.gray('Updated:')} ${new Date(issueData.updated_date).toLocaleDateString()}`);
+            
+            if (issueData.labels && issueData.labels.length > 0) {
+              console.log(`  ${chalk.gray('Labels:')} ${issueData.labels.join(', ')}`);
+            }
+            console.log('');
+          });
+        }
         
         // Show search metadata
-        console.log('');
         console.log(chalk.bold.cyan('Search Results:'));
         console.log(chalk.gray('─'.repeat(30)));
-        console.log(`${chalk.bold('Query:')} ${searchQuery}`);
-        console.log(`${chalk.bold('Total items:')} ${searchResult.total_count} (including PRs)`);
-        console.log(`${chalk.bold('Issues shown:')} ${totalIssues}`);
-        console.log(`${chalk.bold('Page:')} ${options.page || 1}`);
-        
-        if (searchResult.incomplete_results) {
-          console.log(`${chalk.bold('Status:')} ${chalk.yellow('Incomplete (timeout)')}`);
-        }
+        console.log(`${chalk.bold('Query:')} ${query}`);
+        console.log(`${chalk.bold('Total found:')} ${filteredIssues.length}`);
+        console.log(`${chalk.bold('Shown:')} ${paginatedIssues.length}`);
+        console.log(`${chalk.bold('Page:')} ${page} of ${Math.ceil(filteredIssues.length / limit)}`);
         
         break;
     }
 
     // Show pagination info
-    if (totalIssues === (options.limit || 30) && searchResult.total_count > totalIssues) {
+    if (filteredIssues.length > limit) {
+      const totalPages = Math.ceil(filteredIssues.length / limit);
       console.log('');
-      console.log(formatInfo(`Showing page ${options.page || 1}. Use --page=${(options.page || 1) + 1} for next page.`));
-    }
-
-    // Open in web browser if requested
-    if (options.web) {
-      const searchUrl = `https://github.com/search?q=${encodeURIComponent(searchQuery)}&type=issues`;
-      
-      try {
-        const open = await import('open');
-        await open.default(searchUrl);
-        console.log(formatInfo(`Opened search in browser: ${searchUrl}`));
-      } catch (error) {
-        console.log(formatWarning('Failed to open browser'));
+      if (page < totalPages) {
+        console.log(formatInfo(`Showing page ${page} of ${totalPages}. Use --page=${page + 1} for next page.`));
+      }
+      if (page > 1) {
+        console.log(formatInfo(`Use --page=${page - 1} for previous page.`));
       }
     }
 
-    // Show helpful search suggestions
-    if (options.format === 'table' && totalIssues > 0) {
+    // Show helpful suggestions
+    if (options.format === 'table' && filteredIssues.length > 0) {
       console.log('');
       console.log(chalk.bold.cyan('Refine Search:'));
       console.log(chalk.gray('─'.repeat(30)));
-      console.log(`${chalk.cyan('More recent:')} ${query} created:>1w`);
-      console.log(`${chalk.cyan('Open only:')} ${query} is:open`);
-      console.log(`${chalk.cyan('With comments:')} ${query} comments:>0`);
-      console.log(`${chalk.cyan('No assignee:')} ${query} no:assignee`);
+      console.log(`${chalk.cyan('Only open:')} --state todo`);
+      console.log(`${chalk.cyan('In progress:')} --state in_progress`);
+      console.log(`${chalk.cyan('High priority:')} --priority high`);
+      console.log(`${chalk.cyan('Unassigned:')} --assignee unassigned`);
     }
 
   } catch (error) {
-    if (error instanceof GitHubAPIClientError) {
-      if (error.isUnauthorized()) {
-        console.error(formatError('Authentication failed. Please check your GitHub token.'));
-      } else if (error.isForbidden()) {
-        console.error(formatError('Access denied. You may not have permission to search in this repository.'));
-      } else if (error.isValidationError()) {
-        const validationErrors = error.getValidationErrors();
-        console.error(formatError('Search query validation failed:'));
-        validationErrors.forEach(err => {
-          console.error(formatError(`  ${err.field}: ${err.message}`));
-        });
-        
-        // Provide search syntax help
-        console.log('');
-        console.log(chalk.bold.cyan('Search Syntax Help:'));
-        console.log(chalk.gray('─'.repeat(30)));
-        console.log('Valid qualifiers: is, author, assignee, label, milestone, created, updated');
-        console.log('Date formats: YYYY-MM-DD, >2024-01-01, <1w, 2024-01-01..2024-12-31');
-        console.log('Examples: "is:open label:bug", "author:username created:>2024-01-01"');
-        
-      } else {
-        console.error(formatError(`GitHub API error: ${error.message}`));
-      }
-    } else {
-      throw error;
-    }
+    throw new Error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

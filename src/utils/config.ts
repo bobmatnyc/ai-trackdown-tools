@@ -13,6 +13,8 @@ const DEFAULT_CONFIG: TrackdownConfig = {
   colorOutput: true,
   defaultPriority: 'medium',
   autoAssign: true,
+  rootDirectory: 'tasks', // NEW DEFAULT: tasks/ instead of trackdown/
+  migrateFromTrackdown: true, // NEW: enable migration by default
   customFields: [],
   integrations: {
     git: true,
@@ -121,6 +123,19 @@ export class ConfigManager {
 
     if (process.env.TRACKDOWN_AUTO_ASSIGN) {
       envConfig.autoAssign = process.env.TRACKDOWN_AUTO_ASSIGN === 'true';
+    }
+
+    // NEW: Support for root directory environment variables
+    if (process.env.AITRACKDOWN_ROOT_DIR) {
+      envConfig.rootDirectory = process.env.AITRACKDOWN_ROOT_DIR;
+    }
+
+    if (process.env.AITRACKDOWN_TASKS_DIR) {
+      envConfig.rootDirectory = process.env.AITRACKDOWN_TASKS_DIR;
+    }
+
+    if (process.env.TRACKDOWN_MIGRATE_FROM_TRACKDOWN) {
+      envConfig.migrateFromTrackdown = process.env.TRACKDOWN_MIGRATE_FROM_TRACKDOWN === 'true';
     }
 
     return envConfig;

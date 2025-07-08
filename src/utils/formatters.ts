@@ -3,7 +3,7 @@
  */
 
 import chalk from 'chalk';
-import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubComment } from '../types/github.js';
+// import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubComment } from '../types/github.js'; // Removed GitHub dependencies
 import type { FormatOptions } from '../types/commands.js';
 
 export interface TableColumn {

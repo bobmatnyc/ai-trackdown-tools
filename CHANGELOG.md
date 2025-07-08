@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-07-08
+
+### Major Release - Complete Redesign for ai-trackdown Compliance
+
+**BREAKING CHANGES**: Complete architectural transformation from GitHub API tool to ai-trackdown framework
+
+### Added
+- **AI-First Architecture**: Complete YAML frontmatter support for Epic/Issue/Task hierarchy
+- **Token Tracking System**: Comprehensive token usage monitoring and budget management
+- **AI Context Generation**: Automatic llms.txt generation for AI workflows
+- **Template System**: Configurable project templates and initialization
+- **Hierarchical Relationships**: Epic → Issue → Task relationship management
+- **Migration Tools**: Convert legacy projects to ai-trackdown format
+- **Professional CLI Interface**: Complete command structure with help system
+- **Configuration System**: `.ai-trackdown/config.yaml` project configuration
+
+### Removed
+- **GitHub API Integration**: Complete removal of GitHub dependencies (BREAKING)
+- **Legacy Commands**: Removed GitHub Issues-specific commands
+- **OAuth Requirements**: No longer requires GitHub authentication
+
+### Changed
+- **Project Structure**: New `epics/issues/tasks/` directory structure (BREAKING)
+- **Data Format**: YAML frontmatter replaces JSON data files (BREAKING)
+- **Command Interface**: Complete redesign of all CLI commands (BREAKING)
+- **Configuration**: `.ai-trackdown/config.yaml` replaces `.trackdownrc.json` (BREAKING)
+
+### Technical Improvements
+- **Zero Dependencies**: Git-native storage with local file operations
+- **Type Safety**: Complete TypeScript implementation
+- **Performance**: Fast CLI startup and efficient file operations
+- **Build System**: Clean build configuration with proper module bundling
+- **Testing**: Comprehensive verification and quality assurance
+
 ## [0.3.0] - 2025-07-07
 
 ### Changed - CLI Rename and Alias Update

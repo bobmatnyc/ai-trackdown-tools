@@ -1,324 +1,179 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * AI-Trackdown Init Command
+ * Initialize new ai-trackdown projects with YAML frontmatter architecture
+ */
+
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import { ConfigManager } from '../utils/config.js';
-import { Formatter } from '../utils/formatter.js';
-import {
-  validateProjectName,
-  validateProjectType,
-  validateConfigFormat,
-  ValidationError,
-} from '../utils/validation.js';
-import type { ProjectTemplate } from '../types/index.js';
+import { ConfigManager } from '../utils/config-manager.js';
+import { AITrackdownIdGenerator } from '../utils/id-generator.js';
+import { FrontmatterParser } from '../utils/frontmatter-parser.js';
+import type { ProjectConfig } from '../types/ai-trackdown.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
-  standard: {
-    name: 'Standard',
-    description: 'Basic trackdown project with essential features',
-    type: 'general',
-    structure: [
-      { path: 'trackdown/active', type: 'directory' },
-      { path: 'trackdown/completed', type: 'directory' },
-      { path: 'trackdown/templates', type: 'directory' },
-      { path: 'trackdown/exports', type: 'directory' },
-      { path: 'trackdown/docs', type: 'directory' },
-    ],
-    config: {
-      defaultPriority: 'medium',
-      outputFormat: 'md',
-      colorOutput: true,
-    },
-  },
-  cli: {
-    name: 'CLI Tool',
-    description: 'Template for command-line tool development',
-    type: 'cli',
-    structure: [
-      { path: 'trackdown/features', type: 'directory' },
-      { path: 'trackdown/bugs', type: 'directory' },
-      { path: 'trackdown/releases', type: 'directory' },
-      { path: 'trackdown/documentation', type: 'directory' },
-    ],
-    config: {
-      defaultPriority: 'high',
-      outputFormat: 'table',
-      integrations: { git: true },
-    },
-  },
-  web: {
-    name: 'Web Application',
-    description: 'Template for web application development',
-    type: 'web',
-    structure: [
-      { path: 'trackdown/frontend', type: 'directory' },
-      { path: 'trackdown/backend', type: 'directory' },
-      { path: 'trackdown/testing', type: 'directory' },
-      { path: 'trackdown/deployment', type: 'directory' },
-    ],
-    config: {
-      defaultPriority: 'medium',
-      outputFormat: 'table',
-      integrations: { git: true, jira: false },
-    },
-  },
-  api: {
-    name: 'API Development',
-    description: 'Template for API and microservice development',
-    type: 'api',
-    structure: [
-      { path: 'trackdown/endpoints', type: 'directory' },
-      { path: 'trackdown/schemas', type: 'directory' },
-      { path: 'trackdown/testing', type: 'directory' },
-      { path: 'trackdown/documentation', type: 'directory' },
-    ],
-    config: {
-      defaultPriority: 'high',
-      outputFormat: 'json',
-      integrations: { git: true },
-    },
-  },
-  mobile: {
-    name: 'Mobile App',
-    description: 'Template for mobile application development',
-    type: 'mobile',
-    structure: [
-      { path: 'trackdown/features', type: 'directory' },
-      { path: 'trackdown/ui-ux', type: 'directory' },
-      { path: 'trackdown/testing', type: 'directory' },
-      { path: 'trackdown/releases', type: 'directory' },
-    ],
-    config: {
-      defaultPriority: 'medium',
-      outputFormat: 'table',
-      integrations: { git: true },
-    },
-  },
-};
+interface InitOptions {
+  force?: boolean;
+  interactive?: boolean;
+  type?: string;
+  assignee?: string;
+  name?: string;
+}
 
 export function createInitCommand(): Command {
   const command = new Command('init');
 
   command
-    .description('Initialize a new trackdown project with advanced configuration')
+    .description('Initialize a new AI-Trackdown project with hierarchical structure')
     .argument('[project-name]', 'name of the project')
-    .option('--type <type>', 'project type (cli, web, api, mobile, general)', 'general')
-    .option('--template <name>', 'use project template', 'standard')
-    .option('--config <file>', 'custom configuration file path')
+    .option('--type <type>', 'project type (software, research, business, general)', 'general')
+    .option('--assignee <assignee>', 'default assignee for items')
     .option('--force', 'overwrite existing project')
     .option('--interactive', 'interactive setup mode')
-    .option('--no-git', 'skip git repository initialization')
-    .option('--format <format>', 'configuration file format (json, yaml)', 'json')
     .addHelpText(
       'after',
       `
 Examples:
-  $ aitrackdown init my-project --type cli --template standard
-  $ aitrackdown init web-app --type web --interactive
-  $ aitrackdown init api-service --config ./custom.yaml --format yaml
+  $ aitrackdown init my-project --type software
+  $ aitrackdown init research-project --type research --interactive
   $ aitrackdown init --interactive
 
-Templates:
-  standard  - Basic project with essential features
-  cli       - Command-line tool development
-  web       - Web application development  
-  api       - API and microservice development
-  mobile    - Mobile application development
-
-Types:
-  cli       - Command-line tools and utilities
-  web       - Web applications and sites
-  api       - REST APIs and microservices
-  mobile    - Mobile applications
+Project Types:
+  software  - Software development projects
+  research  - Research and analysis projects  
+  business  - Business process and planning
   general   - General purpose projects
 `
     )
-    .action(
-      async (
-        projectName?: string,
-        options?: {
-          type?: string;
-          template?: string;
-          config?: string;
-          force?: boolean;
-          interactive?: boolean;
-          git?: boolean;
-          format?: string;
+    .action(async (projectName?: string, options: InitOptions = {}) => {
+      try {
+        let config = {
+          name: projectName,
+          type: options.type || 'general',
+          assignee: options.assignee || process.env.USER || 'unassigned',
+          force: options.force || false
+        };
+
+        // Interactive mode
+        if (options.interactive || !projectName) {
+          config = await runInteractiveSetup(config);
         }
-      ) => {
-        try {
-          let config = {
-            name: projectName,
-            type: options?.type || 'general',
-            template: options?.template || 'standard',
-            configFile: options?.config,
-            force: options?.force || false,
-            initGit: options?.git !== false,
-            format: options?.format || 'json',
-          };
 
-          // Interactive mode
-          if (options?.interactive || !projectName) {
-            config = await runInteractiveSetup(config);
-          }
+        // Validate project name
+        const projectNameValue = config.name || 'ai-trackdown-project';
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(projectNameValue)) {
+          throw new Error('Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores');
+        }
 
-          // Validate inputs
-          const validatedName = validateProjectName(config.name || 'trackdown-project');
-          const validatedType = validateProjectType(config.type);
-          const configFormat = validateConfigFormat(`.${config.format}`);
+        const projectPath = path.resolve(process.cwd(), projectNameValue);
 
-          // Validate template
-          if (!PROJECT_TEMPLATES[config.template]) {
-            throw new ValidationError(
-              `Unknown template: ${config.template}`,
-              `Available templates: ${Object.keys(PROJECT_TEMPLATES).join(', ')}`,
-              1,
-              'init',
-              Object.keys(PROJECT_TEMPLATES).map((t) => `--template ${t}`)
-            );
-          }
-
-          const template = PROJECT_TEMPLATES[config.template];
-          const projectPath = join(process.cwd(), validatedName);
-
-          // Check if project already exists
-          if (existsSync(projectPath) && !config.force) {
-            console.error(Formatter.error(`Project "${validatedName}" already exists`));
-            console.log(Formatter.info('Use --force to overwrite existing project'));
-            console.log(Formatter.info('Or choose a different project name'));
-            process.exit(1);
-          }
-
-          // Show initialization progress
-          const spinner = ora('Initializing trackdown project...').start();
-
-          try {
-            // Create project directory
-            if (!existsSync(projectPath)) {
-              mkdirSync(projectPath, { recursive: true });
-            }
-            spinner.text = 'Creating project structure...';
-
-            // Create directory structure based on template
-            for (const item of template.structure) {
-              const fullPath = join(projectPath, item.path);
-              if (item.type === 'directory') {
-                mkdirSync(fullPath, { recursive: true });
-              } else if (item.type === 'file' && item.content) {
-                writeFileSync(fullPath, item.content);
-              }
-            }
-
-            spinner.text = 'Configuring project settings...';
-
-            // Create configuration
-            const configFileName =
-              configFormat === 'yaml' ? '.trackdownrc.yaml' : '.trackdownrc.json';
-            const configManager = new ConfigManager(
-              config.configFile || join(projectPath, configFileName)
-            );
-
-            const projectConfig = {
-              projectName: validatedName,
-              outputFormat: template.config?.outputFormat || 'md',
-              templatePath: './trackdown/templates',
-              defaultTemplate: config.template,
-              colorOutput: template.config?.colorOutput ?? true,
-              defaultPriority: template.config?.defaultPriority || 'medium',
-              autoAssign: template.config?.autoAssign ?? true,
-              integrations: template.config?.integrations || { git: true },
-              ...template.config,
-            };
-
-            configManager.updateConfig(projectConfig);
-
-            spinner.text = 'Creating project files...';
-
-            // Create enhanced README
-            const readmeContent = generateReadmeContent(validatedName, validatedType, template);
-            writeFileSync(join(projectPath, 'README.md'), readmeContent);
-
-            // Create .gitignore if git is enabled
-            if (config.initGit) {
-              const gitignoreContent = generateGitignoreContent();
-              writeFileSync(join(projectPath, '.gitignore'), gitignoreContent);
-            }
-
-            // Create enhanced templates
-            await createProjectTemplates(projectPath, template);
-
-            // Create example tasks based on template type
-            await createExampleTasks(projectPath, template);
-
-            spinner.succeed('Project initialized successfully!');
-
-            // Show success message
-            console.log(
-              Formatter.box(
-                `
-🎉 Trackdown project "${validatedName}" created successfully!
-
-Project Type: ${template.name} (${validatedType})
-Template: ${config.template}
-Configuration: ${configFileName}
-Location: ${projectPath}
-`,
-                'success'
-              )
-            );
-
-            // Show next steps
-            console.log(Formatter.header('Next Steps'));
-            console.log(Formatter.info('1. Navigate to your project:'));
-            console.log(Formatter.highlight(`   cd ${validatedName}`));
-            console.log(Formatter.info('2. Create your first task:'));
-            console.log(Formatter.highlight('   trackdown track "Set up development environment"'));
-            console.log(Formatter.info('3. Check project status:'));
-            console.log(Formatter.highlight('   trackdown status'));
-            console.log(Formatter.info('4. View available commands:'));
-            console.log(Formatter.highlight('   trackdown --help'));
-
-            if (config.initGit) {
-              console.log(Formatter.info('5. Initialize git repository:'));
-              console.log(
-                Formatter.highlight('   git init && git add . && git commit -m "Initial commit"')
-              );
-            }
-          } catch (error) {
-            spinner.fail('Project initialization failed');
-            throw error;
-          }
-        } catch (error) {
-          if (error instanceof ValidationError) {
-            console.error(Formatter.error(error.message));
-            if (error.suggestion) {
-              console.log(Formatter.info(`💡 ${error.suggestion}`));
-            }
-            if (error.validOptions?.length) {
-              console.log(Formatter.info('Valid options:'));
-              error.validOptions.forEach((option) => {
-                console.log(Formatter.highlight(`  ${option}`));
-              });
-            }
-          } else {
-            console.error(
-              Formatter.error(
-                `Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`
-              )
-            );
-          }
+        // Check if project already exists
+        if (fs.existsSync(projectPath) && !config.force) {
+          console.error(`❌ Project "${projectNameValue}" already exists`);
+          console.log('💡 Use --force to overwrite existing project');
           process.exit(1);
         }
+
+        const spinner = ora('Initializing AI-Trackdown project...').start();
+
+        try {
+          // Create project directory
+          if (!fs.existsSync(projectPath)) {
+            fs.mkdirSync(projectPath, { recursive: true });
+          }
+
+          // Create ConfigManager and initialize project
+          const configManager = new ConfigManager(projectPath);
+          const projectConfig = configManager.createDefaultConfig(projectNameValue, {
+            description: `AI-Trackdown ${config.type} project: ${projectNameValue}`,
+            default_assignee: config.assignee
+          });
+
+          spinner.text = 'Creating project structure...';
+          
+          // Initialize the project
+          configManager.initializeProject(projectNameValue, projectConfig);
+
+          spinner.text = 'Setting up ID generator...';
+
+          // Initialize ID generator
+          const idGenerator = new AITrackdownIdGenerator(projectConfig, projectPath);
+
+          spinner.text = 'Creating example items...';
+
+          // Create example epic, issue, and task
+          await createExampleItems(projectPath, projectConfig, idGenerator);
+
+          spinner.text = 'Creating documentation...';
+
+          // Create README
+          createProjectReadme(projectPath, projectNameValue, config.type, projectConfig);
+
+          // Create .gitignore
+          createGitignore(projectPath);
+
+          spinner.succeed('AI-Trackdown project initialized successfully!');
+
+          // Show success message
+          console.log(`
+🎉 AI-Trackdown project "${projectNameValue}" created successfully!
+
+Project Type: ${config.type}
+Location: ${projectPath}
+Configuration: .ai-trackdown/config.yaml
+
+📁 Project Structure:
+├── .ai-trackdown/          # Configuration and metadata
+│   ├── config.yaml         # Project configuration
+│   ├── counters.json       # ID counters
+│   └── templates/          # Item templates
+├── epics/                  # Epic-level planning
+├── issues/                 # Issue-level work items
+├── tasks/                  # Task-level activities
+├── .gitignore             # Git ignore patterns
+└── README.md              # Project documentation
+
+🚀 Next Steps:
+1. Navigate to your project:
+   cd ${projectNameValue}
+
+2. Explore the example items:
+   ls epics/ issues/ tasks/
+
+3. Create your first epic:
+   aitrackdown epic create "New Feature Development"
+
+4. Create an issue within the epic:
+   aitrackdown issue create "API Implementation" --epic EP-0001
+
+5. Create tasks for the issue:
+   aitrackdown task create "Design API Schema" --issue ISS-0001
+
+6. View project status:
+   aitrackdown status
+
+7. Get help:
+   aitrackdown --help
+`);
+
+        } catch (error) {
+          spinner.fail('Project initialization failed');
+          throw error;
+        }
+      } catch (error) {
+        console.error(`❌ Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
       }
-    );
+    });
 
   return command;
 }
 
 async function runInteractiveSetup(initialConfig: any) {
-  console.log(Formatter.banner('Trackdown'));
-  console.log(Formatter.header('🚀 Interactive Project Setup'));
+  console.log(`
+🚀 AI-Trackdown Interactive Setup
+`);
 
   const answers = await inquirer.prompt([
     {
@@ -327,160 +182,419 @@ async function runInteractiveSetup(initialConfig: any) {
       message: 'Project name:',
       default: initialConfig.name || 'my-trackdown-project',
       validate: (input: string) => {
-        try {
-          validateProjectName(input);
-          return true;
-        } catch (error) {
-          return error instanceof Error ? error.message : 'Invalid project name';
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(input)) {
+          return 'Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores';
         }
-      },
+        return true;
+      }
     },
     {
       type: 'list',
       name: 'type',
       message: 'Project type:',
       choices: [
-        { name: '🔧 CLI Tool - Command-line applications', value: 'cli' },
-        { name: '🌐 Web App - Web applications and sites', value: 'web' },
-        { name: '🔌 API - REST APIs and microservices', value: 'api' },
-        { name: '📱 Mobile - Mobile applications', value: 'mobile' },
-        { name: '📁 General - General purpose projects', value: 'general' },
+        { name: '💻 Software - Software development projects', value: 'software' },
+        { name: '🔬 Research - Research and analysis projects', value: 'research' },
+        { name: '📊 Business - Business process and planning', value: 'business' },
+        { name: '📁 General - General purpose projects', value: 'general' }
       ],
-      default: initialConfig.type,
+      default: initialConfig.type
     },
     {
-      type: 'list',
-      name: 'template',
-      message: 'Project template:',
-      choices: Object.entries(PROJECT_TEMPLATES).map(([key, template]) => ({
-        name: `${template.name} - ${template.description}`,
-        value: key,
-      })),
-      default: initialConfig.template,
-    },
-    {
-      type: 'list',
-      name: 'format',
-      message: 'Configuration file format:',
-      choices: [
-        { name: '📄 JSON (.json)', value: 'json' },
-        { name: '📝 YAML (.yaml)', value: 'yaml' },
-      ],
-      default: initialConfig.format,
-    },
-    {
-      type: 'confirm',
-      name: 'initGit',
-      message: 'Initialize git repository?',
-      default: initialConfig.initGit,
+      type: 'input',
+      name: 'assignee',
+      message: 'Default assignee:',
+      default: initialConfig.assignee
     },
     {
       type: 'confirm',
       name: 'force',
       message: 'Overwrite existing project if it exists?',
       default: initialConfig.force,
-      when: (answers) => existsSync(join(process.cwd(), answers.name)),
-    },
+      when: (answers) => fs.existsSync(path.resolve(process.cwd(), answers.name))
+    }
   ]);
 
   return { ...initialConfig, ...answers };
 }
 
-function generateReadmeContent(name: string, type: string, template: ProjectTemplate): string {
-  return `# ${name}
+async function createExampleItems(
+  projectPath: string,
+  config: ProjectConfig,
+  idGenerator: AITrackdownIdGenerator
+): Promise<void> {
+  const parser = new FrontmatterParser();
 
-A professional trackdown project for managing tasks and issues.
+  // Create example epic
+  const epicId = idGenerator.generateEpicId('Project Setup and Initial Development');
+  const epicPath = path.join(
+    projectPath,
+    config.structure.epics_dir,
+    idGenerator.generateFilename(epicId, 'Project Setup and Initial Development')
+  );
 
-**Project Type:** ${template.name} (${type})  
-**Template:** ${template.description}
+  const epicData = {
+    epic_id: epicId,
+    title: 'Project Setup and Initial Development',
+    description: 'Initial setup and foundational development for the project',
+    status: 'active' as const,
+    priority: 'high' as const,
+    assignee: config.default_assignee || 'unassigned',
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    estimated_tokens: 500,
+    actual_tokens: 0,
+    ai_context: ['project-setup', 'initial-development', 'foundation'],
+    related_issues: ['ISS-0001'],
+    sync_status: 'local' as const,
+    tags: ['setup', 'foundation'],
+    milestone: 'v1.0.0'
+  };
+
+  const epicContent = `# Epic: Project Setup and Initial Development
+
+## Overview
+This epic covers the foundational work needed to get the project up and running, including environment setup, initial architecture decisions, and core infrastructure.
+
+## Objectives
+- [ ] Set up development environment
+- [ ] Establish project structure and conventions
+- [ ] Implement core infrastructure
+- [ ] Create initial documentation
+
+## Success Criteria
+- Development environment is fully configured
+- Team can effectively collaborate on the project
+- Core infrastructure is in place and tested
+- Documentation is comprehensive and up-to-date
+
+## Related Issues
+- ISS-0001: Development Environment Setup
+
+## Notes
+This is a foundational epic that will enable all future development work.`;
+
+  parser.writeEpic(epicPath, epicData, epicContent);
+
+  // Create example issue
+  const issueId = idGenerator.generateIssueId(epicId, 'Development Environment Setup');
+  const issuePath = path.join(
+    projectPath,
+    config.structure.issues_dir,
+    idGenerator.generateFilename(issueId, 'Development Environment Setup')
+  );
+
+  const issueData = {
+    issue_id: issueId,
+    epic_id: epicId,
+    title: 'Development Environment Setup',
+    description: 'Configure development environment and tooling for the project',
+    status: 'active' as const,
+    priority: 'high' as const,
+    assignee: config.default_assignee || 'unassigned',
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    estimated_tokens: 200,
+    actual_tokens: 0,
+    ai_context: ['environment-setup', 'tooling', 'configuration'],
+    related_tasks: ['TSK-0001', 'TSK-0002'],
+    sync_status: 'local' as const,
+    tags: ['setup', 'environment'],
+    dependencies: []
+  };
+
+  const issueContent = `# Issue: Development Environment Setup
+
+## Description
+Set up a consistent development environment that all team members can use. This includes configuring development tools, establishing coding standards, and creating setup documentation.
+
+## Tasks
+- TSK-0001: Install and configure development tools
+- TSK-0002: Create development setup documentation
+
+## Acceptance Criteria
+- [ ] All required development tools are identified and documented
+- [ ] Setup instructions are created and tested
+- [ ] Development environment can be replicated consistently
+- [ ] Team members can successfully set up their environments
+
+## Dependencies
+None - this is foundational work.
+
+## Notes
+Focus on creating a setup that is reliable and easy to follow for new team members.`;
+
+  parser.writeIssue(issuePath, issueData, issueContent);
+
+  // Create example task 1
+  const task1Id = idGenerator.generateTaskId(issueId, 'Install and configure development tools');
+  const task1Path = path.join(
+    projectPath,
+    config.structure.tasks_dir,
+    idGenerator.generateFilename(task1Id, 'Install and configure development tools')
+  );
+
+  const task1Data = {
+    task_id: task1Id,
+    issue_id: issueId,
+    epic_id: epicId,
+    title: 'Install and configure development tools',
+    description: 'Install required development tools and configure them for the project',
+    status: 'planning' as const,
+    priority: 'high' as const,
+    assignee: config.default_assignee || 'unassigned',
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    estimated_tokens: 100,
+    actual_tokens: 0,
+    ai_context: ['tool-installation', 'configuration', 'setup'],
+    sync_status: 'local' as const,
+    tags: ['tools', 'setup'],
+    time_estimate: '4 hours',
+    dependencies: []
+  };
+
+  const task1Content = `# Task: Install and configure development tools
+
+## Description
+Install and configure all necessary development tools for the project including IDE, version control, package managers, and any project-specific tools.
+
+## Steps
+1. Install IDE/editor with required extensions
+2. Configure version control (Git)
+3. Install package managers and dependencies
+4. Set up project-specific tools and utilities
+5. Test the complete development setup
+
+## Acceptance Criteria
+- [ ] All required tools are installed and working
+- [ ] Configuration is documented
+- [ ] Setup can be reproduced on different machines
+- [ ] All tools integrate properly with the project
+
+## Tools to Install
+- [ ] IDE/Editor (VS Code, IntelliJ, etc.)
+- [ ] Git and Git client
+- [ ] Node.js/Python/etc. (as needed)
+- [ ] Package managers
+- [ ] Project-specific tools
+
+## Notes
+Document any platform-specific setup requirements.`;
+
+  parser.writeTask(task1Path, task1Data, task1Content);
+
+  // Create example task 2
+  const task2Id = idGenerator.generateTaskId(issueId, 'Create development setup documentation');
+  const task2Path = path.join(
+    projectPath,
+    config.structure.tasks_dir,
+    idGenerator.generateFilename(task2Id, 'Create development setup documentation')
+  );
+
+  const task2Data = {
+    task_id: task2Id,
+    issue_id: issueId,
+    epic_id: epicId,
+    title: 'Create development setup documentation',
+    description: 'Write comprehensive documentation for setting up the development environment',
+    status: 'planning' as const,
+    priority: 'medium' as const,
+    assignee: config.default_assignee || 'unassigned',
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    estimated_tokens: 100,
+    actual_tokens: 0,
+    ai_context: ['documentation', 'setup-guide', 'onboarding'],
+    sync_status: 'local' as const,
+    tags: ['documentation', 'setup'],
+    time_estimate: '2 hours',
+    dependencies: ['TSK-0001']
+  };
+
+  const task2Content = `# Task: Create development setup documentation
+
+## Description
+Create comprehensive setup documentation that enables new team members to quickly and reliably set up their development environment.
+
+## Steps
+1. Document all required tools and versions
+2. Write step-by-step setup instructions
+3. Include troubleshooting section
+4. Add platform-specific notes (Windows/Mac/Linux)
+5. Test documentation with a fresh setup
+
+## Acceptance Criteria
+- [ ] Documentation is complete and accurate
+- [ ] Instructions work on all supported platforms
+- [ ] Troubleshooting section addresses common issues
+- [ ] Documentation is easily accessible to team members
+
+## Documentation Sections
+- [ ] Prerequisites and system requirements
+- [ ] Tool installation instructions
+- [ ] Configuration steps
+- [ ] Verification and testing
+- [ ] Troubleshooting common issues
+- [ ] Contact information for help
+
+## Notes
+Keep documentation updated as tools and requirements evolve.`;
+
+  parser.writeTask(task2Path, task2Data, task2Content);
+}
+
+function createProjectReadme(projectPath: string, projectName: string, projectType: string, config: ProjectConfig): void {
+  const readmeContent = `# ${projectName}
+
+An AI-Trackdown project for hierarchical project management.
+
+**Project Type:** ${projectType}  
+**Created:** ${new Date().toISOString().split('T')[0]}
+
+## Overview
+
+This project uses AI-Trackdown for hierarchical project management with Epics, Issues, and Tasks. Each item has YAML frontmatter for metadata and Markdown content for descriptions.
+
+## Structure
+
+\`\`\`
+${projectName}/
+├── .ai-trackdown/          # Configuration and metadata
+│   ├── config.yaml         # Project configuration
+│   ├── counters.json       # ID generation counters
+│   └── templates/          # Item templates
+├── epics/                  # Epic-level planning (.md files)
+├── issues/                 # Issue-level work items (.md files)
+├── tasks/                  # Task-level activities (.md files)
+├── .gitignore             # Git ignore patterns
+└── README.md              # This file
+\`\`\`
+
+## Hierarchy
+
+- **Epics** (${config.naming_conventions.epic_prefix}-XXXX): High-level features or objectives
+- **Issues** (${config.naming_conventions.issue_prefix}-XXXX): Specific work items within epics
+- **Tasks** (${config.naming_conventions.task_prefix}-XXXX): Granular activities within issues
 
 ## Getting Started
 
+### View Items
 \`\`\`bash
-# Create your first task
-trackdown track "Set up development environment" --priority high
+# List all epics
+ls epics/
 
-# Check project status
-trackdown status --verbose
+# List all issues
+ls issues/
+
+# List all tasks
+ls tasks/
+\`\`\`
+
+### Create New Items
+\`\`\`bash
+# Create a new epic
+aitrackdown epic create "New Feature Development"
+
+# Create an issue within an epic
+aitrackdown issue create "API Implementation" --epic EP-0001
+
+# Create a task within an issue
+aitrackdown task create "Design API Schema" --issue ISS-0001
+\`\`\`
+
+### Project Management
+\`\`\`bash
+# View project status
+aitrackdown status
+
+# Search items
+aitrackdown search --status active --priority high
+
+# Update item status
+aitrackdown task update TSK-0001 --status completed
 
 # Export project data
-trackdown export --format json
-
-# View detailed help
-trackdown --help
-\`\`\`
-
-## Project Structure
-
-\`\`\`
-${name}/
-├── trackdown/          # Main trackdown directory
-${template.structure.map((item) => `│   ├── ${item.path.replace('trackdown/', '')}/`).join('\n')}
-├── .trackdownrc.json   # Project configuration
-├── .gitignore         # Git ignore patterns
-└── README.md          # This file
+aitrackdown export --format json
 \`\`\`
 
 ## Configuration
 
-This project uses the **${template.name}** template with the following defaults:
+Project configuration is stored in \`.ai-trackdown/config.yaml\`. You can modify:
 
-- **Default Priority:** ${template.config?.defaultPriority || 'medium'}
-- **Output Format:** ${template.config?.outputFormat || 'md'}
-- **Color Output:** ${template.config?.colorOutput ? 'enabled' : 'disabled'}
-- **Git Integration:** ${template.config?.integrations?.git ? 'enabled' : 'disabled'}
+- Directory structure
+- Naming conventions
+- Default assignee
+- AI context templates
+- Automation settings
 
-You can modify these settings in \`.trackdownrc.json\` or use environment variables:
+## File Format
 
-\`\`\`bash
-export TRACKDOWN_DEFAULT_PRIORITY=high
-export TRACKDOWN_OUTPUT_FORMAT=table
-export TRACKDOWN_COLOR_OUTPUT=true
+Each item file contains YAML frontmatter and Markdown content:
+
+\`\`\`markdown
+---
+epic_id: EP-0001
+title: Project Setup and Initial Development
+description: Initial setup and foundational development
+status: active
+priority: high
+assignee: ${config.default_assignee}
+created_date: 2023-XX-XX
+updated_date: 2023-XX-XX
+estimated_tokens: 500
+actual_tokens: 0
+ai_context:
+  - project-setup
+  - initial-development
+related_issues:
+  - ISS-0001
+sync_status: local
+---
+
+# Epic: Project Setup and Initial Development
+
+## Overview
+Detailed description of the epic...
 \`\`\`
+
+## Examples
+
+The project includes example items to help you get started:
+- **EP-0001**: Project Setup and Initial Development
+- **ISS-0001**: Development Environment Setup
+- **TSK-0001**: Install and configure development tools
+- **TSK-0002**: Create development setup documentation
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| \`trackdown init\` | Initialize a new project |
-| \`trackdown track\` | Create a new task or issue |
-| \`trackdown status\` | View project status and statistics |
-| \`trackdown export\` | Export data in various formats |
-
-## Examples
-
-\`\`\`bash
-# Track a new feature
-trackdown track "Add user authentication" \\
-  --priority high \\
-  --assignee john.doe \\
-  --tags security,backend \\
-  --estimate 8
-
-# Filter by status and priority
-trackdown status --filter "status=in-progress,priority=high"
-
-# Export as CSV with filters
-trackdown export --format csv --filter "status=done" --output completed-tasks.csv
-\`\`\`
+| \`aitrackdown init\` | Initialize a new project |
+| \`aitrackdown epic create\` | Create a new epic |
+| \`aitrackdown issue create\` | Create a new issue |
+| \`aitrackdown task create\` | Create a new task |
+| \`aitrackdown status\` | View project status |
+| \`aitrackdown search\` | Search items |
+| \`aitrackdown export\` | Export project data |
 
 ## Links
 
-- [Documentation](https://github.com/your-org/ai-trackdown-tooling#readme)
-- [Issues](https://github.com/your-org/ai-trackdown-tooling/issues)
-- [Contributing](https://github.com/your-org/ai-trackdown-tooling/blob/main/CONTRIBUTING.md)
+- [AI-Trackdown Documentation](https://github.com/your-org/ai-trackdown-tooling)
+- [Project Issues](https://github.com/your-org/ai-trackdown-tooling/issues)
 
 ---
 
-*Generated by ai-trackdown-tooling v1.0.0 on ${new Date().toISOString().split('T')[0]}*
+*Generated by ai-trackdown-tooling on ${new Date().toISOString().split('T')[0]}*
 `;
+
+  fs.writeFileSync(path.join(projectPath, 'README.md'), readmeContent, 'utf8');
 }
 
-function generateGitignoreContent(): string {
-  return `# Trackdown exports
-trackdown/exports/*.json
-trackdown/exports/*.csv
-trackdown/exports/*.yaml
+function createGitignore(projectPath: string): void {
+  const gitignoreContent = `# AI-Trackdown exports
+.ai-trackdown/exports/
+*.backup
 
 # Logs
 *.log
@@ -497,9 +611,6 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
-
-# nyc test coverage
-.nyc_output
 
 # Dependency directories
 node_modules/
@@ -535,158 +646,6 @@ node_modules/
 ehthumbs.db
 Thumbs.db
 `;
-}
 
-async function createProjectTemplates(
-  projectPath: string,
-  template: ProjectTemplate
-): Promise<void> {
-  const templatesDir = join(projectPath, 'trackdown', 'templates');
-
-  // Enhanced task template
-  const taskTemplate = `# {title}
-
-**ID**: {id}
-**Status**: {status}
-**Priority**: {priority}
-**Assignee**: {assignee}
-**Created**: {createdAt}
-**Updated**: {updatedAt}
-
-## Description
-
-{description}
-
-## Acceptance Criteria
-
-- [ ] Define specific and measurable acceptance criteria
-- [ ] Ensure criteria are testable and verifiable
-- [ ] Add more criteria as needed
-
-## Technical Notes
-
-<!-- Add technical implementation details, architecture decisions, or constraints -->
-
-## Dependencies
-
-<!-- List any dependencies on other tasks, features, or external factors -->
-
-## Resources
-
-<!-- Add links, references, documentation, or related materials here -->
-
-## Progress Log
-
-- {createdAt}: Task created
-<!-- Add progress updates as work progresses -->
-
----
-
-*Template: ${template.name} | Generated by ai-trackdown-tooling*
-`;
-
-  writeFileSync(join(templatesDir, 'task.md'), taskTemplate);
-
-  // Create template-specific templates
-  if (template.type === 'cli') {
-    const featureTemplate = `# Feature: {title}
-
-**Feature ID**: {id}
-**Priority**: {priority}
-**Assignee**: {assignee}
-**Target Release**: {targetRelease}
-
-## User Story
-
-As a [user type], I want [functionality] so that [benefit].
-
-## Implementation Plan
-
-### Phase 1: Planning
-- [ ] Define requirements and scope
-- [ ] Create technical design
-- [ ] Identify dependencies
-
-### Phase 2: Development
-- [ ] Implement core functionality
-- [ ] Add error handling
-- [ ] Write unit tests
-
-### Phase 3: Integration
-- [ ] Integration testing
-- [ ] Documentation updates
-- [ ] Code review
-
-## Command Specification
-
-\`\`\`bash
-# Command syntax
-{commandName} [options] [arguments]
-
-# Examples
-{commandName} --help
-{commandName} --verbose
-\`\`\`
-
-## Testing
-
-- [ ] Unit tests written
-- [ ] Integration tests added
-- [ ] Manual testing completed
-- [ ] Cross-platform testing
-`;
-
-    writeFileSync(join(templatesDir, 'feature.md'), featureTemplate);
-  }
-}
-
-async function createExampleTasks(projectPath: string, template: ProjectTemplate): Promise<void> {
-  // This would create example tasks based on the template type
-  // For now, we'll just create the directory structure
-  const activeDir = join(projectPath, 'trackdown', 'active');
-
-  // Create a welcome task
-  const welcomeTask = `# Welcome to Trackdown
-
-**ID**: welcome-001
-**Status**: todo
-**Priority**: low
-**Assignee**: ${process.env.USER || 'you'}
-**Created**: ${new Date().toISOString()}
-**Updated**: ${new Date().toISOString()}
-
-## Description
-
-This is your first trackdown task! This task will help you get familiar with the trackdown system.
-
-## Acceptance Criteria
-
-- [ ] Read through this task template
-- [ ] Explore the project structure
-- [ ] Create your first real task using: \`trackdown track "Your task title"\`
-- [ ] Check the project status using: \`trackdown status\`
-- [ ] Mark this task as completed
-
-## Getting Started
-
-1. **Explore Commands**: Run \`trackdown --help\` to see all available commands
-2. **Create Tasks**: Use \`trackdown track\` to create new tasks and issues
-3. **Monitor Progress**: Use \`trackdown status\` to view project overview
-4. **Export Data**: Use \`trackdown export\` to export your data
-
-## Resources
-
-- [Trackdown Documentation](https://github.com/your-org/ai-trackdown-tooling)
-- [Command Reference](https://github.com/your-org/ai-trackdown-tooling#commands)
-
-## Progress Log
-
-- ${new Date().toISOString()}: Welcome task created
-
----
-
-*Template: ${template.name} | Generated by ai-trackdown-tooling*
-`;
-
-  writeFileSync(join(activeDir, 'welcome-001-welcome-to-trackdown.md'), welcomeTask);
+  fs.writeFileSync(path.join(projectPath, '.gitignore'), gitignoreContent, 'utf8');
 }

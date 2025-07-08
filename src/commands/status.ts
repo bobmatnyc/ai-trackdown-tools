@@ -5,6 +5,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
+import { PathResolver } from '../utils/path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
 import {
   validateStatus,
@@ -112,17 +113,34 @@ Sort Fields:
         export?: string;
       }) => {
         try {
+          // Get CLI root directory option
+          const parentCommand = command.parent;
+          const rootDirOption = parentCommand?.opts()?.rootDir || parentCommand?.opts()?.tasksDir;
+
           // Load configuration first
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
+          
+          // Initialize path resolver with CLI override
+          const pathResolver = new PathResolver(configManager, rootDirOption);
 
-          const trackdownDir = join(process.cwd(), 'trackdown');
+          const trackdownDir = join(process.cwd(), pathResolver.getRootDirectory());
 
           if (!existsSync(trackdownDir)) {
-            console.error(Formatter.error('No trackdown project found in current directory'));
-            console.log(Formatter.info('Run "trackdown init" to initialize a new project'));
+            // Check for migration scenario
+            if (pathResolver.shouldMigrate()) {
+              pathResolver.showMigrationWarning();
+              console.log('\nMigration commands:');
+              pathResolver.getMigrationCommands().forEach(cmd => {
+                console.log(Formatter.highlight(cmd));
+              });
+              process.exit(1);
+            }
+            
+            console.error(Formatter.error(`No ${pathResolver.getRootDirectory()} project found in current directory`));
+            console.log(Formatter.info('Run "aitrackdown init" to initialize a new project'));
             console.log(
-              Formatter.info('Or navigate to a directory with an existing trackdown project')
+              Formatter.info(`Or navigate to a directory with an existing ${pathResolver.getRootDirectory()} project`)
             );
             process.exit(1);
           }
@@ -135,7 +153,7 @@ Sort Fields:
 
           // Watch mode
           if (options?.watch) {
-            return runWatchMode(trackdownDir, options, config);
+            return runWatchMode(trackdownDir, options, config, pathResolver);
           }
 
           // Show progress indicator
@@ -143,7 +161,7 @@ Sort Fields:
 
           try {
             // Get and parse all items
-            const items = await getAllItemsEnhanced(trackdownDir);
+            const items = await getAllItemsEnhanced(trackdownDir, pathResolver);
 
             spinner.text = 'Applying filters...';
 
@@ -172,7 +190,7 @@ Sort Fields:
 
             // Show project summary and statistics
             if (options?.stats !== false) {
-              displayProjectOverview(trackdownDir, items, config);
+              displayProjectOverview(trackdownDir, items, config, pathResolver);
             }
 
             if (filteredItems.length === 0) {
@@ -376,7 +394,7 @@ function buildFilterExpression(answers: any): string {
   return filters.join(',');
 }
 
-async function runWatchMode(trackdownDir: string, options: any, config: any): Promise<void> {
+async function runWatchMode(trackdownDir: string, options: any, config: any, pathResolver: PathResolver): Promise<void> {
   console.log(Formatter.info('👁️ Watch mode enabled - monitoring for changes...'));
   console.log(Formatter.info('Press Ctrl+C to exit'));
 
@@ -395,7 +413,7 @@ async function runWatchMode(trackdownDir: string, options: any, config: any): Pr
       );
 
       // Get items and generate hash for change detection
-      const items = await getAllItemsEnhanced(trackdownDir);
+      const items = await getAllItemsEnhanced(trackdownDir, pathResolver);
       const currentHash = JSON.stringify(
         items.map((i) => `${i.id}-${i.updatedAt.getTime()}`)
       ).substring(0, 20);
@@ -410,7 +428,7 @@ async function runWatchMode(trackdownDir: string, options: any, config: any): Pr
         );
         const paginatedItems = applyPagination(sortedItems, options?.limit, options?.offset);
 
-        displayProjectOverview(trackdownDir, items, config);
+        displayProjectOverview(trackdownDir, items, config, pathResolver);
 
         if (paginatedItems.length > 0) {
           if (options?.table) {
@@ -450,12 +468,15 @@ async function runWatchMode(trackdownDir: string, options: any, config: any): Pr
   });
 }
 
-async function getAllItemsEnhanced(trackdownDir: string): Promise<TrackdownItem[]> {
+async function getAllItemsEnhanced(trackdownDir: string, pathResolver: PathResolver): Promise<TrackdownItem[]> {
   const items: TrackdownItem[] = [];
-  const directories = ['active', 'completed'];
+  const directories = [
+    pathResolver.getActiveDir(),
+    pathResolver.getCompletedDir(),
+  ];
 
   for (const dir of directories) {
-    const fullPath = join(trackdownDir, dir);
+    const fullPath = join(process.cwd(), dir);
     if (existsSync(fullPath)) {
       const files = readdirSync(fullPath).filter((file) => file.endsWith('.md'));
 
@@ -727,12 +748,12 @@ function applyPagination(items: TrackdownItem[], limit?: string, offset?: string
   return items.slice(start, end);
 }
 
-function displayProjectOverview(trackdownDir: string, items: TrackdownItem[], config: any): void {
-  const summary = getProjectSummaryEnhanced(trackdownDir, items);
+function displayProjectOverview(trackdownDir: string, items: TrackdownItem[], config: any, pathResolver: PathResolver): void {
+  const summary = getProjectSummaryEnhanced(trackdownDir, items, pathResolver);
   console.log(summary);
 }
 
-function getProjectSummaryEnhanced(trackdownDir: string, items: TrackdownItem[]): string {
+function getProjectSummaryEnhanced(trackdownDir: string, items: TrackdownItem[], pathResolver: PathResolver): string {
   const activeItems = items.filter((item) => item.status !== 'done');
   const completedItems = items.filter((item) => item.status === 'done');
   const total = items.length;

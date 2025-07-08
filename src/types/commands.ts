@@ -2,7 +2,7 @@
  * Command-specific types for CLI operations
  */
 
-import type { IssueState, IssueStateReason } from './github.js';
+// import type { IssueState, IssueStateReason } from './github.js'; // Removed GitHub dependencies
 import type { AdvancedFilters, SortDirection } from './filters.js';
 
 // Base command options

@@ -5,6 +5,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import type { TrackdownItem } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
+import { PathResolver } from '../utils/path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
 import {
   validatePriority,
@@ -74,9 +75,16 @@ Story Points:
         }
       ) => {
         try {
+          // Get CLI root directory option
+          const parentCommand = command.parent;
+          const rootDirOption = parentCommand?.opts()?.rootDir || parentCommand?.opts()?.tasksDir;
+
           // Load configuration first
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
+          
+          // Initialize path resolver with CLI override
+          const pathResolver = new PathResolver(configManager, rootDirOption);
 
           let taskData = {
             title: title,
@@ -141,15 +149,24 @@ Story Points:
 
             spinner.text = 'Setting up task structure...';
 
-            // Ensure trackdown directory exists
-            const trackdownDir = join(process.cwd(), 'trackdown', 'active');
-            if (!existsSync(trackdownDir)) {
-              mkdirSync(trackdownDir, { recursive: true });
+            // Ensure active directory exists (using configurable path)
+            const activeDir = join(process.cwd(), pathResolver.getActiveDir());
+            if (!existsSync(activeDir)) {
+              // Check for migration scenario before creating new directories
+              if (pathResolver.shouldMigrate()) {
+                pathResolver.showMigrationWarning();
+                console.log('\nMigration commands:');
+                pathResolver.getMigrationCommands().forEach(cmd => {
+                  console.log(Formatter.highlight(cmd));
+                });
+                process.exit(1);
+              }
+              mkdirSync(activeDir, { recursive: true });
             }
 
             // Create the tracking file
             const filename = `${itemId}-${sanitizeFilename(validatedTitle)}.md`;
-            const filePath = join(trackdownDir, filename);
+            const filePath = join(activeDir, filename);
 
             if (existsSync(filePath)) {
               throw new ValidationError(

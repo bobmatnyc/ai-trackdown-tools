@@ -1,0 +1,53 @@
+# ai-trackdown-verification - AI Project Context
+
+> Generated on 2025-07-08T02:09:04.045Z
+> AI-Trackdown project management system
+
+## Project Statistics
+- **Epics**: 2 active
+- **Issues**: 3 active  
+- **Tasks**: 3 active
+- **Overall Completion**: 0%
+
+## Project Structure
+
+### EP-0001: Project Setup and Initial Development
+**Status**: active | **Priority**: high | **Assignee**: QA Engineer
+**Description**: Initial setup and foundational development for the project
+
+#### ISS-0001: Development Environment Setup
+**Status**: active | **Priority**: high | **Assignee**: QA Engineer
+**Description**: Configure development environment and tooling for the project
+
+**Tasks**:
+- TSK-0001: Install and configure development tools [planning]
+- TSK-0002: Create development setup documentation [planning]
+
+### EP-0002: CLI Verification Testing
+**Status**: active | **Priority**: critical | **Assignee**: QA Engineer
+**Description**: Comprehensive testing of ai-trackdown CLI functionality and migration of existing trackdown tickets
+
+#### ISS-0002: CLI Functional Testing
+**Status**: in_progress | **Priority**: critical | **Assignee**: QA Engineer
+**Description**: Test all CLI commands for functionality and proper operation
+
+**Tasks**:
+- TSK-0003: Test Epic Management Commands [in_progress]
+
+#### ISS-0003: Trackdown Ticket Migration
+**Status**: active | **Priority**: high | **Assignee**: QA Engineer
+**Description**: Convert existing trackdown tickets to ai-trackdown hierarchical structure
+
+
+## AI Context Templates
+
+- context/requirements
+- context/constraints
+- context/assumptions
+- context/dependencies
+
+## Token Usage Summary
+
+- **Total Estimated Tokens**: 2600
+- **Total Actual Tokens**: 200
+- **Token Efficiency**: 7.7%
