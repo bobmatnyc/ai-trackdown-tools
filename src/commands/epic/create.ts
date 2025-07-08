@@ -5,9 +5,11 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { IdGenerator } from '../../utils/simple-id-generator.js';
+import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
 import type { EpicFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
 
@@ -65,8 +67,8 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   // Generate epic ID
   const epicId = idGenerator.generateEpicId(title);
   
-  // Get template
-  const template = configManager.getTemplate('epic', options.template || 'default');
+  // Get template with fallback to bundled templates
+  const template = configManager.getTemplateWithFallback('epic', options.template || 'default');
   if (!template) {
     throw new Error(`Epic template '${options.template || 'default'}' not found`);
   }
@@ -123,12 +125,20 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   }
   
   // Check if file already exists
-  if (require('fs').existsSync(filePath)) {
+  if (fs.existsSync(filePath)) {
     throw new Error(`Epic file already exists: ${filePath}`);
   }
   
   // Write the epic file
   parser.writeEpic(filePath, epicFrontmatter, content);
+  
+  // Update the index for better performance
+  try {
+    const indexManager = new TrackdownIndexManager(config, paths.projectRoot, cliTasksDir);
+    await indexManager.updateItem('epic', epicId);
+  } catch (error) {
+    console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+  }
   
   console.log(Formatter.success(`Epic created successfully!`));
   console.log(Formatter.info(`Epic ID: ${epicId}`));

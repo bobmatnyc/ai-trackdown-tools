@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as YAML from 'yaml';
+import { UnifiedPathResolver } from './unified-path-resolver.js';
 import type { ProjectConfig, ItemTemplate } from '../types/ai-trackdown.js';
 
 const DEFAULT_CONFIG_DIR = '.ai-trackdown';
@@ -35,7 +36,41 @@ export class ConfigManager {
 
     try {
       const configContent = fs.readFileSync(this.configPath, 'utf8');
-      this.config = YAML.parse(configContent) as ProjectConfig;
+      const rawConfig = YAML.parse(configContent) as any;
+      
+      // Handle both old format (project.name) and new format (name)
+      if (rawConfig.project && rawConfig.project.name && !rawConfig.name) {
+        // Convert old format to new format
+        this.config = {
+          name: rawConfig.project.name,
+          description: rawConfig.project.description,
+          version: rawConfig.version || '1.0.0',
+          tasks_directory: rawConfig.tasks_directory || 'tasks',
+          structure: rawConfig.structure || {
+            epics_dir: 'epics',
+            issues_dir: 'issues',
+            tasks_dir: 'tasks',
+            templates_dir: 'templates',
+            prs_dir: 'prs'
+          },
+          naming_conventions: rawConfig.naming_conventions || {
+            epic_prefix: 'EP',
+            issue_prefix: 'ISS',
+            task_prefix: 'TSK',
+            pr_prefix: 'PR',
+            file_extension: '.md'
+          },
+          default_assignee: rawConfig.default_assignee || 'unassigned',
+          ai_context_templates: rawConfig.ai_context_templates || [],
+          automation: rawConfig.automation || {
+            auto_update_timestamps: true,
+            auto_calculate_tokens: false,
+            auto_sync_status: true
+          }
+        };
+      } else {
+        this.config = rawConfig as ProjectConfig;
+      }
       
       // Validate and normalize config
       this.validateConfig(this.config);
@@ -129,6 +164,21 @@ export class ConfigManager {
   }
 
   /**
+   * Initialize new project with structure only (no template creation)
+   */
+  public initializeProjectStructure(projectName: string, options: Partial<ProjectConfig> = {}): ProjectConfig {
+    const config = this.createDefaultConfig(projectName, options);
+    
+    // Create directory structure only
+    this.createProjectStructure(config);
+    
+    // Save configuration
+    this.saveConfig(config);
+    
+    return config;
+  }
+
+  /**
    * Update specific configuration values
    */
   public updateConfig(updates: Partial<ProjectConfig>): ProjectConfig {
@@ -178,7 +228,7 @@ export class ConfigManager {
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
-    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot, cliTasksDir);
     const unifiedPaths = pathResolver.getUnifiedPaths();
     
@@ -283,11 +333,11 @@ export class ConfigManager {
   /**
    * Create project directory structure using unified layout
    */
-  private createProjectStructure(config: ProjectConfig): void {
+  public createProjectStructure(config: ProjectConfig): void {
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
-    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const requiredDirs = pathResolver.getRequiredDirectories();
 
@@ -305,7 +355,7 @@ export class ConfigManager {
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
-    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;
@@ -503,7 +553,7 @@ Add any additional notes here.`
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
-    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;
@@ -524,6 +574,31 @@ Add any additional notes here.`
   }
 
   /**
+   * Get template by type and name with fallback to bundled templates
+   */
+  public getTemplateWithFallback(type: 'epic' | 'issue' | 'task' | 'pr', name: string = 'default'): ItemTemplate | null {
+    const config = this.getConfig();
+    const projectRoot = path.dirname(path.dirname(this.configPath));
+    
+    // Import UnifiedPathResolver dynamically to avoid circular dependencies
+    // UnifiedPathResolver already imported at the top
+    const pathResolver = new UnifiedPathResolver(config, projectRoot);
+    const paths = pathResolver.getUnifiedPaths();
+    const templatesDir = paths.templatesDir;
+    
+    // Try to load from project templates first
+    const projectTemplate = this.getTemplate(type, name);
+    if (projectTemplate) {
+      return projectTemplate;
+    }
+    
+    // Fallback to bundled templates using TemplateManager
+    const TemplateManager = require('./template-manager.js').TemplateManager;
+    const templateManager = new TemplateManager();
+    return templateManager.getTemplate(templatesDir, type, name);
+  }
+
+  /**
    * List available templates
    */
   public listTemplates(): { type: string; name: string; description: string }[] {
@@ -531,7 +606,7 @@ Add any additional notes here.`
     const projectRoot = path.dirname(path.dirname(this.configPath));
     
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
-    const { UnifiedPathResolver } = require('./unified-path-resolver');
+    // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;

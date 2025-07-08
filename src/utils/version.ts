@@ -17,6 +17,24 @@ export class VersionManager {
    * Get the project root directory
    */
   private static getProjectRoot(): string {
+    // First try to find the CLI package root from __dirname
+    let cliRoot = __dirname;
+    while (cliRoot !== path.dirname(cliRoot)) {
+      const packageJsonPath = path.join(cliRoot, 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          if (packageJson.name === '@bobmatnyc/ai-trackdown-tools') {
+            return cliRoot;
+          }
+        } catch (error) {
+          // Continue searching
+        }
+      }
+      cliRoot = path.dirname(cliRoot);
+    }
+    
+    // Fallback to current working directory search
     let current = process.cwd();
     while (current !== path.dirname(current)) {
       if (fs.existsSync(path.join(current, 'package.json'))) {
@@ -28,20 +46,29 @@ export class VersionManager {
   }
 
   /**
-   * Read version from VERSION file
+   * Read version from VERSION file, with package.json fallback
    */
   static getVersion(): VersionInfo {
     const projectRoot = this.getProjectRoot();
     const versionFile = path.join(projectRoot, this.VERSION_FILE);
 
-    if (!fs.existsSync(versionFile)) {
-      throw new Error('VERSION file not found');
+    let versionString: string;
+
+    if (fs.existsSync(versionFile)) {
+      versionString = fs.readFileSync(versionFile, 'utf8').trim();
+    } else {
+      // Fallback to package.json
+      const packageJsonPath = path.join(projectRoot, this.PACKAGE_JSON);
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        versionString = packageJson.version;
+      } else {
+        throw new Error('Neither VERSION file nor package.json found');
+      }
     }
 
-    const versionString = fs.readFileSync(versionFile, 'utf8').trim();
-
     if (!semver.valid(versionString)) {
-      throw new Error(`Invalid version format in VERSION file: ${versionString}`);
+      throw new Error(`Invalid version format: ${versionString}`);
     }
 
     const parsed = semver.parse(versionString);

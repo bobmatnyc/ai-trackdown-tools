@@ -9,13 +9,18 @@ import ora from 'ora';
 import { ConfigManager } from '../utils/config-manager.js';
 import { AITrackdownIdGenerator } from '../utils/id-generator.js';
 import { FrontmatterParser } from '../utils/frontmatter-parser.js';
+import { UnifiedPathResolver } from '../utils/unified-path-resolver.js';
+import { TemplateManager } from '../utils/template-manager.js';
 import type { ProjectConfig } from '../types/ai-trackdown.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'readline';
 
 interface InitOptions {
   force?: boolean;
   interactive?: boolean;
+  skipInteractive?: boolean;
+  projectName?: string;
   type?: string;
   assignee?: string;
   name?: string;
@@ -28,11 +33,13 @@ export function createInitCommand(): Command {
   command
     .description('Initialize a new AI-Trackdown project with hierarchical structure')
     .argument('[project-name]', 'name of the project')
+    .option('--project-name <name>', 'project name (alternative to positional argument)')
     .option('--type <type>', 'project type (software, research, business, general)', 'general')
     .option('--assignee <assignee>', 'default assignee for items')
     .option('--tasks-directory <path>', 'root directory for all task types (default: tasks)', 'tasks')
     .option('--force', 'overwrite existing project')
     .option('--interactive', 'interactive setup mode')
+    .option('--skip-interactive', 'skip interactive prompts, use defaults or fail if required info missing')
     .addHelpText(
       'after',
       `
@@ -41,6 +48,8 @@ Examples:
   $ aitrackdown init research-project --type research --interactive
   $ aitrackdown init --interactive
   $ aitrackdown init my-project --tasks-directory work
+  $ aitrackdown init --project-name my-project --skip-interactive
+  $ echo "my-project" | aitrackdown init --skip-interactive
 
 Project Types:
   software  - Software development projects
@@ -58,17 +67,37 @@ Directory Structure:
     )
     .action(async (projectName?: string, options: InitOptions = {}) => {
       try {
+        // Determine project name from various sources
+        let finalProjectName = projectName || options.projectName;
+        
+        // Try to read from stdin if no project name provided
+        if (!finalProjectName) {
+          const stdinName = await readProjectNameFromStdin();
+          if (stdinName) {
+            finalProjectName = stdinName;
+          }
+        }
+        
         let config = {
-          name: projectName,
+          name: finalProjectName,
           type: options.type || 'general',
           assignee: options.assignee || process.env.USER || 'unassigned',
           tasksDirectory: options.tasksDirectory || process.env.CLI_TASKS_DIR || 'tasks',
           force: options.force || false
         };
 
+        // Determine if we should run interactive mode
+        const shouldRunInteractive = options.interactive || 
+          (!options.skipInteractive && !finalProjectName && !isNonInteractive());
+        
         // Interactive mode
-        if (options.interactive || !projectName) {
+        if (shouldRunInteractive) {
+          if (isNonInteractive()) {
+            throw new Error('Interactive mode requested but running in non-interactive environment. Use --skip-interactive or provide --project-name.');
+          }
           config = await runInteractiveSetup(config);
+        } else if (options.skipInteractive && !config.name) {
+          throw new Error('Project name is required when using --skip-interactive. Use --project-name or provide as argument.');
         }
 
         // Validate project name
@@ -104,8 +133,18 @@ Directory Structure:
 
           spinner.text = 'Creating project structure...';
           
-          // Initialize the project
-          configManager.initializeProject(projectNameValue, projectConfig);
+          // Initialize the project structure only (without default templates)
+          configManager.createProjectStructure(projectConfig);
+          configManager.saveConfig(projectConfig);
+
+          spinner.text = 'Deploying templates...';
+
+          // Deploy bundled templates using TemplateManager
+          const templateManager = new TemplateManager();
+          const pathResolver = new UnifiedPathResolver(projectConfig, projectPath);
+          const paths = pathResolver.getUnifiedPaths();
+          
+          templateManager.deployTemplates(paths.templatesDir, config.force);
 
           spinner.text = 'Setting up ID generator...';
 
@@ -186,12 +225,82 @@ Tasks Directory: ${config.tasksDirectory}/
   return command;
 }
 
+/**
+ * Check if running in a non-interactive environment
+ */
+function isNonInteractive(): boolean {
+  return !process.stdout.isTTY || !process.stdin.isTTY || process.env.CI === 'true';
+}
+
+/**
+ * Read project name from stdin if available
+ */
+async function readProjectNameFromStdin(): Promise<string | null> {
+  return new Promise((resolve) => {
+    // Check if stdin has data available (piped input)
+    if (!process.stdin.isTTY) {
+      let input = '';
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(null);
+        }
+      }, 100); // Short timeout for piped input
+      
+      process.stdin.setEncoding('utf8');
+      
+      // For piped input, we need to read immediately
+      process.stdin.on('data', (chunk) => {
+        input += chunk.toString();
+      });
+      
+      process.stdin.on('end', () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          const projectName = input.trim();
+          resolve(projectName || null);
+        }
+      });
+      
+      // Handle case where stdin is not available or empty
+      process.stdin.on('error', () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(null);
+        }
+      });
+      
+      // For certain environments, stdin might be immediately available
+      setImmediate(() => {
+        if (!resolved && process.stdin.readable) {
+          const chunk = process.stdin.read();
+          if (chunk !== null) {
+            input += chunk.toString();
+          }
+        }
+      });
+    } else {
+      resolve(null);
+    }
+  });
+}
+
 async function runInteractiveSetup(initialConfig: any) {
   console.log(`
 🚀 AI-Trackdown Interactive Setup
 `);
 
-  const answers = await inquirer.prompt([
+  // Check if we're in a non-interactive environment before attempting to prompt
+  if (isNonInteractive()) {
+    throw new Error('Cannot run interactive setup in non-interactive environment. Use --skip-interactive or provide --project-name.');
+  }
+
+  try {
+    const answers = await inquirer.prompt([
     {
       type: 'input',
       name: 'name',
@@ -241,9 +350,20 @@ async function runInteractiveSetup(initialConfig: any) {
       default: initialConfig.force,
       when: (answers) => fs.existsSync(path.resolve(process.cwd(), answers.name))
     }
-  ]);
+    ]);
 
-  return { ...initialConfig, ...answers };
+    return { ...initialConfig, ...answers };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('User force closed the prompt') || 
+          error.message.includes('prompt aborted') ||
+          error.message.includes('canceled')) {
+        throw new Error('Interactive setup was cancelled. Use --skip-interactive to bypass prompts.');
+      }
+      throw error;
+    }
+    throw new Error('Interactive setup failed. Use --skip-interactive to bypass prompts.');
+  }
 }
 
 async function createExampleItems(
@@ -254,7 +374,7 @@ async function createExampleItems(
   const parser = new FrontmatterParser();
 
   // Get unified paths for the project
-  const { UnifiedPathResolver } = require('../utils/unified-path-resolver.js');
+  // UnifiedPathResolver already imported at the top
   const pathResolver = new UnifiedPathResolver(config, projectPath);
   const paths = pathResolver.getUnifiedPaths();
 

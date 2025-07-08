@@ -2,14 +2,15 @@
 
 An AI-Trackdown project for hierarchical project management.
 
-**Project Type:** software  
+**Project Type:** general  
 **Created:** 2025-07-08
+**Tasks Directory:** tasks/
 
 ## Overview
 
 This project uses AI-Trackdown for hierarchical project management with Epics, Issues, and Tasks. Each item has YAML frontmatter for metadata and Markdown content for descriptions.
 
-## Structure
+## Unified Directory Structure
 
 ```
 ai-trackdown-tools/
@@ -17,9 +18,12 @@ ai-trackdown-tools/
 │   ├── config.yaml         # Project configuration
 │   ├── counters.json       # ID generation counters
 │   └── templates/          # Item templates
-├── epics/                  # Epic-level planning (.md files)
-├── issues/                 # Issue-level work items (.md files)
-├── tasks/                  # Task-level activities (.md files)
+├── tasks/                  # Tasks root directory (configurable)
+│   ├── epics/              # Epic-level planning (.md files)
+│   ├── issues/             # Issue-level work items (.md files)
+│   ├── tasks/              # Task-level activities (.md files)
+│   ├── prs/                # Pull request tracking (.md files)
+│   └── templates/          # Item templates
 ├── .gitignore             # Git ignore patterns
 └── README.md              # This file
 ```
@@ -35,13 +39,16 @@ ai-trackdown-tools/
 ### View Items
 ```bash
 # List all epics
-ls epics/
+ls tasks/epics/
 
 # List all issues
-ls issues/
+ls tasks/issues/
 
 # List all tasks
-ls tasks/
+ls tasks/tasks/
+
+# List all PRs
+ls tasks/prs/
 ```
 
 ### Create New Items

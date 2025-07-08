@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { homedir } from 'node:os';
 import YAML from 'yaml';
@@ -157,7 +157,7 @@ export class ConfigManager {
       // Ensure directory exists
       const dir = join(targetPath, '..');
       if (!existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true });
+        mkdirSync(dir, { recursive: true });
       }
 
       const ext = extname(targetPath);

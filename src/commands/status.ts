@@ -47,6 +47,7 @@ export function createStatusCommand(): Command {
     .option('--interactive', 'interactive filtering and display mode')
     .option('--watch', 'continuously monitor and refresh status')
     .option('--export <file>', 'export filtered results to file')
+    .option('--full', 'comprehensive project status with enhanced details')
     .addHelpText(
       'after',
       `

@@ -5,10 +5,12 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { IdGenerator } from '../../utils/simple-id-generator.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
 import type { IssueFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
 
@@ -60,13 +62,13 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const config = configManager.getConfig();
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
-  const relationshipManager = new RelationshipManager(config);
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
   
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Validate that the epic exists
   const epicHierarchy = relationshipManager.getEpicHierarchy(options.epic);
@@ -78,7 +80,7 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const issueId = idGenerator.generateIssueId(options.epic, title);
   
   // Get template
-  const template = configManager.getTemplate('issue', options.template || 'default');
+  const template = configManager.getTemplateWithFallback('issue', options.template || 'default');
   if (!template) {
     throw new Error(`Issue template '${options.template || 'default'}' not found`);
   }
@@ -141,7 +143,7 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   }
   
   // Check if file already exists
-  if (require('fs').existsSync(filePath)) {
+  if (fs.existsSync(filePath)) {
     throw new Error(`Issue file already exists: ${filePath}`);
   }
   
@@ -152,6 +154,15 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const epic = epicHierarchy.epic;
   const updatedRelatedIssues = [...(epic.related_issues || []), issueId];
   parser.updateFile(epic.file_path, { related_issues: updatedRelatedIssues });
+  
+  // Update the index for better performance
+  try {
+    const indexManager = new TrackdownIndexManager(config, paths.projectRoot, cliTasksDir);
+    await indexManager.updateItem('issue', issueId);
+    await indexManager.updateItem('epic', options.epic); // Update parent epic too
+  } catch (error) {
+    console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+  }
   
   // Refresh cache
   relationshipManager.rebuildCache();

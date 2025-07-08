@@ -15,6 +15,11 @@
       "require": "./dist/index.cjs"
     }
   },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",

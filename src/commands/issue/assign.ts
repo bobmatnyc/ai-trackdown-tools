@@ -36,7 +36,12 @@ export function createIssueAssignCommand(): Command {
 async function assignIssue(issueId: string, assignee: string, options: AssignOptions): Promise<void> {
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
-  const relationshipManager = new RelationshipManager(config);
+
+  // Get CLI tasks directory from parent command options
+  const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
+
+  // Get absolute paths with CLI override
+  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   const parser = new FrontmatterParser();
   
   // Get issue hierarchy

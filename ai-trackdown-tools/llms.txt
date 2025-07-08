@@ -1,25 +1,25 @@
 # ai-trackdown-tools - AI Project Context
 
-> Generated on 2025-07-08T02:02:30.494Z
+> Generated on 2025-07-08T16:38:29.829Z
 > AI-Trackdown project management system
 
 ## Project Statistics
-- **Epics**: 1 active
-- **Issues**: 1 active  
-- **Tasks**: 2 active
+- **Epics**: 0 active
+- **Issues**: 0 active  
+- **Tasks**: 0 active
 - **Overall Completion**: 0%
 
 ## Project Structure
 
-### EP-0001: Project Setup and Initial Development
-**Status**: active | **Priority**: high | **Assignee**: masa
-**Description**: Initial setup and foundational development for the project
 
-#### ISS-0001: Development Environment Setup
-**Status**: active | **Priority**: high | **Assignee**: masa
-**Description**: Configure development environment and tooling for the project
+## AI Context Templates
 
-**Tasks**:
-- TSK-0001: Install and configure development tools [planning]
-- TSK-0002: Create development setup documentation [planning]
+- context/requirements
+- context/constraints
+- context/assumptions
+- context/dependencies
 
+## Token Usage Summary
+
+- **Total Estimated Tokens**: 0
+- **Total Actual Tokens**: 0

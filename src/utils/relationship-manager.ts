@@ -21,10 +21,13 @@ import type {
   ValidationError
 } from '../types/ai-trackdown.js';
 import { FrontmatterParser } from './frontmatter-parser.js';
+import { UnifiedPathResolver } from './unified-path-resolver.js';
 
 export class RelationshipManager {
   private parser: FrontmatterParser;
   private config: ProjectConfig;
+  private projectRoot: string;
+  private cliTasksDir?: string;
   
   // In-memory caches for performance
   private epicCache: Map<string, EpicData> = new Map();
@@ -35,9 +38,11 @@ export class RelationshipManager {
   private lastCacheUpdate: number = 0;
   private cacheExpiry: number = 300000; // 5 minutes
 
-  constructor(config: ProjectConfig) {
+  constructor(config: ProjectConfig, projectRoot?: string, cliTasksDir?: string) {
     this.parser = new FrontmatterParser();
     this.config = config;
+    this.projectRoot = projectRoot || process.cwd();
+    this.cliTasksDir = cliTasksDir;
   }
 
   /**
@@ -397,30 +402,32 @@ export class RelationshipManager {
     this.taskCache.clear();
     this.prCache.clear();
 
+    // Get absolute paths using UnifiedPathResolver
+    const pathResolver = new UnifiedPathResolver(this.config, this.projectRoot, this.cliTasksDir);
+    const paths = pathResolver.getUnifiedPaths();
+
     // Load epics
-    const epics = this.parser.parseDirectory(this.config.structure.epics_dir, 'epic');
+    const epics = this.parser.parseDirectory(paths.epicsDir, 'epic');
     for (const epic of epics as EpicData[]) {
       this.epicCache.set(epic.epic_id, epic);
     }
 
     // Load issues
-    const issues = this.parser.parseDirectory(this.config.structure.issues_dir, 'issue');
+    const issues = this.parser.parseDirectory(paths.issuesDir, 'issue');
     for (const issue of issues as IssueData[]) {
       this.issueCache.set(issue.issue_id, issue);
     }
 
     // Load tasks
-    const tasks = this.parser.parseDirectory(this.config.structure.tasks_dir, 'task');
+    const tasks = this.parser.parseDirectory(paths.tasksDir, 'task');
     for (const task of tasks as TaskData[]) {
       this.taskCache.set(task.task_id, task);
     }
 
     // Load PRs
-    if (this.config.structure.prs_dir) {
-      const prs = this.parser.parseDirectory(this.config.structure.prs_dir, 'pr');
-      for (const pr of prs as PRData[]) {
-        this.prCache.set(pr.pr_id, pr);
-      }
+    const prs = this.parser.parseDirectory(paths.prsDir, 'pr');
+    for (const pr of prs as PRData[]) {
+      this.prCache.set(pr.pr_id, pr);
     }
 
     this.lastCacheUpdate = Date.now();

@@ -66,13 +66,13 @@ async function reviewPR(prId: string, options: ReviewOptions): Promise<void> {
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
   const parser = new FrontmatterParser();
-  const relationshipManager = new RelationshipManager(config);
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR;
   
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Find the PR
   const prHierarchy = relationshipManager.getPRHierarchy(prId);
@@ -104,7 +104,7 @@ async function reviewPR(prId: string, options: ReviewOptions): Promise<void> {
   // Get review template if specified
   let reviewTemplate = '';
   if (options.template) {
-    const template = configManager.getTemplate('pr-review', options.template);
+    const template = configManager.getTemplateWithFallback('pr-review', options.template);
     if (template) {
       reviewTemplate = template.content_template || '';
     }

@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { execSync } from 'child_process';
 import { VersionManager } from '../../utils/version.js';
 import { GitManager } from '../../utils/git.js';
 import { Formatter } from '../../utils/formatter.js';
@@ -61,7 +62,7 @@ export function createTagCommand(): Command {
             console.log(Formatter.warning(`🔄 Recreating existing tag ${tagName}...`));
             try {
               // Delete local tag
-              require('child_process').execSync(`git tag -d ${tagName}`, { stdio: 'ignore' });
+              execSync(`git tag -d ${tagName}`, { stdio: 'ignore' });
               GitManager.createTag(versionInfo.version, tagMessage);
               console.log(Formatter.success(`✅ Tag ${tagName} recreated successfully!`));
             } catch (recreateError) {

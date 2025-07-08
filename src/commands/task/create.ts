@@ -5,6 +5,7 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { IdGenerator } from '../../utils/simple-id-generator.js';
@@ -60,13 +61,13 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
   const config = configManager.getConfig();
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
-  const relationshipManager = new RelationshipManager(config);
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
   
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Validate that the issue exists
   const issueHierarchy = relationshipManager.getIssueHierarchy(options.issue);
@@ -81,7 +82,7 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
   const taskId = idGenerator.generateTaskId(options.issue, title);
   
   // Get template
-  const template = configManager.getTemplate('task', options.template || 'default');
+  const template = configManager.getTemplateWithFallback('task', options.template || 'default');
   if (!template) {
     throw new Error(`Task template '${options.template || 'default'}' not found`);
   }
@@ -149,7 +150,7 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
   }
   
   // Check if file already exists
-  if (require('fs').existsSync(filePath)) {
+  if (fs.existsSync(filePath)) {
     throw new Error(`Task file already exists: ${filePath}`);
   }
   

@@ -36,3 +36,47 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Development files that should not be in production
+*.backup
+.cleanup-backup/
+performance-report.json
+debug-*.js
+fix-*.js
+test-*.js
+verify-*.js
+manual-*.js
+operations-*.js
+*-test.js
+implement-*.js
+simple-*.js
+
+# Development directories
+test-project/
+test-fresh/
+ai-trackdown-tools/
+ai-trackdown-verification/
+trackdown/
+tasks/
+.trackdown-backup/
+
+# Development documentation
+ATT-*.md
+*-SUMMARY.md
+*-STATUS.md
+*-REPORT.md
+MIGRATION.md
+REPAIR_SUMMARY.md
+PHASE*_*.md
+OPERATIONS_*.md
+INDEX_*.md
+CLAUDE.md
+
+# Development scripts
+*.sh
+aitrackdown-local.sh
+fix-cli.sh
+verify-*.sh
+
+# Alternative configs
+tsup.simple.config.ts

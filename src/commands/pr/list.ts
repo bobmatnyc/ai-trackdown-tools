@@ -62,7 +62,7 @@ export function createPRListCommand(): Command {
 async function listPRs(options: ListOptions): Promise<void> {
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
-  const relationshipManager = new RelationshipManager(config);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR;

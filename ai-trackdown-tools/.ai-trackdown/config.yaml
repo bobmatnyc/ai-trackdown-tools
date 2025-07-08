@@ -1,15 +1,18 @@
 name: ai-trackdown-tools
-description: "AI-Trackdown software project: ai-trackdown-tools"
+description: "AI-Trackdown general project: ai-trackdown-tools"
 version: 1.0.0
+tasks_directory: tasks
 structure:
   epics_dir: epics
   issues_dir: issues
   tasks_dir: tasks
   templates_dir: templates
+  prs_dir: prs
 naming_conventions:
   epic_prefix: EP
   issue_prefix: ISS
   task_prefix: TSK
+  pr_prefix: PR
   file_extension: .md
 default_assignee: masa
 ai_context_templates:

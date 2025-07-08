@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
@@ -712,7 +712,7 @@ function displayExportSummary(items: TrackdownItem[], config: any, outputPath: s
 
   // File size info
   try {
-    const stats = require('fs').statSync(outputPath);
+    const stats = statSync(outputPath);
     const fileSizeKB = (stats.size / 1024).toFixed(2);
     console.log('');
     console.log(Formatter.info(`📊 File size: ${fileSizeKB} KB`));
