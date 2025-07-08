@@ -229,7 +229,7 @@ automation:
 #### Issue: Migration Command Not Found
 ```bash
 # Update to latest version
-npm install -g ai-trackdown-tooling@latest
+npm install -g ai-trackdown-tools@latest
 ```
 
 #### Issue: YAML Parse Errors

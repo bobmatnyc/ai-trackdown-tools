@@ -11,9 +11,9 @@ updates:
       timezone: "UTC"
     open-pull-requests-limit: 10
     reviewers:
-      - "@ai-trackdown-tooling/maintainers"
+      - "@ai-trackdown-tools/maintainers"
     assignees:
-      - "@ai-trackdown-tooling/maintainers"
+      - "@ai-trackdown-tools/maintainers"
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"

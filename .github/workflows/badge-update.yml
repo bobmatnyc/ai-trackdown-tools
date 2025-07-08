@@ -68,9 +68,9 @@ jobs:
           echo '![Nightly Builds](https://github.com/${{ github.repository }}/workflows/Nightly%20Builds/badge.svg)' >> badge-info.md
           echo "" >> badge-info.md
           echo "### Package Info" >> badge-info.md
-          echo '![NPM Version](https://img.shields.io/npm/v/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
-          echo '![Node.js Version](https://img.shields.io/node/v/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
-          echo '![License](https://img.shields.io/npm/l/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo '![NPM Version](https://img.shields.io/npm/v/ai-trackdown-tools?style=flat-square)' >> badge-info.md
+          echo '![Node.js Version](https://img.shields.io/node/v/ai-trackdown-tools?style=flat-square)' >> badge-info.md
+          echo '![License](https://img.shields.io/npm/l/ai-trackdown-tools?style=flat-square)' >> badge-info.md
           echo "" >> badge-info.md
           echo "### Quality Metrics" >> badge-info.md
           echo '![Test Coverage](https://img.shields.io/badge/coverage-${{ steps.coverage.outputs.coverage }}%25-brightgreen?style=flat-square)' >> badge-info.md
@@ -78,8 +78,8 @@ jobs:
           echo '![Code Quality](https://img.shields.io/badge/code%20quality-A-brightgreen?style=flat-square)' >> badge-info.md
           echo "" >> badge-info.md
           echo "### Downloads" >> badge-info.md
-          echo '![NPM Downloads](https://img.shields.io/npm/dm/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
-          echo '![NPM Downloads Total](https://img.shields.io/npm/dt/ai-trackdown-tooling?style=flat-square)' >> badge-info.md
+          echo '![NPM Downloads](https://img.shields.io/npm/dm/ai-trackdown-tools?style=flat-square)' >> badge-info.md
+          echo '![NPM Downloads Total](https://img.shields.io/npm/dt/ai-trackdown-tools?style=flat-square)' >> badge-info.md
 
       - name: Upload badge info
         uses: actions/upload-artifact@v4

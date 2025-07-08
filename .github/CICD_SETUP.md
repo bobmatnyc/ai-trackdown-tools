@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the comprehensive CI/CD pipeline setup for the ai-trackdown-tooling CLI project, designed for enterprise-scale development and deployment.
+This document describes the comprehensive CI/CD pipeline setup for the ai-trackdown-tools CLI project, designed for enterprise-scale development and deployment.
 
 ## 🏗️ Workflow Architecture
 

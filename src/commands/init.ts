@@ -19,6 +19,7 @@ interface InitOptions {
   type?: string;
   assignee?: string;
   name?: string;
+  tasksDirectory?: string; // NEW: Support for --tasks-dir option
 }
 
 export function createInitCommand(): Command {
@@ -29,6 +30,7 @@ export function createInitCommand(): Command {
     .argument('[project-name]', 'name of the project')
     .option('--type <type>', 'project type (software, research, business, general)', 'general')
     .option('--assignee <assignee>', 'default assignee for items')
+    .option('--tasks-directory <path>', 'root directory for all task types (default: tasks)', 'tasks')
     .option('--force', 'overwrite existing project')
     .option('--interactive', 'interactive setup mode')
     .addHelpText(
@@ -38,12 +40,20 @@ Examples:
   $ aitrackdown init my-project --type software
   $ aitrackdown init research-project --type research --interactive
   $ aitrackdown init --interactive
+  $ aitrackdown init my-project --tasks-directory work
 
 Project Types:
   software  - Software development projects
   research  - Research and analysis projects  
   business  - Business process and planning
   general   - General purpose projects
+
+Directory Structure:
+  Default structure with --tasks-directory "tasks":
+    tasks/epics/, tasks/issues/, tasks/tasks/, tasks/templates/
+  
+  Custom structure with --tasks-directory "work":
+    work/epics/, work/issues/, work/tasks/, work/templates/
 `
     )
     .action(async (projectName?: string, options: InitOptions = {}) => {
@@ -52,6 +62,7 @@ Project Types:
           name: projectName,
           type: options.type || 'general',
           assignee: options.assignee || process.env.USER || 'unassigned',
+          tasksDirectory: options.tasksDirectory || process.env.CLI_TASKS_DIR || 'tasks',
           force: options.force || false
         };
 
@@ -87,7 +98,8 @@ Project Types:
           const configManager = new ConfigManager(projectPath);
           const projectConfig = configManager.createDefaultConfig(projectNameValue, {
             description: `AI-Trackdown ${config.type} project: ${projectNameValue}`,
-            default_assignee: config.assignee
+            default_assignee: config.assignee,
+            tasks_directory: config.tasksDirectory
           });
 
           spinner.text = 'Creating project structure...';
@@ -122,15 +134,19 @@ Project Types:
 Project Type: ${config.type}
 Location: ${projectPath}
 Configuration: .ai-trackdown/config.yaml
+Tasks Directory: ${config.tasksDirectory}/
 
-📁 Project Structure:
+📁 Project Structure (Unified Layout):
 ├── .ai-trackdown/          # Configuration and metadata
 │   ├── config.yaml         # Project configuration
 │   ├── counters.json       # ID counters
+│   └── templates/          # Item templates  
+├── ${config.tasksDirectory}/                # Tasks root directory
+│   ├── epics/              # Epic-level planning
+│   ├── issues/             # Issue-level work items
+│   ├── tasks/              # Task-level activities
+│   ├── prs/                # Pull request tracking
 │   └── templates/          # Item templates
-├── epics/                  # Epic-level planning
-├── issues/                 # Issue-level work items
-├── tasks/                  # Task-level activities
 ├── .gitignore             # Git ignore patterns
 └── README.md              # Project documentation
 
@@ -139,7 +155,7 @@ Configuration: .ai-trackdown/config.yaml
    cd ${projectNameValue}
 
 2. Explore the example items:
-   ls epics/ issues/ tasks/
+   ls ${config.tasksDirectory}/epics/ ${config.tasksDirectory}/issues/ ${config.tasksDirectory}/tasks/
 
 3. Create your first epic:
    aitrackdown epic create "New Feature Development"
@@ -207,6 +223,18 @@ async function runInteractiveSetup(initialConfig: any) {
       default: initialConfig.assignee
     },
     {
+      type: 'input',
+      name: 'tasksDirectory',
+      message: 'Tasks root directory:',
+      default: initialConfig.tasksDirectory || 'tasks',
+      validate: (input: string) => {
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-_/]*$/.test(input)) {
+          return 'Tasks directory must start with alphanumeric character and contain only letters, numbers, hyphens, underscores, and slashes';
+        }
+        return true;
+      }
+    },
+    {
       type: 'confirm',
       name: 'force',
       message: 'Overwrite existing project if it exists?',
@@ -225,11 +253,15 @@ async function createExampleItems(
 ): Promise<void> {
   const parser = new FrontmatterParser();
 
+  // Get unified paths for the project
+  const { UnifiedPathResolver } = require('../utils/unified-path-resolver.js');
+  const pathResolver = new UnifiedPathResolver(config, projectPath);
+  const paths = pathResolver.getUnifiedPaths();
+
   // Create example epic
   const epicId = idGenerator.generateEpicId('Project Setup and Initial Development');
   const epicPath = path.join(
-    projectPath,
-    config.structure.epics_dir,
+    paths.epicsDir,
     idGenerator.generateFilename(epicId, 'Project Setup and Initial Development')
   );
 
@@ -279,8 +311,7 @@ This is a foundational epic that will enable all future development work.`;
   // Create example issue
   const issueId = idGenerator.generateIssueId(epicId, 'Development Environment Setup');
   const issuePath = path.join(
-    projectPath,
-    config.structure.issues_dir,
+    paths.issuesDir,
     idGenerator.generateFilename(issueId, 'Development Environment Setup')
   );
 
@@ -329,8 +360,7 @@ Focus on creating a setup that is reliable and easy to follow for new team membe
   // Create example task 1
   const task1Id = idGenerator.generateTaskId(issueId, 'Install and configure development tools');
   const task1Path = path.join(
-    projectPath,
-    config.structure.tasks_dir,
+    paths.tasksDir,
     idGenerator.generateFilename(task1Id, 'Install and configure development tools')
   );
 
@@ -387,8 +417,7 @@ Document any platform-specific setup requirements.`;
   // Create example task 2
   const task2Id = idGenerator.generateTaskId(issueId, 'Create development setup documentation');
   const task2Path = path.join(
-    projectPath,
-    config.structure.tasks_dir,
+    paths.tasksDir,
     idGenerator.generateFilename(task2Id, 'Create development setup documentation')
   );
 
@@ -445,18 +474,20 @@ Keep documentation updated as tools and requirements evolve.`;
 }
 
 function createProjectReadme(projectPath: string, projectName: string, projectType: string, config: ProjectConfig): void {
+  const tasksDir = config.tasks_directory || 'tasks';
   const readmeContent = `# ${projectName}
 
 An AI-Trackdown project for hierarchical project management.
 
 **Project Type:** ${projectType}  
 **Created:** ${new Date().toISOString().split('T')[0]}
+**Tasks Directory:** ${tasksDir}/
 
 ## Overview
 
 This project uses AI-Trackdown for hierarchical project management with Epics, Issues, and Tasks. Each item has YAML frontmatter for metadata and Markdown content for descriptions.
 
-## Structure
+## Unified Directory Structure
 
 \`\`\`
 ${projectName}/
@@ -464,9 +495,12 @@ ${projectName}/
 │   ├── config.yaml         # Project configuration
 │   ├── counters.json       # ID generation counters
 │   └── templates/          # Item templates
-├── epics/                  # Epic-level planning (.md files)
-├── issues/                 # Issue-level work items (.md files)
-├── tasks/                  # Task-level activities (.md files)
+├── ${tasksDir}/                  # Tasks root directory (configurable)
+│   ├── epics/              # Epic-level planning (.md files)
+│   ├── issues/             # Issue-level work items (.md files)
+│   ├── tasks/              # Task-level activities (.md files)
+│   ├── prs/                # Pull request tracking (.md files)
+│   └── templates/          # Item templates
 ├── .gitignore             # Git ignore patterns
 └── README.md              # This file
 \`\`\`
@@ -482,13 +516,16 @@ ${projectName}/
 ### View Items
 \`\`\`bash
 # List all epics
-ls epics/
+ls ${tasksDir}/epics/
 
 # List all issues
-ls issues/
+ls ${tasksDir}/issues/
 
 # List all tasks
-ls tasks/
+ls ${tasksDir}/tasks/
+
+# List all PRs
+ls ${tasksDir}/prs/
 \`\`\`
 
 ### Create New Items
@@ -580,12 +617,12 @@ The project includes example items to help you get started:
 
 ## Links
 
-- [AI-Trackdown Documentation](https://github.com/your-org/ai-trackdown-tooling)
-- [Project Issues](https://github.com/your-org/ai-trackdown-tooling/issues)
+- [AI-Trackdown Documentation](https://github.com/your-org/ai-trackdown-tools)
+- [Project Issues](https://github.com/your-org/ai-trackdown-tools/issues)
 
 ---
 
-*Generated by ai-trackdown-tooling on ${new Date().toISOString().split('T')[0]}*
+*Generated by ai-trackdown-tools on ${new Date().toISOString().split('T')[0]}*
 `;
 
   fs.writeFileSync(path.join(projectPath, 'README.md'), readmeContent, 'utf8');

@@ -1,6 +1,6 @@
 # ATT-002: Configurable Issue Documents Root Directory
 
-**Project**: ai-trackdown-tooling  
+**Project**: ai-trackdown-tools  
 **Priority**: HIGH  
 **Story Points**: 8  
 **Epic**: CLI Foundation Fixes  

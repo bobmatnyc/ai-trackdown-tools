@@ -71,7 +71,7 @@ describe('CLI Package Structure', () => {
 
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
 
-    expect(packageJson.name).toBe('ai-trackdown-tooling');
+    expect(packageJson.name).toBe('ai-trackdown-tools');
     expect(packageJson.type).toBe('module');
     expect(packageJson.bin).toHaveProperty('aitrackdown');
     expect(packageJson.bin).toHaveProperty('atd');

@@ -56,8 +56,11 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
   
-  // Get absolute paths
-  const paths = configManager.getAbsolutePaths();
+  // Get CLI tasks directory from parent command options
+  const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
+  
+  // Get absolute paths with CLI override
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
   
   // Generate epic ID
   const epicId = idGenerator.generateEpicId(title);

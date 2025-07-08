@@ -1,0 +1,59 @@
+# Source files
+src/
+tests/
+scripts/
+
+# GitHub workflows and templates
+.github/
+
+# Development files
+*.config.ts
+*.config.js
+tsconfig.json
+biome.json
+turbo.json
+vitest.config.ts
+
+# Development dependencies
+node_modules/
+.nyc_output/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env*
+
+# Project management files
+ai-trackdown-tools/
+ai-trackdown-verification/
+trackdown/
+tasks/
+
+# Documentation that's not needed for package usage
+*.md
+!README.md
+
+# Build artifacts
+*.tsbuildinfo
+*.tmp
+*.temp
+
+# Test files
+test.js
+fix-example.js

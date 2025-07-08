@@ -43,7 +43,7 @@ jobs:
         run: |
           # Test CLI with various scenarios
           npm pack
-          npm install -g ./ai-trackdown-tooling-*.tgz
+          npm install -g ./ai-trackdown-tools-*.tgz
           
           # Test rapid command execution
           for i in {1..10}; do
@@ -201,7 +201,7 @@ jobs:
           
           # Quick CLI test
           npm pack
-          npm install -g ./ai-trackdown-tooling-*.tgz
+          npm install -g ./ai-trackdown-tools-*.tgz
           aitrackdown --version
 
   report-status:

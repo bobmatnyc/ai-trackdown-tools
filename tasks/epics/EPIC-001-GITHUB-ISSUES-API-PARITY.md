@@ -21,7 +21,7 @@ sync:
 
 # EPIC-001: GitHub Issues API Complete Parity Implementation
 
-**Project**: ai-trackdown-tooling  
+**Project**: ai-trackdown-tools  
 **Priority**: CRITICAL  
 **Story Points**: 34  
 **Epic**: GitHub Issues API Complete Parity  
@@ -110,102 +110,102 @@ Transform the AI Trackdown CLI into a comprehensive GitHub Issues API equivalent
 ### **Issue Management Commands**
 ```bash
 # Core issue operations
-trackdown issue create --title "Bug fix" --body "Description" --labels bug,high
-trackdown issue list --state open --assignee @me --sort created
-trackdown issue show 123 --comments --reactions
-trackdown issue update 123 --title "Updated title" --add-labels enhancement
-trackdown issue close 123 --reason completed
-trackdown issue reopen 123 --comment "Reopening for additional work"
-trackdown issue delete 123 --confirm
-trackdown issue search "bug in auth" --state all --created ">2024-01-01"
+aitrackdown issue create --title "Bug fix" --body "Description" --labels bug,high
+aitrackdown issue list --state open --assignee @me --sort created
+aitrackdown issue show 123 --comments --reactions
+aitrackdown issue update 123 --title "Updated title" --add-labels enhancement
+aitrackdown issue close 123 --reason completed
+aitrackdown issue reopen 123 --comment "Reopening for additional work"
+aitrackdown issue delete 123 --confirm
+aitrackdown issue search "bug in auth" --state all --created ">2024-01-01"
 
 # Bulk operations
-trackdown issue bulk-update --filter "label:bug" --add-labels needs-review
-trackdown issue bulk-close --filter "label:wontfix" --reason not_planned
+aitrackdown issue bulk-update --filter "label:bug" --add-labels needs-review
+aitrackdown issue bulk-close --filter "label:wontfix" --reason not_planned
 ```
 
 ### **Label Management Commands**
 ```bash
 # Label operations
-trackdown label create "priority:high" --color ff0000 --description "High priority"
-trackdown label list --sort name
-trackdown label update "bug" --color ff6600 --description "Bug reports"
-trackdown label delete "old-label" --confirm
-trackdown label apply 123 bug enhancement
-trackdown label remove 123 wontfix
+aitrackdown label create "priority:high" --color ff0000 --description "High priority"
+aitrackdown label list --sort name
+aitrackdown label update "bug" --color ff6600 --description "Bug reports"
+aitrackdown label delete "old-label" --confirm
+aitrackdown label apply 123 bug enhancement
+aitrackdown label remove 123 wontfix
 ```
 
 ### **Milestone Management Commands**
 ```bash
 # Milestone operations
-trackdown milestone create "v1.0.0" --due-date "2024-12-31" --description "Major release"
-trackdown milestone list --state open
-trackdown milestone update "v1.0.0" --due-date "2025-01-15"
-trackdown milestone delete "cancelled-milestone" --confirm
-trackdown milestone assign 123 "v1.0.0"
-trackdown milestone progress "v1.0.0" --detailed
+aitrackdown milestone create "v1.0.0" --due-date "2024-12-31" --description "Major release"
+aitrackdown milestone list --state open
+aitrackdown milestone update "v1.0.0" --due-date "2025-01-15"
+aitrackdown milestone delete "cancelled-milestone" --confirm
+aitrackdown milestone assign 123 "v1.0.0"
+aitrackdown milestone progress "v1.0.0" --detailed
 ```
 
 ### **Project Integration Commands**
 ```bash
 # Project management
-trackdown project create "Development Board" --template basic-kanban
-trackdown project list --org myorg
-trackdown project add-issue 123 --column "In Progress"
-trackdown project board --project "Development Board"
+aitrackdown project create "Development Board" --template basic-kanban
+aitrackdown project list --org myorg
+aitrackdown project add-issue 123 --column "In Progress"
+aitrackdown project board --project "Development Board"
 ```
 
 ### **Epic Management Commands**
 ```bash
 # Epic operations
-trackdown epic create --title "User Authentication" --description "Epic description"
-trackdown epic add-issue 123 --epic EPIC-001
-trackdown epic progress EPIC-001 --burndown
-trackdown epic close EPIC-001 --reason completed
+aitrackdown epic create --title "User Authentication" --description "Epic description"
+aitrackdown epic add-issue 123 --epic EPIC-001
+aitrackdown epic progress EPIC-001 --burndown
+aitrackdown epic close EPIC-001 --reason completed
 ```
 
 ### **Comment Management Commands**
 ```bash
 # Comment operations
-trackdown comment create 123 --body "Comment text"
-trackdown comment list 123 --sort created
-trackdown comment update 456 --body "Updated comment"
-trackdown comment delete 456 --confirm
+aitrackdown comment create 123 --body "Comment text"
+aitrackdown comment list 123 --sort created
+aitrackdown comment update 456 --body "Updated comment"
+aitrackdown comment delete 456 --confirm
 ```
 
 ### **Reaction Management Commands**
 ```bash
 # Reaction operations
-trackdown reaction add 123 +1
-trackdown reaction list 123
-trackdown reaction remove 123 +1
+aitrackdown reaction add 123 +1
+aitrackdown reaction list 123
+aitrackdown reaction remove 123 +1
 ```
 
 ### **Pull Request Integration Commands**
 ```bash
 # PR operations
-trackdown pr create --title "Fix bug" --body "Description" --head feature --base main
-trackdown pr link 123 --pr 456
-trackdown pr review 456 --approve --comment "LGTM"
-trackdown pr merge 456 --strategy squash
+aitrackdown pr create --title "Fix bug" --body "Description" --head feature --base main
+aitrackdown pr link 123 --pr 456
+aitrackdown pr review 456 --approve --comment "LGTM"
+aitrackdown pr merge 456 --strategy squash
 ```
 
 ### **Notification Management Commands**
 ```bash
 # Notification operations
-trackdown notification list --unread
-trackdown notification mark-read 123
-trackdown notification subscribe 123
-trackdown notification unsubscribe 123
+aitrackdown notification list --unread
+aitrackdown notification mark-read 123
+aitrackdown notification subscribe 123
+aitrackdown notification unsubscribe 123
 ```
 
 ### **Analytics and Reporting Commands**
 ```bash
 # Analytics operations
-trackdown analytics issues --period "last-30-days" --group-by label
-trackdown analytics velocity --milestone "v1.0.0"
-trackdown analytics burndown --milestone "v1.0.0" --chart
-trackdown analytics dashboard --export json
+aitrackdown analytics issues --period "last-30-days" --group-by label
+aitrackdown analytics velocity --milestone "v1.0.0"
+aitrackdown analytics burndown --milestone "v1.0.0" --chart
+aitrackdown analytics dashboard --export json
 ```
 
 ## 🏗️ TECHNICAL IMPLEMENTATION SPECIFICATIONS

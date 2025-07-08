@@ -1,7 +1,9 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: {
+    index: 'src/cli.ts',
+  },
   format: ['esm', 'cjs'],
   dts: true,
   splitting: false,
@@ -11,13 +13,26 @@ export default defineConfig({
   target: 'node16',
   minify: false,
   bundle: true,
-  external: ['chalk', 'commander'],
-  noExternal: [],
-  treeshake: true,
+  external: [],
+  noExternal: [
+    'chalk', 
+    'commander', 
+    'inquirer', 
+    'ora', 
+    'boxen', 
+    'figlet',
+    'js-yaml',
+    'yaml',
+    'semver',
+    'gray-matter'
+  ],
+  treeshake: false,
   platform: 'node',
   banner: {
     js: '#!/usr/bin/env node',
   },
+  shims: true,
+  keepNames: true,
   onSuccess: async () => {
     console.log('✅ Build completed successfully');
   },

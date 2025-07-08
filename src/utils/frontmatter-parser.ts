@@ -10,9 +10,11 @@ import type {
   EpicFrontmatter,
   IssueFrontmatter,
   TaskFrontmatter,
+  PRFrontmatter,
   EpicData,
   IssueData,
   TaskData,
+  PRData,
   AnyFrontmatter,
   AnyItemData,
   ValidationResult,
@@ -88,17 +90,40 @@ export class FrontmatterParser {
   }
 
   /**
+   * Parse a PR file with YAML frontmatter
+   */
+  public parsePR(filePath: string): PRData {
+    const { frontmatter, content } = this.parseFile(filePath);
+    
+    // Validate that this is a PR
+    if (!frontmatter.pr_id || !frontmatter.issue_id || !frontmatter.epic_id) {
+      throw new Error(`File ${filePath} is missing required pr_id, issue_id, or epic_id field`);
+    }
+    
+    const prFrontmatter = frontmatter as PRFrontmatter;
+    this.validatePRFrontmatter(prFrontmatter);
+    
+    return {
+      ...prFrontmatter,
+      content,
+      file_path: filePath
+    };
+  }
+
+  /**
    * Generic file parser for any ai-trackdown item
    */
   public parseAnyItem(filePath: string): AnyItemData {
     const { frontmatter } = this.parseFile(filePath);
     
-    if (frontmatter.epic_id && !frontmatter.issue_id && !frontmatter.task_id) {
+    if (frontmatter.epic_id && !frontmatter.issue_id && !frontmatter.task_id && !frontmatter.pr_id) {
       return this.parseEpic(filePath);
-    } else if (frontmatter.issue_id && frontmatter.epic_id && !frontmatter.task_id) {
+    } else if (frontmatter.issue_id && frontmatter.epic_id && !frontmatter.task_id && !frontmatter.pr_id) {
       return this.parseIssue(filePath);
-    } else if (frontmatter.task_id && frontmatter.issue_id && frontmatter.epic_id) {
+    } else if (frontmatter.task_id && frontmatter.issue_id && frontmatter.epic_id && !frontmatter.pr_id) {
       return this.parseTask(filePath);
+    } else if (frontmatter.pr_id && frontmatter.issue_id && frontmatter.epic_id && !frontmatter.task_id) {
+      return this.parsePR(filePath);
     } else {
       throw new Error(`File ${filePath} does not match any ai-trackdown item type`);
     }
@@ -124,6 +149,14 @@ export class FrontmatterParser {
    * Serialize Task data back to file format
    */
   public serializeTask(data: TaskFrontmatter, content: string): string {
+    const frontmatter = this.cleanFrontmatter(data);
+    return this.serializeWithFrontmatter(frontmatter, content);
+  }
+
+  /**
+   * Serialize PR data back to file format
+   */
+  public serializePR(data: PRFrontmatter, content: string): string {
     const frontmatter = this.cleanFrontmatter(data);
     return this.serializeWithFrontmatter(frontmatter, content);
   }
@@ -156,6 +189,15 @@ export class FrontmatterParser {
   }
 
   /**
+   * Write PR data to file
+   */
+  public writePR(filePath: string, data: PRFrontmatter, content: string): void {
+    const serialized = this.serializePR(data, content);
+    this.ensureDirectoryExists(path.dirname(filePath));
+    fs.writeFileSync(filePath, serialized, 'utf8');
+  }
+
+  /**
    * Update existing file with new frontmatter data
    */
   public updateFile(filePath: string, updates: Partial<AnyFrontmatter>): AnyItemData {
@@ -171,10 +213,12 @@ export class FrontmatterParser {
     // Write back to file
     if ('epic_id' in updated && !('issue_id' in updated)) {
       this.writeEpic(filePath, updated as EpicFrontmatter, existing.content);
-    } else if ('issue_id' in updated && !('task_id' in updated)) {
+    } else if ('issue_id' in updated && !('task_id' in updated) && !('pr_id' in updated)) {
       this.writeIssue(filePath, updated as IssueFrontmatter, existing.content);
     } else if ('task_id' in updated) {
       this.writeTask(filePath, updated as TaskFrontmatter, existing.content);
+    } else if ('pr_id' in updated) {
+      this.writePR(filePath, updated as PRFrontmatter, existing.content);
     }
 
     return updated;
@@ -202,10 +246,12 @@ export class FrontmatterParser {
       // Validate required fields based on type
       if ('epic_id' in data && !('issue_id' in data)) {
         return this.validateEpicData(data as EpicData);
-      } else if ('issue_id' in data && !('task_id' in data)) {
+      } else if ('issue_id' in data && !('task_id' in data) && !('pr_id' in data)) {
         return this.validateIssueData(data as IssueData);
       } else if ('task_id' in data) {
         return this.validateTaskData(data as TaskData);
+      } else if ('pr_id' in data) {
+        return this.validatePRData(data as PRData);
       }
 
     } catch (error) {
@@ -321,6 +367,18 @@ export class FrontmatterParser {
   }
 
   /**
+   * Private: Validate PR frontmatter
+   */
+  private validatePRFrontmatter(data: PRFrontmatter): void {
+    const required = ['pr_id', 'issue_id', 'epic_id', 'title', 'status', 'pr_status', 'priority', 'assignee', 'created_date'];
+    for (const field of required) {
+      if (!data[field as keyof PRFrontmatter]) {
+        throw new Error(`PR missing required field: ${field}`);
+      }
+    }
+  }
+
+  /**
    * Private: Comprehensive Epic data validation
    */
   private validateEpicData(data: EpicData): ValidationResult {
@@ -381,9 +439,36 @@ export class FrontmatterParser {
   }
 
   /**
+   * Private: Comprehensive PR data validation
+   */
+  private validatePRData(data: PRData): ValidationResult {
+    const errors: ValidationError[] = [];
+    const warnings: ValidationError[] = [];
+
+    // Required field validation
+    if (!data.pr_id) errors.push({ field: 'pr_id', message: 'PR ID is required', severity: 'error' });
+    if (!data.issue_id) errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
+    if (!data.epic_id) errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
+    if (!data.pr_status) errors.push({ field: 'pr_status', message: 'PR status is required', severity: 'error' });
+
+    // Format validation
+    if (data.pr_id && !/^PR-\d{4}$/.test(data.pr_id)) {
+      warnings.push({ field: 'pr_id', message: 'PR ID should follow format PR-XXXX', severity: 'warning' });
+    }
+
+    // PR-specific validation
+    const validPRStatuses = ['draft', 'open', 'review', 'approved', 'merged', 'closed'];
+    if (data.pr_status && !validPRStatuses.includes(data.pr_status)) {
+      errors.push({ field: 'pr_status', message: `Invalid PR status: ${data.pr_status}`, severity: 'error' });
+    }
+
+    return { valid: errors.length === 0, errors, warnings };
+  }
+
+  /**
    * Bulk operations for directory processing
    */
-  public parseDirectory(dirPath: string, itemType: 'epic' | 'issue' | 'task'): AnyItemData[] {
+  public parseDirectory(dirPath: string, itemType: 'epic' | 'issue' | 'task' | 'pr'): AnyItemData[] {
     if (!fs.existsSync(dirPath)) {
       return [];
     }
@@ -407,6 +492,9 @@ export class FrontmatterParser {
             break;
           case 'task':
             data = this.parseTask(filePath);
+            break;
+          case 'pr':
+            data = this.parsePR(filePath);
             break;
           default:
             continue;

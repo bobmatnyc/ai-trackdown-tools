@@ -16,7 +16,7 @@ body:
       options:
         - label: I have searched existing issues to ensure this bug hasn't been reported
           required: true
-        - label: I have tested with the latest version of ai-trackdown-tooling
+        - label: I have tested with the latest version of ai-trackdown-tools
           required: true
         - label: I have read the documentation
           required: true
@@ -95,8 +95,8 @@ body:
   - type: input
     id: tool-version
     attributes:
-      label: ai-trackdown-tooling Version
-      description: What version of ai-trackdown-tooling are you using?
+      label: ai-trackdown-tools Version
+      description: What version of ai-trackdown-tools are you using?
       placeholder: "0.4.0"
     validations:
       required: true

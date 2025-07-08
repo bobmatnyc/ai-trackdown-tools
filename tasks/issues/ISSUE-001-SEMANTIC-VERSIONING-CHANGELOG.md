@@ -21,7 +21,7 @@ sync:
 
 # ISSUE-001: Semantic Versioning and Changelog Implementation (v0.1.0)
 
-**Project**: ai-trackdown-tooling  
+**Project**: ai-trackdown-tools  
 **Epic**: EPIC-001 (GitHub Issues API Parity) - Supporting Infrastructure  
 **Priority**: HIGH  
 **Story Points**: 5  
@@ -53,19 +53,19 @@ The AI Trackdown CLI currently lacks proper version management infrastructure:
 - [ ] **Version File Creation**: Create VERSION file with semantic versioning (0.1.0)
 - [ ] **Package.json Sync**: Update package.json to version 0.1.0
 - [ ] **Changelog Generation**: Implement automated CHANGELOG.md generation
-- [ ] **CLI Commands**: Add version management commands to trackdown CLI
+- [ ] **CLI Commands**: Add version management commands to aitrackdown CLI
 - [ ] **Git Integration**: Automatic tagging and commit message standards
 - [ ] **Release Automation**: Automated release process with changelog updates
 
 ### **Version Management Commands**
 ```bash
 # Core version commands
-trackdown version show                    # Display current version
-trackdown version bump patch|minor|major # Bump version following semver
-trackdown version release                 # Create release with changelog
-trackdown version changelog generate      # Generate/update CHANGELOG.md
-trackdown version tag                     # Create git tag for current version
-trackdown version sync                    # Sync version across all files
+aitrackdown version show                    # Display current version
+aitrackdown version bump patch|minor|major # Bump version following semver
+aitrackdown version release                 # Create release with changelog
+aitrackdown version changelog generate      # Generate/update CHANGELOG.md
+aitrackdown version tag                     # Create git tag for current version
+aitrackdown version sync                    # Sync version across all files
 ```
 
 ### **Changelog Features**
@@ -77,7 +77,7 @@ trackdown version sync                    # Sync version across all files
 
 ### **File Structure**
 ```
-ai-trackdown-tooling/
+ai-trackdown-tools/
 ├── VERSION                    # Semantic version source of truth
 ├── CHANGELOG.md              # Automated changelog generation
 ├── package.json              # Synchronized version
@@ -161,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - N/A (Initial release)
 
-[0.1.0]: https://github.com/user/ai-trackdown-tooling/releases/tag/v0.1.0
+[0.1.0]: https://github.com/user/ai-trackdown-tools/releases/tag/v0.1.0
 `;
 ```
 
@@ -190,7 +190,7 @@ git push origin v0.1.0
    - Add version validation scripts
 
 2. **Version Commands Foundation**
-   - Implement `trackdown version show` command
+   - Implement `aitrackdown version show` command
    - Add version reading utilities
    - Create version validation functions
 
@@ -198,7 +198,7 @@ git push origin v0.1.0
 1. **Changelog Generation**
    - Implement CHANGELOG.md generation
    - Add Keep a Changelog format support
-   - Create `trackdown version changelog generate` command
+   - Create `aitrackdown version changelog generate` command
 
 2. **Conventional Commits Parsing**
    - Parse git commit messages
@@ -207,13 +207,13 @@ git push origin v0.1.0
 
 ### **Phase 3: Release Automation (1 story point)**
 1. **Version Bumping**
-   - Implement `trackdown version bump` command
+   - Implement `aitrackdown version bump` command
    - Add semver bumping logic (patch/minor/major)
    - Synchronize version across all files
 
 2. **Git Integration**
-   - Implement `trackdown version tag` command
-   - Add `trackdown version release` automation
+   - Implement `aitrackdown version tag` command
+   - Add `aitrackdown version release` automation
    - Create GitHub release integration
 
 ## 📊 TESTING STRATEGY
@@ -288,19 +288,19 @@ git push origin v0.1.0
 ### **Version Management Testing**
 ```bash
 # Test version display
-trackdown version show
+aitrackdown version show
 # Expected: 0.1.0
 
 # Test version bumping
-trackdown version bump patch
+aitrackdown version bump patch
 # Expected: 0.1.0 → 0.1.1
 
 # Test changelog generation
-trackdown version changelog generate
+aitrackdown version changelog generate
 # Expected: Updated CHANGELOG.md with new entries
 
 # Test release process
-trackdown version release
+aitrackdown version release
 # Expected: Git tag created, changelog updated, version bumped
 ```
 
@@ -311,7 +311,7 @@ grep -r "0.1.0" VERSION package.json
 # Expected: Consistent version across all files
 
 # Test automated synchronization
-trackdown version sync
+aitrackdown version sync
 # Expected: All files updated to match VERSION file
 ```
 

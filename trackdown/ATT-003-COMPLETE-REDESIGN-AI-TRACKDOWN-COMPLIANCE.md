@@ -1,6 +1,6 @@
 # ATT-003: Complete Redesign for ai-trackdown Compliance
 
-**Project**: ai-trackdown-tooling  
+**Project**: ai-trackdown-tools  
 **Priority**: CRITICAL - ARCHITECTURE OVERHAUL  
 **Story Points**: 34  
 **Epic**: Complete Product Redesign  

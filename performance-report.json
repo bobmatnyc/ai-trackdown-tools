@@ -1,0 +1,210 @@
+{
+  "timestamp": "2025-07-08T07:20:55.869Z",
+  "summary": {
+    "totalTests": 23,
+    "passedTests": 0,
+    "failedTests": 23,
+    "averageExecutionTime": 92.24445121739133,
+    "maxExecutionTime": 118.31087499999995,
+    "averageMemoryUsage": -24681.739130434784,
+    "maxMemoryUsage": 290968,
+    "performanceTargetsMet": true,
+    "recommendations": [
+      "23 commands failed - investigate error handling"
+    ]
+  },
+  "results": [
+    {
+      "command": "pr create --title Benchmark PR Test --issue ISSUE-001 --description Test PR --assignee test-user --dry-run",
+      "executionTime": 104.895625,
+      "memoryUsage": 102456,
+      "cpuUsage": 177.57,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\nerror: unknown option '--title'\n"
+    },
+    {
+      "command": "pr create --title Quick PR Test --issue ISSUE-001 --description Quick test --assignee test-user --branch-name feature/quick-test --dry-run",
+      "executionTime": 95.36345900000003,
+      "memoryUsage": 80472,
+      "cpuUsage": 178.757,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\nerror: unknown option '--title'\n"
+    },
+    {
+      "command": "pr create --title Full PR Test --issue ISSUE-001 --description Full test with all options --assignee test-user --reviewers reviewer1,reviewer2 --priority high --dry-run",
+      "executionTime": 118.31087499999995,
+      "memoryUsage": -1186336,
+      "cpuUsage": 180.839,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\nerror: unknown option '--title'\n"
+    },
+    {
+      "command": "pr list",
+      "executionTime": 109.73212500000005,
+      "memoryUsage": 79368,
+      "cpuUsage": 182.683,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --status open",
+      "executionTime": 87.97725000000003,
+      "memoryUsage": 120208,
+      "cpuUsage": 184.43,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --status approved",
+      "executionTime": 91.78466700000001,
+      "memoryUsage": 83888,
+      "cpuUsage": 185.555,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --assignee benchmark-user",
+      "executionTime": 86.24837500000001,
+      "memoryUsage": 79464,
+      "cpuUsage": 186.365,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --format json",
+      "executionTime": 81.013417,
+      "memoryUsage": 79592,
+      "cpuUsage": 187.312,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --format table",
+      "executionTime": 84.99149999999997,
+      "memoryUsage": 80088,
+      "cpuUsage": 188.17,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr show PR-001",
+      "executionTime": 95.49695799999995,
+      "memoryUsage": 80376,
+      "cpuUsage": 189.259,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to show PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr show PR-010 --format json",
+      "executionTime": 108.17645900000002,
+      "memoryUsage": 80384,
+      "cpuUsage": 190.51,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to show PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr show PR-020 --show-content",
+      "executionTime": 83.50241600000004,
+      "memoryUsage": 79136,
+      "cpuUsage": 191.328,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to show PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr show PR-030 --show-relationships",
+      "executionTime": 85.37304199999994,
+      "memoryUsage": 79416,
+      "cpuUsage": 192.119,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to show PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr show PR-040 --show-history",
+      "executionTime": 82.7645829999999,
+      "memoryUsage": 290968,
+      "cpuUsage": 192.915,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to show PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr update PR-001 --priority high --dry-run",
+      "executionTime": 82.5083340000001,
+      "memoryUsage": 79976,
+      "cpuUsage": 193.748,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to update PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr update PR-002 --assignee new-user --dry-run",
+      "executionTime": 84.29216700000006,
+      "memoryUsage": 79512,
+      "cpuUsage": 194.456,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to update PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr update PR-003 --add-reviewer reviewer3 --dry-run",
+      "executionTime": 95.8169170000001,
+      "memoryUsage": 79544,
+      "cpuUsage": 195.356,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to update PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr update PR-004 --title Updated PR Title --dry-run",
+      "executionTime": 88.67504200000008,
+      "memoryUsage": 80368,
+      "cpuUsage": 196.145,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to update PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr update PR-005 --description Updated description --dry-run",
+      "executionTime": 95.8955840000001,
+      "memoryUsage": 77744,
+      "cpuUsage": 197.979,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to update PR: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr batch --operation approve --filter status:open --dry-run",
+      "executionTime": 89.79995800000006,
+      "memoryUsage": 77056,
+      "cpuUsage": 198.821,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\nerror: unknown option '--filter'\n"
+    },
+    {
+      "command": "pr batch --operation merge --filter status:approved --dry-run",
+      "executionTime": 87.66533400000003,
+      "memoryUsage": -1325304,
+      "cpuUsage": 200.132,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\nerror: unknown option '--filter'\n"
+    },
+    {
+      "command": "pr list --format json",
+      "executionTime": 93.47716600000012,
+      "memoryUsage": 76872,
+      "cpuUsage": 201.089,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    },
+    {
+      "command": "pr list --format json",
+      "executionTime": 87.8611249999999,
+      "memoryUsage": 77072,
+      "cpuUsage": 202.689,
+      "success": false,
+      "error": "Warning: Could not read VERSION file, using fallback version\n❌ Failed to list PRs: AI-Trackdown configuration not found at /private/var/folders/l1/rj7vjw0d5jzcc0g4nkd6kyp40000gn/T/ai-trackdown-benchmark-D7o0U6/.ai-trackdown/config.yaml. Run 'aitrackdown init' to create a new project.\n"
+    }
+  ],
+  "environment": {
+    "nodeVersion": "v20.19.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "totalMemory": 34359738368,
+    "freeMemory": 152158208
+  }
+}

@@ -1,5 +1,5 @@
-name: ai-trackdown-tooling
-description: "AI-Trackdown software project: ai-trackdown-tooling"
+name: ai-trackdown-tools
+description: "AI-Trackdown software project: ai-trackdown-tools"
 version: 1.0.0
 structure:
   epics_dir: epics

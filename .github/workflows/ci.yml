@@ -217,7 +217,7 @@ jobs:
       - name: Test CLI installation
         run: |
           npm pack
-          npm install -g ./ai-trackdown-tooling-*.tgz
+          npm install -g ./ai-trackdown-tools-*.tgz
 
       - name: Test global CLI commands
         run: |

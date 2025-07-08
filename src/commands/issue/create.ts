@@ -62,8 +62,11 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const idGenerator = new IdGenerator();
   const relationshipManager = new RelationshipManager(config);
   
-  // Get absolute paths
-  const paths = configManager.getAbsolutePaths();
+  // Get CLI tasks directory from parent command options
+  const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
+  
+  // Get absolute paths with CLI override
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
   
   // Validate that the epic exists
   const epicHierarchy = relationshipManager.getEpicHierarchy(options.epic);

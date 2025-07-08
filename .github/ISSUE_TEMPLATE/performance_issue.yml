@@ -87,7 +87,7 @@ body:
       description: Provide environment information
       placeholder: |
         Node.js version: v18.17.0
-        ai-trackdown-tooling version: 0.4.0
+        ai-trackdown-tools version: 0.4.0
         Operating System: macOS 13.5
         Terminal: iTerm2
         Available Memory: 16GB

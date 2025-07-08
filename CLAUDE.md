@@ -1,8 +1,8 @@
-# AI Trackdown Tooling - Project Configuration
+# AI Trackdown Tools - Project Configuration
 
 ## 🚀 PROJECT OVERVIEW
 
-**AI Trackdown Tooling** - Professional CLI tool for ai-trackdown functionality delivered as NPM package.
+**AI Trackdown Tools** - Professional CLI tool for ai-trackdown functionality delivered as NPM package.
 
 **Core Mission**: Create a developer-friendly command-line interface that makes trackdown project management accessible via terminal commands.
 
@@ -40,7 +40,7 @@ find trackdown/ -name "*.md" | head -5
 ```
 
 ### Ticket Naming Convention
-- **ATT-XXX**: AI Trackdown Tooling tickets
+- **ATT-XXX**: AI Trackdown Tools tickets
 - Format: `ATT-001-BRIEF-DESCRIPTION.md`
 - Status tracking within individual ticket files
 
@@ -80,7 +80,7 @@ npm run typecheck
 
 # Test installation simulation
 npm link
-trackdown --help
+aitrackdown --help
 npm unlink
 ```
 
@@ -137,7 +137,7 @@ npm publish
 ## 📁 PROJECT STRUCTURE
 
 ```
-ai-trackdown-tooling/
+ai-trackdown-tools/
 ├── CLAUDE.md                 # This configuration file
 ├── trackdown/               # Local project management
 │   ├── ATT-001-CLI-FOUNDATION.md
@@ -151,7 +151,7 @@ ai-trackdown-tooling/
 ├── tests/                  # Test files
 ├── package.json           # NPM configuration
 ├── tsconfig.json          # TypeScript config
-├── jest.config.js         # Testing config
+├── vitest.config.ts       # Testing config
 └── README.md              # Package documentation
 ```
 

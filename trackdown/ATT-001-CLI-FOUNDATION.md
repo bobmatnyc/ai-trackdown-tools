@@ -1,6 +1,6 @@
 # ATT-001: AI Trackdown CLI Foundation Development
 
-**Project**: ai-trackdown-tooling  
+**Project**: ai-trackdown-tools  
 **Priority**: CRITICAL  
 **Story Points**: 21  
 **Epic**: CLI NPM Package Development  
@@ -68,7 +68,7 @@ src/
 ### **Package Configuration**
 ```json
 {
-  "name": "ai-trackdown-tooling",
+  "name": "ai-trackdown-tools",
   "type": "module",
   "bin": {
     "trackdown": "./dist/index.js",

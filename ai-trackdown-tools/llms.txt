@@ -1,4 +1,4 @@
-# ai-trackdown-tooling - AI Project Context
+# ai-trackdown-tools - AI Project Context
 
 > Generated on 2025-07-08T02:02:30.494Z
 > AI-Trackdown project management system

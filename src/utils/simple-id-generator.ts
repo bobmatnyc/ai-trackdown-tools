@@ -12,10 +12,12 @@ export class IdGenerator {
     epic: number;
     issue: number;
     task: number;
+    pr: number;
   } = {
     epic: 1,
     issue: 1,
-    task: 1
+    task: 1,
+    pr: 1
   };
 
   constructor() {
@@ -55,6 +57,16 @@ export class IdGenerator {
   }
 
   /**
+   * Generate unique PR ID
+   */
+  public generatePRId(issue_id: string, title: string): string {
+    const id = `PR-${this.counters.pr.toString().padStart(4, '0')}`;
+    this.counters.pr++;
+    this.saveCounters();
+    return id;
+  }
+
+  /**
    * Load counters from file
    */
   private loadCounters(): void {
@@ -66,6 +78,7 @@ export class IdGenerator {
         this.counters.epic = Math.max(1, loaded.epic || 1);
         this.counters.issue = Math.max(1, loaded.issue || 1);
         this.counters.task = Math.max(1, loaded.task || 1);
+        this.counters.pr = Math.max(1, loaded.pr || 1);
       }
     } catch (error) {
       // Keep default values

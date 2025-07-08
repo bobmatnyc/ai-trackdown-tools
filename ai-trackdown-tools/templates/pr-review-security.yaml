@@ -1,0 +1,88 @@
+type: pr-review
+name: security
+description: Security-focused PR review template
+frontmatter_template:
+  review_id: ""
+  pr_id: ""
+  reviewer: ""
+  review_type: comment
+  created_date: ""
+  updated_date: ""
+  status: pending
+  comments: ""
+content_template: |-
+  # Security Review: {{pr_title}}
+
+  **PR**: {{pr_id}}  
+  **Security Reviewer**: {{reviewer}}  
+  **Date**: {{created_date}}
+
+  ## Security Assessment
+
+  {{comments}}
+
+  ## Security Checklist
+
+  ### Input Validation
+  - [ ] All user inputs are validated
+  - [ ] SQL injection prevention implemented
+  - [ ] XSS protection in place
+  - [ ] CSRF tokens used appropriately
+
+  ### Authentication & Authorization
+  - [ ] Authentication mechanisms secure
+  - [ ] Authorization checks properly implemented
+  - [ ] Session management secure
+  - [ ] Access controls appropriate
+
+  ### Data Protection
+  - [ ] Sensitive data encrypted
+  - [ ] PII handling compliant
+  - [ ] Data transmission secure
+  - [ ] Data storage secure
+
+  ### Error Handling
+  - [ ] Error messages don't leak sensitive info
+  - [ ] Logging doesn't expose secrets
+  - [ ] Graceful failure handling
+  - [ ] Rate limiting implemented
+
+  ### Dependencies
+  - [ ] Third-party libraries up to date
+  - [ ] No known vulnerabilities in dependencies
+  - [ ] License compliance verified
+  - [ ] Supply chain security considered
+
+  ## Security Findings
+
+  ### High Priority Issues
+  - [ ] None identified
+
+  ### Medium Priority Issues
+  - [ ] None identified
+
+  ### Low Priority Issues / Recommendations
+  - [ ] None identified
+
+  ## Security Decision
+
+  {{#if approve}}
+  ✅ **SECURITY APPROVED** - No security concerns identified
+  {{else}}
+  {{#if request_changes}}
+  🔒 **SECURITY REVIEW REQUIRED** - Address security issues before merging
+  {{else}}
+  🔍 **SECURITY REVIEWED** - Recommendations provided
+  {{/if}}
+  {{/if}}
+
+  ## Next Steps
+
+  {{#if request_changes}}
+  - Address high/medium priority security issues
+  - Re-review after security fixes
+  - Consider security testing
+  {{else}}
+  - Consider implementing low priority recommendations
+  - Monitor for security updates
+  {{/if}}

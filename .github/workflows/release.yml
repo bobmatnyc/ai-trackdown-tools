@@ -72,7 +72,7 @@ jobs:
       - name: Check if version exists
         run: |
           version="${{ steps.version.outputs.version }}"
-          if npm view ai-trackdown-tooling@$version version 2>/dev/null; then
+          if npm view ai-trackdown-tools@$version version 2>/dev/null; then
             echo "❌ Version $version already exists on npm"
             exit 1
           fi
@@ -121,7 +121,7 @@ jobs:
       - name: Test CLI installation
         run: |
           npm pack
-          npm install -g ./ai-trackdown-tooling-*.tgz
+          npm install -g ./ai-trackdown-tools-*.tgz
           aitrackdown --version
           atd --version
 
@@ -199,8 +199,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ai-trackdown-tooling-${{ needs.validate-release.outputs.version }}.tgz
-          asset_name: ai-trackdown-tooling-${{ needs.validate-release.outputs.version }}.tgz
+          asset_path: ./ai-trackdown-tools-${{ needs.validate-release.outputs.version }}.tgz
+          asset_name: ai-trackdown-tools-${{ needs.validate-release.outputs.version }}.tgz
           asset_content_type: application/gzip
 
   publish-npm:
@@ -281,10 +281,10 @@ jobs:
           echo "**Prerelease:** ${{ needs.validate-release.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Published Packages" >> $GITHUB_STEP_SUMMARY
-          echo "- [NPM Package](https://www.npmjs.com/package/ai-trackdown-tooling)" >> $GITHUB_STEP_SUMMARY
+          echo "- [NPM Package](https://www.npmjs.com/package/ai-trackdown-tools)" >> $GITHUB_STEP_SUMMARY
           echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Installation" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g ai-trackdown-tooling@${{ needs.validate-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g ai-trackdown-tools@${{ needs.validate-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

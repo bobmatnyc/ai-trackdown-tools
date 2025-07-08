@@ -38,6 +38,7 @@ export interface IssueFrontmatter extends BaseFrontmatter {
   issue_id: string;
   epic_id: string;
   related_tasks: string[];
+  related_prs?: string[];
   related_issues?: string[];
   milestone?: string;
   tags?: string[];
@@ -62,6 +63,31 @@ export interface TaskFrontmatter extends BaseFrontmatter {
   blocks?: string[];
 }
 
+// PR status specific to pull request lifecycle
+export type PRStatus = 'draft' | 'open' | 'review' | 'approved' | 'merged' | 'closed';
+
+// PR frontmatter - Pull request tracking within issues
+export interface PRFrontmatter extends BaseFrontmatter {
+  pr_id: string;
+  issue_id: string;
+  epic_id: string;
+  pr_status: PRStatus;
+  branch_name?: string;
+  source_branch?: string;
+  target_branch?: string;
+  repository_url?: string;
+  pr_number?: number;
+  reviewers?: string[];
+  approvals?: string[];
+  merge_commit?: string;
+  tags?: string[];
+  dependencies?: string[];
+  blocked_by?: string[];
+  blocks?: string[];
+  related_prs?: string[];
+  template_used?: string;
+}
+
 // Combined types with content
 export interface EpicData extends EpicFrontmatter {
   content: string;
@@ -78,16 +104,29 @@ export interface TaskData extends TaskFrontmatter {
   file_path: string;
 }
 
+export interface PRData extends PRFrontmatter {
+  content: string;
+  file_path: string;
+}
+
 // Hierarchical relationship types
 export interface EpicHierarchy {
   epic: EpicData;
   issues: IssueData[];
   tasks: TaskData[];
+  prs: PRData[];
 }
 
 export interface IssueHierarchy {
   issue: IssueData;
   tasks: TaskData[];
+  prs: PRData[];
+  epic?: EpicData;
+}
+
+export interface PRHierarchy {
+  pr: PRData;
+  issue: IssueData;
   epic?: EpicData;
 }
 
@@ -96,16 +135,21 @@ export interface ProjectConfig {
   name: string;
   description?: string;
   version: string;
+  // NEW: Single configurable root directory for all task types
+  tasks_directory?: string; // Default: "tasks"
   structure: {
     epics_dir: string;
     issues_dir: string;
     tasks_dir: string;
     templates_dir: string;
+    // NEW: PR directory for pull request tracking
+    prs_dir?: string;
   };
   naming_conventions: {
     epic_prefix: string;
     issue_prefix: string;
     task_prefix: string;
+    pr_prefix?: string; // NEW: PR prefix
     file_extension: string;
   };
   default_assignee?: string;
@@ -156,8 +200,8 @@ export interface ProjectAnalytics {
 
 export interface TimelineEntry {
   id: string;
-  type: 'epic' | 'issue' | 'task';
-  action: 'created' | 'updated' | 'completed' | 'archived';
+  type: 'epic' | 'issue' | 'task' | 'pr';
+  action: 'created' | 'updated' | 'completed' | 'archived' | 'merged' | 'closed';
   timestamp: string;
   item_id: string;
   changes?: Record<string, { from: any; to: any }>;
@@ -193,7 +237,7 @@ export interface BatchOperation {
 
 // Template types
 export interface ItemTemplate {
-  type: 'epic' | 'issue' | 'task';
+  type: 'epic' | 'issue' | 'task' | 'pr';
   name: string;
   description: string;
   frontmatter_template: Partial<BaseFrontmatter>;
@@ -202,21 +246,25 @@ export interface ItemTemplate {
 }
 
 // Export union types for type safety
-export type AnyFrontmatter = EpicFrontmatter | IssueFrontmatter | TaskFrontmatter;
-export type AnyItemData = EpicData | IssueData | TaskData;
-export type ItemType = 'epic' | 'issue' | 'task';
+export type AnyFrontmatter = EpicFrontmatter | IssueFrontmatter | TaskFrontmatter | PRFrontmatter;
+export type AnyItemData = EpicData | IssueData | TaskData | PRData;
+export type ItemType = 'epic' | 'issue' | 'task' | 'pr';
 
 // Type guards
 export function isEpicFrontmatter(item: AnyFrontmatter): item is EpicFrontmatter {
-  return 'epic_id' in item && !('issue_id' in item) && !('task_id' in item);
+  return 'epic_id' in item && !('issue_id' in item) && !('task_id' in item) && !('pr_id' in item);
 }
 
 export function isIssueFrontmatter(item: AnyFrontmatter): item is IssueFrontmatter {
-  return 'issue_id' in item && 'epic_id' in item && !('task_id' in item);
+  return 'issue_id' in item && 'epic_id' in item && !('task_id' in item) && !('pr_id' in item);
 }
 
 export function isTaskFrontmatter(item: AnyFrontmatter): item is TaskFrontmatter {
-  return 'task_id' in item && 'issue_id' in item && 'epic_id' in item;
+  return 'task_id' in item && 'issue_id' in item && 'epic_id' in item && !('pr_id' in item);
+}
+
+export function isPRFrontmatter(item: AnyFrontmatter): item is PRFrontmatter {
+  return 'pr_id' in item && 'issue_id' in item && 'epic_id' in item && !('task_id' in item);
 }
 
 export function isEpicData(item: AnyItemData): item is EpicData {
@@ -231,11 +279,16 @@ export function isTaskData(item: AnyItemData): item is TaskData {
   return isTaskFrontmatter(item);
 }
 
+export function isPRData(item: AnyItemData): item is PRData {
+  return isPRFrontmatter(item);
+}
+
 // Utility type for ID generation
 export interface IdGenerator {
   generateEpicId(title: string): string;
   generateIssueId(epic_id: string, title: string): string;
   generateTaskId(issue_id: string, title: string): string;
+  generatePRId(issue_id: string, title: string): string;
 }
 
 // API response types for future consistency

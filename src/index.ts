@@ -8,8 +8,10 @@ import { createVersionCommand } from './commands/version.js';
 import { createEpicCommand } from './commands/epic.js';
 import { createIssueCommand } from './commands/issue.js';
 import { createTaskCommand } from './commands/task.js';
+import { createPRCommand } from './commands/pr.js';
 import { createAiCommand } from './commands/ai.js';
 import { createMigrateCommand } from './commands/migrate.js';
+import { createMigrateStructureCommand } from './commands/migrate-structure.js';
 import { VersionManager } from './utils/version.js';
 import { Formatter } from './utils/formatter.js';
 
@@ -17,14 +19,15 @@ import { Formatter } from './utils/formatter.js';
 function getVersion(): string {
   try {
     return VersionManager.getVersion().version;
-  } catch {
-    return '0.1.0'; // fallback if VERSION file is not available
+  } catch (error) {
+    console.warn('Warning: Could not read VERSION file, using fallback version');
+    return '1.0.1'; // fallback that matches package.json
   }
 }
 
 // Package info
 const packageInfo = {
-  name: 'ai-trackdown-tooling',
+  name: 'ai-trackdown-tools',
   version: getVersion(),
   description: 'Professional CLI tool for ai-trackdown functionality',
 };
@@ -49,16 +52,27 @@ async function main(): Promise<void> {
 
   // Handle global options
   program.hook('preAction', (thisCommand) => {
+    const opts = program.opts();
+    
     // Handle no-color option
-    if (program.opts().noColor) {
+    if (opts.noColor) {
       process.env.FORCE_COLOR = '0';
     }
 
+    // Handle tasks directory options (--root-dir or --tasks-dir)
+    const tasksDir = opts.tasksDir || opts.rootDir;
+    if (tasksDir) {
+      process.env.CLI_TASKS_DIR = tasksDir;
+    }
+
     // Handle verbose option
-    if (program.opts().verbose) {
+    if (opts.verbose) {
       console.log(Formatter.debug(`Running command: ${thisCommand.name()}`));
       console.log(Formatter.debug(`Arguments: ${JSON.stringify(thisCommand.args)}`));
       console.log(Formatter.debug(`Options: ${JSON.stringify(thisCommand.opts())}`));
+      if (tasksDir) {
+        console.log(Formatter.debug(`Tasks directory override: ${tasksDir}`));
+      }
     }
   });
 
@@ -73,10 +87,12 @@ async function main(): Promise<void> {
   program.addCommand(createEpicCommand());
   program.addCommand(createIssueCommand());
   program.addCommand(createTaskCommand());
+  program.addCommand(createPRCommand());
   program.addCommand(createAiCommand());
   
-  // Migration command
+  // Migration commands
   program.addCommand(createMigrateCommand());
+  program.addCommand(createMigrateStructureCommand());
 
   // Add helpful aliases
   program
@@ -101,9 +117,11 @@ async function main(): Promise<void> {
     console.log('  $ aitrackdown epic create "User Authentication System"');
     console.log('  $ aitrackdown issue create "Implement login form" --epic EP-0001');
     console.log('  $ aitrackdown task create "Create login UI" --issue ISS-0001');
+    console.log('  $ aitrackdown pr create "Add login functionality" --issue ISS-0001');
     console.log('  $ aitrackdown epic list --status active --show-progress');
     console.log('  $ aitrackdown issue complete ISS-0001 --actual-tokens 500');
     console.log('  $ aitrackdown task complete TSK-0001 --time-spent 2h');
+    console.log('  $ aitrackdown pr list --pr-status open --assignee john');
     console.log('');
     console.log(chalk.bold.cyan('AI-Specific Commands:'));
     console.log('  $ aitrackdown ai generate-llms-txt --format detailed');
@@ -118,13 +136,15 @@ async function main(): Promise<void> {
     console.log(chalk.bold.cyan('Migration Commands:'));
     console.log('  $ aitrackdown migrate --dry-run --verbose');
     console.log('  $ aitrackdown migrate --backup');
+    console.log('  $ aitrackdown migrate-structure --dry-run');
+    console.log('  $ aitrackdown migrate-structure --tasks-dir work');
     console.log('');
     console.log(chalk.bold.cyan('Aliases:'));
     console.log('  atd = aitrackdown (shorter command)');
     console.log('');
     console.log(chalk.bold.cyan('Learn more:'));
-    console.log('  Documentation: https://github.com/your-org/ai-trackdown-tooling');
-    console.log('  Issues: https://github.com/your-org/ai-trackdown-tooling/issues');
+    console.log('  Documentation: https://github.com/your-org/ai-trackdown-tools');
+    console.log('  Issues: https://github.com/your-org/ai-trackdown-tools/issues');
   });
 
   // Error handling
@@ -169,10 +189,5 @@ async function main(): Promise<void> {
   }
 }
 
-// Start the CLI
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error(Formatter.error(`Fatal error: ${error.message}`));
-    process.exit(1);
-  });
-}
+// Export main function for CLI entry point
+export { main };
