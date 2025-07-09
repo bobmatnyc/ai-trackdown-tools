@@ -14,6 +14,7 @@ import type { PRFrontmatter, PRStatus, Priority } from '../../types/ai-trackdown
 import { Formatter } from '../../utils/formatter.js';
 
 interface CreateOptions {
+  title?: string;
   issue: string;
   description?: string;
   assignee?: string;
@@ -36,7 +37,8 @@ export function createPRCreateCommand(): Command {
   
   cmd
     .description('Create a new PR within an issue')
-    .argument('<title>', 'PR title')
+    .argument('[title]', 'PR title (optional if using --title flag)')
+    .option('--title <text>', 'PR title (alternative to positional argument)')
     .requiredOption('-i, --issue <issue-id>', 'parent issue ID')
     .option('-d, --description <text>', 'PR description')
     .option('-a, --assignee <username>', 'assignee username')
@@ -52,8 +54,13 @@ export function createPRCreateCommand(): Command {
     .option('--reviewers <usernames>', 'comma-separated reviewer usernames')
     .option('--dependencies <ids>', 'comma-separated dependency IDs')
     .option('--dry-run', 'show what would be created without creating')
-    .action(async (title: string, options: CreateOptions) => {
+    .action(async (titleArg: string | undefined, options: CreateOptions) => {
       try {
+        // Support both positional argument and --title flag
+        const title = titleArg || options.title;
+        if (!title) {
+          throw new Error('PR title is required. Provide it as a positional argument or use --title flag.');
+        }
         await createPR(title, options);
       } catch (error) {
         console.error(Formatter.error(`Failed to create PR: ${error instanceof Error ? error.message : 'Unknown error'}`));

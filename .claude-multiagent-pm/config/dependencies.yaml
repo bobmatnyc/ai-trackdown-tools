@@ -1,0 +1,115 @@
+checked_by: system-init-agent
+last_checked: '2025-07-09 12:18:04'
+status:
+  ai_trackdown_tools:
+    details: NPM package not found
+    status: "\u274C MISSING"
+    version: none
+  claude_pm_portfolio_manager:
+    details: NPM package not found
+    status: "\u274C MISSING"
+    version: none
+  framework_core:
+    details: Framework at /Users/masa/Projects/claude-multiagent-pm
+    status: "\u2705 INSTALLED"
+    version: '4.2.1
+
+
+      ## v4.2.1 Release Notes (2025-07-09)
+
+
+      ### New Features - ai-trackdown-tools Integration
+
+      - **ai-trackdown-tools Integration** - Comprehensive integration with persistent
+      ticket management
+
+      - **Documentation Updates** - Added ai-trackdown-tools configuration across
+      all user guides
+
+      - **Troubleshooting Guide** - Comprehensive troubleshooting section for ai-trackdown-tools
+
+      - **Agent Configuration** - ai-trackdown-tools integration in custom agent configuration
+
+      - **Framework Overview** - Enhanced architecture documentation with ai-trackdown-tools
+
+
+      ### Technical Enhancements
+
+      - **Persistent Ticket Management** - Cross-process ticket persistence for multi-agent
+      coordination
+
+      - **Configuration Integration** - ai-trackdown-tools configuration in framework.yaml
+
+      - **Fallback Mechanisms** - Graceful degradation when ai-trackdown-tools is
+      unavailable
+
+      - **Agent Permissions** - Granular permissions for ticket operations per agent
+
+      - **Directory Organization** - Updated directory structure documentation
+
+
+      ### Documentation Updates
+
+      - **docs/FRAMEWORK_OVERVIEW.md** - Added ai-trackdown-tools architecture section
+
+      - **docs/user-guide/01-getting-started.md** - Added dependency setup instructions
+
+      - **docs/user-guide/04-directory-organization.md** - Added configuration information
+
+      - **docs/user-guide/05-custom-agents.md** - Added ai-trackdown-tools configuration
+
+      - **docs/user-guide/07-troubleshooting-faq.md** - Added troubleshooting section
+
+      - **docs/INDEX.md** - Updated with new references and command examples
+
+
+      ## v4.2.0 Release Notes (2025-07-09)
+
+
+      ### New Features - User Configuration Directory
+
+      - **~/.claude-multiagent-pm/** - New user configuration directory structure
+
+      - **User-Defined Agents** - Custom agent system in ~/.claude-multiagent-pm/agents/user-defined/
+
+      - **Configuration Management** - YAML-based configuration in ~/.claude-multiagent-pm/config/
+
+      - **Template System** - Enhanced templates in ~/.claude-multiagent-pm/templates/
+
+      - **Training Modifications** - Agent training enhancements in ~/.claude-multiagent-pm/agents/training-modifications/
+
+
+      ### Technical Enhancements
+
+      - **Directory Structure** - Migrated from ~/.claude-pm/ to ~/.claude-multiagent-pm/
+
+      - **Agent Architecture** - Enhanced user-defined agent loading system
+
+      - **Configuration Format** - YAML-based configuration for improved flexibility
+
+      - **Template Engine** - Advanced template system for rapid development
+
+      - **Documentation Updates** - Comprehensive documentation updates for v4.2.0
+
+
+      ### Directory Features
+
+      - **User Directory** - ~/.claude-multiagent-pm/ for all user configurations
+
+      - **Agent Management** - Centralized agent definitions and custom agents
+
+      - **Configuration Hierarchy** - Structured configuration management
+
+      - **Template Library** - Comprehensive template system for projects and agents'
+  mem0ai:
+    details: Service responding
+    status: "\u2705 ONLINE"
+    version: active
+  node_environment:
+    details: Node.js available
+    status: "\u2705 READY"
+    version: v20.19.0
+  python_environment:
+    details: All required packages available
+    status: "\u2705 READY"
+    version: Python 3.13.5

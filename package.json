@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/ai-trackdown-tools",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "description": "Professional CLI tool for ai-trackdown functionality with comprehensive PR management system",
   "type": "module",
   "bin": {
@@ -65,6 +65,8 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
+    "@octokit/core": "^7.0.2",
+    "@octokit/rest": "^22.0.0",
     "boxen": "^8.0.1",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",

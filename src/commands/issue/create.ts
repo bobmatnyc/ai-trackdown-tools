@@ -1,6 +1,6 @@
 /**
  * Issue Create Command
- * Creates new issues using YAML frontmatter system
+ * Creates new issues using YAML frontmatter system with project context support
  */
 
 import { Command } from 'commander';
@@ -11,11 +11,13 @@ import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { IdGenerator } from '../../utils/simple-id-generator.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
 import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import type { IssueFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
 
 interface CreateOptions {
-  epic: string;
+  title?: string;
+  epic?: string;
   description?: string;
   assignee?: string;
   priority?: Priority;
@@ -25,6 +27,7 @@ interface CreateOptions {
   tags?: string;
   milestone?: string;
   dependencies?: string;
+  project?: string;
   dryRun?: boolean;
 }
 
@@ -33,8 +36,9 @@ export function createIssueCreateCommand(): Command {
   
   cmd
     .description('Create a new issue within an epic')
-    .argument('<title>', 'issue title')
-    .requiredOption('-e, --epic <epic-id>', 'parent epic ID')
+    .argument('[title]', 'issue title (optional if using --title flag)')
+    .option('--title <text>', 'issue title (alternative to positional argument)')
+    .option('-e, --epic <epic-id>', 'parent epic ID (required for issue creation)')
     .option('-d, --description <text>', 'issue description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
@@ -44,9 +48,15 @@ export function createIssueCreateCommand(): Command {
     .option('--tags <tags>', 'comma-separated tags')
     .option('-m, --milestone <name>', 'milestone name')
     .option('--dependencies <ids>', 'comma-separated dependency IDs')
+    .option('--project <name>', 'project name (for multi-project mode)')
     .option('--dry-run', 'show what would be created without creating')
-    .action(async (title: string, options: CreateOptions) => {
+    .action(async (titleArg: string | undefined, options: CreateOptions) => {
       try {
+        // Support both positional argument and --title flag
+        const title = titleArg || options.title;
+        if (!title) {
+          throw new Error('Issue title is required. Provide it as a positional argument or use --title flag.');
+        }
         await createIssue(title, options);
       } catch (error) {
         console.error(Formatter.error(`Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`));
@@ -58,17 +68,30 @@ export function createIssueCreateCommand(): Command {
 }
 
 async function createIssue(title: string, options: CreateOptions): Promise<void> {
-  const configManager = new ConfigManager();
-  const config = configManager.getConfig();
-  const parser = new FrontmatterParser();
-  const idGenerator = new IdGenerator();
+  // Initialize project context manager
+  const contextManager = new ProjectContextManager();
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
   
-  // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  // Initialize project context
+  const projectContext = await contextManager.initializeContext(options.project);
+  
+  // Ensure project structure exists
+  await contextManager.ensureProjectStructure();
+  
+  // Get managers and paths from context
+  const configManager = projectContext.configManager;
+  const config = configManager.getConfig();
+  const paths = projectContext.paths;
+  const parser = new FrontmatterParser();
+  const idGenerator = new IdGenerator();
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  
+  // Validate that the epic parameter is provided
+  if (!options.epic) {
+    throw new Error('Epic ID is required for issue creation. Use -e or --epic to specify the parent epic ID.');
+  }
   
   // Validate that the epic exists
   const epicHierarchy = relationshipManager.getEpicHierarchy(options.epic);

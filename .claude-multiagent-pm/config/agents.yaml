@@ -1,0 +1,25 @@
+agent_hierarchy:
+  framework_agents:
+    global_user_defined: ./agents/user-defined
+    priority: 1
+    system_trained: ./agents/system-trained
+  project_agents:
+    priority: 2
+    project_specific: ./agents/project-specific
+agent_loading:
+  auto_discover: true
+  conflict_resolution: project_overrides_global
+  load_order:
+  - framework_agents
+  - project_agents
+coordination:
+  coordination_timeout: 300
+  cross_project_coordination: true
+  multi_agent_enabled: true
+  parallel_execution: true
+templates:
+  template_hierarchy:
+  - project
+  - global
+  - framework
+  template_inheritance: true

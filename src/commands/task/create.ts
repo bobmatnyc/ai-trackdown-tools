@@ -14,6 +14,7 @@ import type { TaskFrontmatter, ItemStatus, Priority } from '../../types/ai-track
 import { Formatter } from '../../utils/formatter.js';
 
 interface CreateOptions {
+  title?: string;
   issue: string;
   description?: string;
   assignee?: string;
@@ -32,7 +33,8 @@ export function createTaskCreateCommand(): Command {
   
   cmd
     .description('Create a new task within an issue')
-    .argument('<title>', 'task title')
+    .argument('[title]', 'task title (optional if using --title flag)')
+    .option('--title <text>', 'task title (alternative to positional argument)')
     .requiredOption('-i, --issue <issue-id>', 'parent issue ID')
     .option('-d, --description <text>', 'task description')
     .option('-a, --assignee <username>', 'assignee username')
@@ -44,8 +46,13 @@ export function createTaskCreateCommand(): Command {
     .option('--tags <tags>', 'comma-separated tags')
     .option('--dependencies <ids>', 'comma-separated dependency IDs')
     .option('--dry-run', 'show what would be created without creating')
-    .action(async (title: string, options: CreateOptions) => {
+    .action(async (titleArg: string | undefined, options: CreateOptions) => {
       try {
+        // Support both positional argument and --title flag
+        const title = titleArg || options.title;
+        if (!title) {
+          throw new Error('Task title is required. Provide it as a positional argument or use --title flag.');
+        }
         await createTask(title, options);
       } catch (error) {
         console.error(Formatter.error(`Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`));

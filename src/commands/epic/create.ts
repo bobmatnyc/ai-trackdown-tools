@@ -1,6 +1,6 @@
 /**
  * Epic Create Command
- * Creates new epics using YAML frontmatter system
+ * Creates new epics using YAML frontmatter system with project context support
  */
 
 import { Command } from 'commander';
@@ -10,10 +10,12 @@ import { ConfigManager } from '../../utils/config-manager.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { IdGenerator } from '../../utils/simple-id-generator.js';
 import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import type { EpicFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
 
 interface CreateOptions {
+  title?: string;
   description?: string;
   assignee?: string;
   priority?: Priority;
@@ -22,6 +24,7 @@ interface CreateOptions {
   estimatedTokens?: number;
   tags?: string;
   milestone?: string;
+  project?: string;
   dryRun?: boolean;
 }
 
@@ -30,7 +33,8 @@ export function createEpicCreateCommand(): Command {
   
   cmd
     .description('Create a new epic')
-    .argument('<title>', 'epic title')
+    .argument('[title]', 'epic title (optional if using --title flag)')
+    .option('--title <text>', 'epic title (alternative to positional argument)')
     .option('-d, --description <text>', 'epic description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
@@ -39,9 +43,15 @@ export function createEpicCreateCommand(): Command {
     .option('-e, --estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
     .option('-m, --milestone <name>', 'milestone name')
+    .option('--project <name>', 'project name (for multi-project mode)')
     .option('--dry-run', 'show what would be created without creating')
-    .action(async (title: string, options: CreateOptions) => {
+    .action(async (titleArg: string | undefined, options: CreateOptions) => {
       try {
+        // Support both positional argument and --title flag
+        const title = titleArg || options.title;
+        if (!title) {
+          throw new Error('Epic title is required. Provide it as a positional argument or use --title flag.');
+        }
         await createEpic(title, options);
       } catch (error) {
         console.error(Formatter.error(`Failed to create epic: ${error instanceof Error ? error.message : 'Unknown error'}`));
@@ -53,16 +63,24 @@ export function createEpicCreateCommand(): Command {
 }
 
 async function createEpic(title: string, options: CreateOptions): Promise<void> {
-  const configManager = new ConfigManager();
-  const config = configManager.getConfig();
-  const parser = new FrontmatterParser();
-  const idGenerator = new IdGenerator();
+  // Initialize project context manager
+  const contextManager = new ProjectContextManager();
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
   
-  // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  // Initialize project context
+  const projectContext = await contextManager.initializeContext(options.project);
+  
+  // Ensure project structure exists
+  await contextManager.ensureProjectStructure();
+  
+  // Get managers and paths from context
+  const configManager = projectContext.configManager;
+  const config = configManager.getConfig();
+  const paths = projectContext.paths;
+  const parser = new FrontmatterParser();
+  const idGenerator = new IdGenerator();
   
   // Generate epic ID
   const epicId = idGenerator.generateEpicId(title);
@@ -76,10 +94,11 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   // Parse tags
   const tags = options.tags ? options.tags.split(',').map(tag => tag.trim()) : [];
   
-  // Create epic frontmatter
+  // Create epic frontmatter with project context
   const now = new Date().toISOString();
   const epicFrontmatter: EpicFrontmatter = {
     epic_id: epicId,
+    project_id: projectContext.context.currentProject || undefined,
     title,
     description: options.description || template.frontmatter_template.description || '',
     status: options.status || 'planning',
@@ -115,6 +134,9 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
     console.log(Formatter.debug(`Status: ${epicFrontmatter.status}`));
     console.log(Formatter.debug(`Priority: ${epicFrontmatter.priority}`));
     console.log(Formatter.debug(`Assignee: ${epicFrontmatter.assignee}`));
+    if (epicFrontmatter.project_id) {
+      console.log(Formatter.debug(`Project: ${epicFrontmatter.project_id}`));
+    }
     if (tags.length > 0) {
       console.log(Formatter.debug(`Tags: ${tags.join(', ')}`));
     }
@@ -147,6 +169,10 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   console.log(Formatter.info(`Status: ${epicFrontmatter.status}`));
   console.log(Formatter.info(`Priority: ${epicFrontmatter.priority}`));
   console.log(Formatter.info(`Assignee: ${epicFrontmatter.assignee}`));
+  
+  if (epicFrontmatter.project_id) {
+    console.log(Formatter.info(`Project: ${epicFrontmatter.project_id}`));
+  }
   
   if (tags.length > 0) {
     console.log(Formatter.info(`Tags: ${tags.join(', ')}`));

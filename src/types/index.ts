@@ -100,10 +100,28 @@ export interface ExportOptions {
 }
 
 export interface StatusFilter {
-  status?: string[];
-  assignee?: string[];
-  priority?: string[];
+  // Single value filters
+  status?: string;
+  priority?: string;
+  assignee?: string;
+  id?: string;
+  
+  // Multi-value filters
+  statusIn?: string[];
+  priorityIn?: string[];
   tags?: string[];
+  
+  // Date filters
+  createdAfter?: Date;
+  createdBefore?: Date;
+  updatedAfter?: Date;
+  updatedBefore?: Date;
+  
+  // Estimate filters
+  estimateMin?: number;
+  estimateMax?: number;
+  
+  // Legacy/compatibility
   search?: string;
 }
 

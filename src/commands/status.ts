@@ -6,6 +6,7 @@ import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
 import { PathResolver } from '../utils/path-resolver.js';
+import { ProjectContextManager } from '../utils/project-context-manager.js';
 import { Formatter } from '../utils/formatter.js';
 import {
   validateStatus,
@@ -24,6 +25,8 @@ export function createStatusCommand(): Command {
     .option('-c, --compact', 'compact output format for quick overview')
     .option('--table', 'display results in table format')
     .option('--stats', 'show detailed project statistics and analytics')
+    .option('--summary', 'show concise project summary with key metrics')
+    .option('--current-sprint', 'show current sprint items (active and in-progress)')
     .option('--filter <expr>', 'advanced filter expression (e.g., "status=todo,priority=high")')
     .option('-s, --status <status>', 'filter by status (todo, in-progress, done, blocked)')
     .option('-p, --priority <priority>', 'filter by priority (low, medium, high, critical)')
@@ -48,11 +51,15 @@ export function createStatusCommand(): Command {
     .option('--watch', 'continuously monitor and refresh status')
     .option('--export <file>', 'export filtered results to file')
     .option('--full', 'comprehensive project status with enhanced details')
+    .option('--project <name>', 'specify project (for multi-project mode)')
+    .option('--all-projects', 'show status across all projects (multi-project mode)')
     .addHelpText(
       'after',
       `
 Examples:
   $ aitrackdown status
+  $ aitrackdown status --summary
+  $ aitrackdown status --current-sprint
   $ aitrackdown status --verbose --stats
   $ aitrackdown status --filter "status=todo,priority=high"
   $ aitrackdown status --assignee john.doe --created-after 2024-01-01
@@ -85,6 +92,12 @@ Sort Fields:
   priority      - Priority level (critical > high > medium > low)
   status        - Status progression (todo > in-progress > blocked > done)
   title         - Alphabetical by title
+
+Current Sprint Filter:
+  --current-sprint shows items that are actively being worked on:
+  • All in-progress items (currently being worked on)
+  • High and critical priority todo items (ready to be picked up)
+  • All blocked items (requiring attention)
 `
     )
     .action(
@@ -93,6 +106,8 @@ Sort Fields:
         compact?: boolean;
         table?: boolean;
         stats?: boolean;
+        summary?: boolean;
+        currentSprint?: boolean;
         filter?: string;
         status?: string;
         priority?: string;
@@ -170,7 +185,12 @@ Sort Fields:
             const filters = parseFilters(options);
 
             // Apply all filters
-            const filteredItems = applyAdvancedFilters(items, filters);
+            let filteredItems = applyAdvancedFilters(items, filters);
+            
+            // Apply current sprint filter if requested
+            if (options?.currentSprint) {
+              filteredItems = applyCurrentSprintFilter(filteredItems);
+            }
 
             spinner.text = 'Processing results...';
 
@@ -187,11 +207,26 @@ Sort Fields:
             );
 
             // Display banner
-            console.log(Formatter.header(`📊 ${config.projectName || 'Trackdown'} Project Status`));
+            const headerText = options?.currentSprint 
+              ? `🏃 ${config.projectName || 'Trackdown'} Current Sprint`
+              : `📊 ${config.projectName || 'Trackdown'} Project Status`;
+            console.log(Formatter.header(headerText));
+
+            // Show current sprint explanation if in current sprint mode
+            if (options?.currentSprint) {
+              console.log(Formatter.info('🎯 Current Sprint: In-progress items + High/Critical priority todos + Blocked items'));
+              console.log('');
+            }
 
             // Show project summary and statistics
             if (options?.stats !== false) {
               displayProjectOverview(trackdownDir, items, config, pathResolver);
+            }
+
+            // Handle summary mode - show concise summary and exit
+            if (options?.summary) {
+              displaySummaryView(trackdownDir, items, filteredItems, config, pathResolver);
+              return;
             }
 
             if (filteredItems.length === 0) {
@@ -1011,6 +1046,104 @@ function getPriorityColor(priority: string): (text: string) => string {
     default:
       return (text: string) => text;
   }
+}
+
+function applyCurrentSprintFilter(items: TrackdownItem[]): TrackdownItem[] {
+  // Current sprint includes:
+  // 1. All items with status 'in-progress' (actively being worked on)
+  // 2. High priority 'todo' items that are ready to be picked up
+  // 3. All 'blocked' items that need attention
+  return items.filter((item) => {
+    // Include all in-progress items
+    if (item.status === 'in-progress') {
+      return true;
+    }
+    
+    // Include high priority todo items
+    if (item.status === 'todo' && (item.priority === 'high' || item.priority === 'critical')) {
+      return true;
+    }
+    
+    // Include blocked items that need attention
+    if (item.status === 'blocked') {
+      return true;
+    }
+    
+    return false;
+  });
+}
+
+function displaySummaryView(trackdownDir: string, allItems: TrackdownItem[], filteredItems: TrackdownItem[], config: any, pathResolver: PathResolver): void {
+  const total = allItems.length;
+  const filtered = filteredItems.length;
+  
+  // Basic counts
+  const activeItems = allItems.filter(item => item.status !== 'done');
+  const completedItems = allItems.filter(item => item.status === 'done');
+  const blockedItems = allItems.filter(item => item.status === 'blocked');
+  const inProgressItems = allItems.filter(item => item.status === 'in-progress');
+  
+  // Priority breakdown
+  const priorityBreakdown = allItems.reduce((acc, item) => {
+    acc[item.priority] = (acc[item.priority] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // Calculate completion rate
+  const completionRate = total > 0 ? Math.round((completedItems.length / total) * 100) : 0;
+  
+  // Recent activity (last 7 days)
+  const lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const recentlyUpdated = allItems.filter(item => item.updatedAt >= lastWeek).length;
+  
+  // Display summary
+  console.log(Formatter.subheader('📋 Project Summary'));
+  console.log(`   Total Items: ${Formatter.highlight(total.toString())}`);
+  console.log(`   Active: ${Formatter.highlight(activeItems.length.toString())} | Completed: ${Formatter.highlight(completedItems.length.toString())} | Blocked: ${Formatter.highlight(blockedItems.length.toString())}`);
+  console.log(`   Progress: ${Formatter.highlight(`${completionRate}%`)} complete`);
+  console.log('');
+  
+  console.log(Formatter.subheader('🎯 Status Breakdown'));
+  console.log(`   📝 Todo: ${allItems.filter(item => item.status === 'todo').length}`);
+  console.log(`   🔄 In Progress: ${inProgressItems.length}`);
+  console.log(`   🚫 Blocked: ${blockedItems.length}`);
+  console.log(`   ✅ Done: ${completedItems.length}`);
+  console.log('');
+  
+  console.log(Formatter.subheader('⚡ Priority Distribution'));
+  console.log(`   🔴 Critical: ${priorityBreakdown.critical || 0}`);
+  console.log(`   🟠 High: ${priorityBreakdown.high || 0}`);
+  console.log(`   🟡 Medium: ${priorityBreakdown.medium || 0}`);
+  console.log(`   🟢 Low: ${priorityBreakdown.low || 0}`);
+  console.log('');
+  
+  console.log(Formatter.subheader('🔄 Recent Activity'));
+  console.log(`   Items updated in last 7 days: ${Formatter.highlight(recentlyUpdated.toString())}`);
+  
+  // Show filter info if filters are applied
+  if (filtered !== total) {
+    console.log('');
+    console.log(Formatter.info(`📊 ${filtered} of ${total} items match current filters`));
+  }
+  
+  // Show key actionable items
+  const highPriorityActive = activeItems.filter(item => item.priority === 'high' || item.priority === 'critical');
+  if (highPriorityActive.length > 0) {
+    console.log('');
+    console.log(Formatter.subheader('⚠️ High Priority Active Items'));
+    highPriorityActive.slice(0, 3).forEach((item, index) => {
+      const priorityColor = getPriorityColor(item.priority);
+      console.log(`   ${index + 1}. ${priorityColor(item.priority.toUpperCase())} ${item.title} ${Formatter.dim(`(${item.id})`)}`);
+    });
+    if (highPriorityActive.length > 3) {
+      console.log(`   ... and ${highPriorityActive.length - 3} more high priority items`);
+    }
+  }
+}
+
+function validateTags(tags: string): string[] {
+  return tags.split(',').map(tag => tag.trim()).filter(Boolean);
 }
 
 function validateStatus(status: string): string {

@@ -1,18 +1,32 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { ConfigManager } from './config.js';
+import { ProjectDetector, type ProjectMode, type ProjectContext } from './project-detector.js';
 
 /**
  * PathResolver provides configurable directory path resolution
- * with priority: CLI option > Environment variable > Config file > Default
+ * with support for both single-project and multi-project modes
+ * Priority: CLI option > Environment variable > Config file > Auto-detection > Default
  */
 export class PathResolver {
   private configManager: ConfigManager;
   private cliRootDir?: string;
+  private projectDetector: ProjectDetector;
+  private projectContext?: ProjectContext;
+  private modeOverride?: ProjectMode;
 
-  constructor(configManager: ConfigManager, cliRootDir?: string) {
+  constructor(configManager: ConfigManager, cliRootDir?: string, projectName?: string, modeOverride?: ProjectMode) {
     this.configManager = configManager;
     this.cliRootDir = cliRootDir;
+    this.modeOverride = modeOverride;
+    this.projectDetector = new ProjectDetector(process.cwd(), configManager, modeOverride);
+    
+    // Initialize project context
+    try {
+      this.projectContext = this.projectDetector.getProjectContext(projectName);
+    } catch (error) {
+      // Will be handled by individual methods if needed
+    }
   }
 
   /**
@@ -20,7 +34,8 @@ export class PathResolver {
    * 1. CLI option override (--root-dir, --tasks-dir)
    * 2. Environment variable (AITRACKDOWN_ROOT_DIR)
    * 3. Config file setting (rootDirectory)
-   * 4. Default to "tasks/"
+   * 4. Project mode detection
+   * 5. Default to "tasks/"
    */
   getRootDirectory(): string {
     // 1. CLI option takes highest priority
@@ -40,22 +55,64 @@ export class PathResolver {
       return config.rootDirectory;
     }
 
-    // 4. Default to "tasks/" (NEW DEFAULT - was "trackdown/")
+    // 4. Project mode detection
+    const projectPath = this.getProjectBasePath();
+    if (projectPath !== process.cwd()) {
+      // In multi-project mode, use tasks relative to project directory
+      return join(projectPath, 'tasks');
+    }
+
+    // 5. Default to "tasks/" (NEW DEFAULT - was "trackdown/")
     return 'tasks';
   }
 
   /**
-   * Get the active tasks directory
+   * Get the project base path (project directory in multi-project mode)
    */
-  getActiveDir(): string {
-    return join(this.getRootDirectory(), 'active');
+  getProjectBasePath(): string {
+    if (!this.projectContext) {
+      return process.cwd();
+    }
+
+    if (this.projectContext.mode === 'single') {
+      return this.projectContext.projectRoot;
+    }
+
+    // Multi-project mode
+    if (this.projectContext.currentProject) {
+      return this.projectDetector.getProjectPath(this.projectContext.currentProject);
+    }
+
+    // No current project selected
+    return this.projectContext.projectRoot;
   }
 
   /**
-   * Get the completed tasks directory
+   * Get the epics directory
    */
-  getCompletedDir(): string {
-    return join(this.getRootDirectory(), 'completed');
+  getEpicsDir(): string {
+    return join(this.getRootDirectory(), 'epics');
+  }
+
+  /**
+   * Get the issues directory
+   */
+  getIssuesDir(): string {
+    return join(this.getRootDirectory(), 'issues');
+  }
+
+  /**
+   * Get the tasks directory
+   */
+  getTasksDir(): string {
+    return join(this.getRootDirectory(), 'tasks');
+  }
+
+  /**
+   * Get the PRs directory
+   */
+  getPRsDir(): string {
+    return join(this.getRootDirectory(), 'prs');
   }
 
   /**
@@ -87,6 +144,22 @@ export class PathResolver {
   }
 
   /**
+   * DEPRECATED: Legacy method for backward compatibility
+   * Use getEpicsDir() instead
+   */
+  getActiveDir(): string {
+    return this.getEpicsDir();
+  }
+
+  /**
+   * DEPRECATED: Legacy method for backward compatibility
+   * Use getArchivedDir() instead
+   */
+  getCompletedDir(): string {
+    return this.getArchivedDir();
+  }
+
+  /**
    * Check if legacy "trackdown/" directory exists and root is still default
    */
   shouldMigrate(): boolean {
@@ -110,13 +183,33 @@ export class PathResolver {
    */
   getStandardDirectories(): string[] {
     return [
-      this.getActiveDir(),
-      this.getCompletedDir(),
+      this.getEpicsDir(),
+      this.getIssuesDir(),
+      this.getTasksDir(),
+      this.getPRsDir(),
       this.getTemplatesDir(),
       this.getExportsDir(),
       this.getDocsDir(),
       this.getArchivedDir(),
     ];
+  }
+
+  /**
+   * Get directory for specific item type
+   */
+  getItemTypeDirectory(type: 'epic' | 'issue' | 'task' | 'pr'): string {
+    switch (type) {
+      case 'epic':
+        return this.getEpicsDir();
+      case 'issue':
+        return this.getIssuesDir();
+      case 'task':
+        return this.getTasksDir();
+      case 'pr':
+        return this.getPRsDir();
+      default:
+        throw new Error(`Unknown item type: ${type}`);
+    }
   }
 
   /**
@@ -177,6 +270,58 @@ export class PathResolver {
   }
 
   /**
+   * Set project context for multi-project operations
+   */
+  setProjectContext(projectName: string): void {
+    this.projectContext = this.projectDetector.getProjectContext(projectName);
+  }
+
+  /**
+   * Get current project context
+   */
+  getProjectContext(): ProjectContext | undefined {
+    return this.projectContext;
+  }
+
+  /**
+   * Get project mode (single or multi)
+   */
+  getProjectMode(): ProjectMode {
+    return this.projectContext?.mode || 'single';
+  }
+
+  /**
+   * List available projects in multi-project mode
+   */
+  getAvailableProjects(): string[] {
+    return this.projectDetector.listAvailableProjects();
+  }
+
+  /**
+   * Check if project exists
+   */
+  projectExists(projectName: string): boolean {
+    return this.projectDetector.projectExists(projectName);
+  }
+
+  /**
+   * Create new project directory structure
+   */
+  createProjectStructure(projectName?: string): void {
+    const projectPath = projectName 
+      ? this.projectDetector.createProject(projectName)
+      : this.getProjectBasePath();
+    
+    // Create all standard directories
+    const directories = this.getStandardDirectories();
+    for (const dir of directories) {
+      if (!existsSync(dir)) {
+        require('fs').mkdirSync(dir, { recursive: true });
+      }
+    }
+  }
+
+  /**
    * Show migration warning if legacy directory exists
    */
   showMigrationWarning(): void {
@@ -196,6 +341,9 @@ Examples:
   aitrackdown --root-dir trackdown init    # Specify directory per command
       `);
     }
+    
+    // Show project detection info
+    this.projectDetector.showDetectionInfo();
   }
 
   /**

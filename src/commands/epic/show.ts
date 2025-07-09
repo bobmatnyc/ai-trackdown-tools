@@ -1,12 +1,13 @@
 /**
  * Epic Show Command
- * Display detailed information about a specific epic
+ * Display detailed information about a specific epic with project context support
  */
 
 import { Command } from 'commander';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import { Formatter } from '../../utils/formatter.js';
 
 interface ShowOptions {
@@ -15,6 +16,7 @@ interface ShowOptions {
   showTasks?: boolean;
   showContent?: boolean;
   showRelated?: boolean;
+  project?: string;
 }
 
 export function createEpicShowCommand(): Command {
@@ -24,10 +26,11 @@ export function createEpicShowCommand(): Command {
     .description('Show detailed information about an epic')
     .argument('<epic-id>', 'epic ID to show')
     .option('-f, --format <type>', 'output format (detailed|json|yaml)', 'detailed')
-    .option('--show-issues', 'show related issues')
+    .option('--show-issues, --with-issues', 'show related issues')
     .option('--show-tasks', 'show all related tasks')
     .option('--show-content', 'show epic content/description')
     .option('--show-related', 'show related epics and dependencies')
+    .option('--project <name>', 'specify project (for multi-project mode)')
     .action(async (epicId: string, options: ShowOptions) => {
       try {
         await showEpic(epicId, options);
@@ -41,14 +44,22 @@ export function createEpicShowCommand(): Command {
 }
 
 async function showEpic(epicId: string, options: ShowOptions): Promise<void> {
-  const configManager = new ConfigManager();
-  const config = configManager.getConfig();
+  // Initialize project context manager
+  const contextManager = new ProjectContextManager();
 
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
 
+  // Initialize project context
+  const projectContext = await contextManager.initializeContext(options.project);
+
+  // Get managers and paths from context
+  const configManager = projectContext.configManager;
+  const config = configManager.getConfig();
+
   // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  const paths = projectContext.paths;
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Get epic hierarchy
   const hierarchy = relationshipManager.getEpicHierarchy(epicId);

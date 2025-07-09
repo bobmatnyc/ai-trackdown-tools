@@ -12,13 +12,17 @@ export class AITrackdownIdGenerator implements IdGenerator {
   
   // Counters for ID generation (loaded from .ai-trackdown/counters.json)
   private counters: {
+    project: number;
     epic: number;
     issue: number;
     task: number;
+    pr: number;
   } = {
+    project: 1,
     epic: 1,
     issue: 1,
-    task: 1
+    task: 1,
+    pr: 1
   };
 
   private countersPath: string;
@@ -27,6 +31,17 @@ export class AITrackdownIdGenerator implements IdGenerator {
     this.config = config;
     this.countersPath = path.join(projectRoot, '.ai-trackdown', 'counters.json');
     this.loadCounters();
+  }
+
+  /**
+   * Generate unique Project ID
+   */
+  public generateProjectId(title: string): string {
+    const prefix = this.config.naming_conventions.project_prefix || 'PRJ';
+    const id = `${prefix}-${this.counters.project.toString().padStart(4, '0')}`;
+    this.counters.project++;
+    this.saveCounters();
+    return id;
   }
 
   /**
@@ -60,6 +75,17 @@ export class AITrackdownIdGenerator implements IdGenerator {
   }
 
   /**
+   * Generate unique PR ID
+   */
+  public generatePRId(issue_id: string, title: string): string {
+    const prefix = this.config.naming_conventions.pr_prefix || 'PR';
+    const id = `${prefix}-${this.counters.pr.toString().padStart(4, '0')}`;
+    this.counters.pr++;
+    this.saveCounters();
+    return id;
+  }
+
+  /**
    * Generate filename for an item
    */
   public generateFilename(itemId: string, title: string): string {
@@ -78,8 +104,9 @@ export class AITrackdownIdGenerator implements IdGenerator {
   /**
    * Get next available ID without incrementing counter
    */
-  public peekNextId(type: 'epic' | 'issue' | 'task'): string {
-    const prefix = this.config.naming_conventions[`${type}_prefix`];
+  public peekNextId(type: 'project' | 'epic' | 'issue' | 'task' | 'pr'): string {
+    const prefix = this.config.naming_conventions[`${type}_prefix`] || 
+                  (type === 'project' ? 'PRJ' : type === 'pr' ? 'PR' : '');
     const counter = this.counters[type];
     return `${prefix}-${counter.toString().padStart(4, '0')}`;
   }
@@ -88,7 +115,7 @@ export class AITrackdownIdGenerator implements IdGenerator {
    * Reset counters (dangerous - only for testing or project reset)
    */
   public resetCounters(): void {
-    this.counters = { epic: 1, issue: 1, task: 1 };
+    this.counters = { project: 1, epic: 1, issue: 1, task: 1, pr: 1 };
     this.saveCounters();
   }
 
@@ -102,7 +129,7 @@ export class AITrackdownIdGenerator implements IdGenerator {
   /**
    * Set specific counter value (useful for migration)
    */
-  public setCounter(type: 'epic' | 'issue' | 'task', value: number): void {
+  public setCounter(type: 'project' | 'epic' | 'issue' | 'task' | 'pr', value: number): void {
     this.counters[type] = Math.max(1, value);
     this.saveCounters();
   }
@@ -178,9 +205,11 @@ export class AITrackdownIdGenerator implements IdGenerator {
         const loaded = JSON.parse(data);
         
         // Validate and merge with defaults
+        this.counters.project = Math.max(1, loaded.project || 1);
         this.counters.epic = Math.max(1, loaded.epic || 1);
         this.counters.issue = Math.max(1, loaded.issue || 1);
         this.counters.task = Math.max(1, loaded.task || 1);
+        this.counters.pr = Math.max(1, loaded.pr || 1);
       }
     } catch (error) {
       console.warn(`Failed to load counters, using defaults: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -208,8 +237,9 @@ export class AITrackdownIdGenerator implements IdGenerator {
   /**
    * Validate ID format
    */
-  public validateId(id: string, type: 'epic' | 'issue' | 'task'): boolean {
-    const prefix = this.config.naming_conventions[`${type}_prefix`];
+  public validateId(id: string, type: 'project' | 'epic' | 'issue' | 'task' | 'pr'): boolean {
+    const prefix = this.config.naming_conventions[`${type}_prefix`] || 
+                  (type === 'project' ? 'PRJ' : type === 'pr' ? 'PR' : '');
     const pattern = new RegExp(`^${prefix}-\\d{4}$`);
     return pattern.test(id);
   }
@@ -217,8 +247,9 @@ export class AITrackdownIdGenerator implements IdGenerator {
   /**
    * Extract number from ID
    */
-  public extractIdNumber(id: string, type: 'epic' | 'issue' | 'task'): number | null {
-    const prefix = this.config.naming_conventions[`${type}_prefix`];
+  public extractIdNumber(id: string, type: 'project' | 'epic' | 'issue' | 'task' | 'pr'): number | null {
+    const prefix = this.config.naming_conventions[`${type}_prefix`] || 
+                  (type === 'project' ? 'PRJ' : type === 'pr' ? 'PR' : '');
     const pattern = new RegExp(`^${prefix}-(\\d{4})$`);
     const match = id.match(pattern);
     return match ? parseInt(match[1], 10) : null;
@@ -227,9 +258,10 @@ export class AITrackdownIdGenerator implements IdGenerator {
   /**
    * Generate batch of IDs (useful for bulk operations)
    */
-  public generateBatchIds(type: 'epic' | 'issue' | 'task', count: number): string[] {
+  public generateBatchIds(type: 'project' | 'epic' | 'issue' | 'task' | 'pr', count: number): string[] {
     const ids: string[] = [];
-    const prefix = this.config.naming_conventions[`${type}_prefix`];
+    const prefix = this.config.naming_conventions[`${type}_prefix`] || 
+                  (type === 'project' ? 'PRJ' : type === 'pr' ? 'PR' : '');
     
     for (let i = 0; i < count; i++) {
       const id = `${prefix}-${this.counters[type].toString().padStart(4, '0')}`;

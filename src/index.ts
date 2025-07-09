@@ -13,7 +13,9 @@ import { createEpicCommand } from './commands/epic.js';
 import { createIssueCommand } from './commands/issue.js';
 import { createTaskCommand } from './commands/task.js';
 import { createPRCommand } from './commands/pr.js';
+import { createProjectCommand } from './commands/project.js';
 import { createAiCommand } from './commands/ai.js';
+import { createSyncCommand } from './commands/sync.js';
 import { createMigrateCommand } from './commands/migrate.js';
 import { createMigrateStructureCommand } from './commands/migrate-structure.js';
 import { VersionManager } from './utils/version.js';
@@ -109,11 +111,13 @@ async function main(): Promise<void> {
   program.addCommand(createVersionCommand());
   
   // AI-Trackdown hierarchical commands
+  program.addCommand(createProjectCommand());
   program.addCommand(createEpicCommand());
   program.addCommand(createIssueCommand());
   program.addCommand(createTaskCommand());
   program.addCommand(createPRCommand());
   program.addCommand(createAiCommand());
+  program.addCommand(createSyncCommand());
   
   // Migration commands
   program.addCommand(createMigrateCommand());
@@ -168,6 +172,14 @@ async function main(): Promise<void> {
     console.log('    $ aitrackdown pr list --status open --assignee john');
     console.log('    $ aitrackdown pr merge PR-0001 --delete-branch');
     console.log('    $ aitrackdown pr review PR-0001 --approve --comment "LGTM"');
+    console.log('');
+    console.log('  GitHub Sync:');
+    console.log('    $ aitrackdown sync setup --repository owner/repo --token ghp_xxx');
+    console.log('    $ aitrackdown sync push --verbose');
+    console.log('    $ aitrackdown sync pull --dry-run');
+    console.log('    $ aitrackdown sync bidirectional');
+    console.log('    $ aitrackdown sync status --verbose');
+    console.log('    $ aitrackdown sync auto --enable');
     console.log('');
     console.log(chalk.bold.cyan('🤖 AI-SPECIFIC COMMANDS:'));
     console.log('  Token Tracking:');

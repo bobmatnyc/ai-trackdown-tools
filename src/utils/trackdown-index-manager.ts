@@ -51,6 +51,17 @@ export interface TrackdownIndexEntry {
   tags?: string[];
 }
 
+export interface ProjectIndexEntry extends TrackdownIndexEntry {
+  name: string;
+  git_origin?: string;
+  git_branch?: string;
+  repository_url?: string;
+  team_members?: string[];
+  framework?: string;
+  completion_percentage?: number;
+  epicIds: string[];
+}
+
 export interface EpicIndexEntry extends TrackdownIndexEntry {
   issueIds: string[];
   milestone?: string;
@@ -87,11 +98,13 @@ export interface TrackdownIndex {
   version: string;
   lastUpdated: string;
   projectPath: string;
+  projects: Record<string, ProjectIndexEntry>;
   epics: Record<string, EpicIndexEntry>;
   issues: Record<string, IssueIndexEntry>;
   tasks: Record<string, TaskIndexEntry>;
   prs: Record<string, PRIndexEntry>;
   stats: {
+    totalProjects: number;
     totalEpics: number;
     totalIssues: number;
     totalTasks: number;
@@ -192,6 +205,7 @@ export class TrackdownIndexManager {
       index.projectPath = this.projectPath;
       
       // Calculate stats
+      index.stats.totalProjects = Object.keys(index.projects).length;
       index.stats.totalEpics = Object.keys(index.epics).length;
       index.stats.totalIssues = Object.keys(index.issues).length;
       index.stats.totalTasks = Object.keys(index.tasks).length;
@@ -236,11 +250,13 @@ export class TrackdownIndexManager {
       version: INDEX_VERSION,
       lastUpdated: new Date().toISOString(),
       projectPath: this.projectPath,
+      projects: {},
       epics: {},
       issues: {},
       tasks: {},
       prs: {},
       stats: {
+        totalProjects: 0,
         totalEpics: 0,
         totalIssues: 0,
         totalTasks: 0,
@@ -270,19 +286,23 @@ export class TrackdownIndexManager {
 
       // Populate index with scanned data
       for (const epic of epics) {
-        newIndex.epics[epic.id] = await this.createEpicIndexEntry(epic as EpicData);
+        const epicData = epic as EpicData;
+        newIndex.epics[epicData.epic_id] = await this.createEpicIndexEntry(epicData);
       }
 
       for (const issue of issues) {
-        newIndex.issues[issue.id] = await this.createIssueIndexEntry(issue as IssueData);
+        const issueData = issue as IssueData;
+        newIndex.issues[issueData.issue_id] = await this.createIssueIndexEntry(issueData);
       }
 
       for (const task of tasks) {
-        newIndex.tasks[task.id] = await this.createTaskIndexEntry(task as TaskData);
+        const taskData = task as TaskData;
+        newIndex.tasks[taskData.task_id] = await this.createTaskIndexEntry(taskData);
       }
 
       for (const pr of prs) {
-        newIndex.prs[pr.id] = await this.createPRIndexEntry(pr as PRData);
+        const prData = pr as PRData;
+        newIndex.prs[prData.pr_id] = await this.createPRIndexEntry(prData);
       }
 
       // Build relationships
@@ -295,7 +315,7 @@ export class TrackdownIndexManager {
       newIndex.stats.performanceMetrics.lastRebuildTime = rebuildTime;
 
       console.log(`✅ Index rebuilt successfully in ${rebuildTime}ms`);
-      console.log(`📊 Indexed: ${newIndex.stats.totalEpics} epics, ${newIndex.stats.totalIssues} issues, ${newIndex.stats.totalTasks} tasks, ${newIndex.stats.totalPRs} PRs`);
+      console.log(`📊 Indexed: ${newIndex.stats.totalProjects} projects, ${newIndex.stats.totalEpics} epics, ${newIndex.stats.totalIssues} issues, ${newIndex.stats.totalTasks} tasks, ${newIndex.stats.totalPRs} PRs`);
 
       return newIndex;
     } catch (error) {
@@ -563,6 +583,7 @@ export class TrackdownIndexManager {
     }, {} as Record<Priority, number>);
 
     const byType: Record<ItemType, number> = {
+      project: index.stats.totalProjects || 0,
       epic: index.stats.totalEpics,
       issue: index.stats.totalIssues,
       task: index.stats.totalTasks,
@@ -763,6 +784,10 @@ export class TrackdownIndexManager {
   private cleanupRelationships(index: TrackdownIndex, type: ItemType, id: string): void {
     // Remove references to deleted items
     switch (type) {
+      case 'project':
+        // Project cleanup would involve removing project references from all items
+        // For now, we'll keep it simple since project deletion is rare
+        break;
       case 'epic':
         for (const epic of Object.values(index.epics)) {
           epic.issueIds = epic.issueIds.filter(issueId => issueId !== id);
@@ -773,6 +798,12 @@ export class TrackdownIndexManager {
           issue.taskIds = issue.taskIds.filter(taskId => taskId !== id);
           issue.prIds = issue.prIds.filter(prId => prId !== id);
         }
+        break;
+      case 'task':
+        // Task cleanup
+        break;
+      case 'pr':
+        // PR cleanup
         break;
     }
   }

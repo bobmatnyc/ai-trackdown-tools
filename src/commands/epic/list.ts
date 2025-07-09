@@ -1,11 +1,12 @@
 /**
  * Epic List Command
- * Lists epics with filtering and sorting options
+ * Lists epics with filtering and sorting options with project context support
  */
 
 import { Command } from 'commander';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import type { ItemStatus, Priority, SearchFilters } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
 import { isEpicData } from '../../types/ai-trackdown.js';
@@ -23,6 +24,9 @@ interface ListOptions {
   limit?: number;
   showProgress?: boolean;
   showIssues?: boolean;
+  showProject?: boolean;
+  active?: boolean;
+  project?: string;
 }
 
 export function createEpicListCommand(): Command {
@@ -42,6 +46,9 @@ export function createEpicListCommand(): Command {
     .option('-l, --limit <number>', 'limit number of results')
     .option('--show-progress', 'show completion progress')
     .option('--show-issues', 'show related issues count')
+    .option('--show-project', 'show project information')
+    .option('--active', 'show only active epics (equivalent to --status active)')
+    .option('--project <name>', 'filter by project (for multi-project mode)')
     .action(async (options: ListOptions) => {
       try {
         await listEpics(options);
@@ -55,20 +62,27 @@ export function createEpicListCommand(): Command {
 }
 
 async function listEpics(options: ListOptions): Promise<void> {
-  const configManager = new ConfigManager();
-  const config = configManager.getConfig();
+  // Initialize project context manager
+  const contextManager = new ProjectContextManager();
   
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
   
-  // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  // Initialize project context
+  const projectContext = await contextManager.initializeContext(options.project);
+  
+  // Get managers and paths from context
+  const configManager = projectContext.configManager;
+  const config = configManager.getConfig();
+  const paths = projectContext.paths;
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
   // Build search filters
   const filters: SearchFilters = {};
   
-  if (options.status) {
+  if (options.active) {
+    filters.status = 'active';
+  } else if (options.status) {
     const statuses = options.status.split(',').map(s => s.trim()) as ItemStatus[];
     filters.status = statuses.length === 1 ? statuses[0] : statuses;
   }
@@ -122,7 +136,7 @@ async function listEpics(options: ListOptions): Promise<void> {
       console.log(YAML.stringify(filteredEpics));
       break;
     default:
-      await displayEpicsTable(filteredEpics, options, relationshipManager);
+      await displayEpicsTable(filteredEpics, options, relationshipManager, projectContext);
   }
 }
 
@@ -166,10 +180,15 @@ function sortEpics(epics: any[], sortBy: string, sortOrder: string): void {
   });
 }
 
-async function displayEpicsTable(epics: any[], options: ListOptions, relationshipManager: RelationshipManager): Promise<void> {
+async function displayEpicsTable(epics: any[], options: ListOptions, relationshipManager: RelationshipManager, projectContext: any): Promise<void> {
   if (epics.length === 0) {
     console.log(Formatter.info('No epics found matching the criteria.'));
     return;
+  }
+  
+  // Show project context information
+  if (projectContext.context.mode === 'multi' && projectContext.context.currentProject) {
+    console.log(Formatter.info(`📋 Project: ${projectContext.context.currentProject}`));
   }
   
   console.log(Formatter.success(`Found ${epics.length} epic(s):`));
@@ -177,6 +196,7 @@ async function displayEpicsTable(epics: any[], options: ListOptions, relationshi
   
   // Table headers
   const headers = ['ID', 'Title', 'Status', 'Priority', 'Assignee'];
+  if (options.showProject) headers.push('Project');
   if (options.showProgress) headers.push('Progress');
   if (options.showIssues) headers.push('Issues');
   headers.push('Created');
@@ -195,6 +215,10 @@ async function displayEpicsTable(epics: any[], options: ListOptions, relationshi
       getPriorityDisplay(epic.priority),
       epic.assignee
     ];
+    
+    if (options.showProject) {
+      row.push(epic.project_id || '-');
+    }
     
     if (options.showProgress) {
       const progress = epic.completion_percentage || 0;

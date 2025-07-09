@@ -83,10 +83,12 @@ export class UnifiedPathResolver {
   /**
    * Get path for specific item type
    */
-  getItemTypeDirectory(type: 'epic' | 'issue' | 'task' | 'pr'): string {
+  getItemTypeDirectory(type: 'project' | 'epic' | 'issue' | 'task' | 'pr'): string {
     const paths = this.getUnifiedPaths();
     
     switch (type) {
+      case 'project':
+        return join(paths.tasksRoot, 'projects');
       case 'epic':
         return paths.epicsDir;
       case 'issue':

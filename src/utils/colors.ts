@@ -44,7 +44,7 @@ export class ColorTheme {
       case 'critical':
         return chalk.red.bold;
       default:
-        return chalk.white;
+        return chalk.whiteBright;
     }
   }
 
@@ -60,7 +60,7 @@ export class ColorTheme {
       case 'blocked':
         return chalk.red;
       default:
-        return chalk.white;
+        return chalk.whiteBright;
     }
   }
 

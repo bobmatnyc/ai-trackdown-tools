@@ -134,6 +134,14 @@ export class ConfigManager {
       envConfig.rootDirectory = process.env.AITRACKDOWN_TASKS_DIR;
     }
 
+    // NEW: Support for project mode environment variable
+    if (process.env.AITRACKDOWN_PROJECT_MODE) {
+      const mode = process.env.AITRACKDOWN_PROJECT_MODE;
+      if (mode === 'single' || mode === 'multi') {
+        (envConfig as any).project_mode = mode;
+      }
+    }
+
     if (process.env.TRACKDOWN_MIGRATE_FROM_TRACKDOWN) {
       envConfig.migrateFromTrackdown = process.env.TRACKDOWN_MIGRATE_FROM_TRACKDOWN === 'true';
     }
