@@ -25,6 +25,7 @@ import type {
 } from '../types/ai-trackdown.js';
 import { FrontmatterParser } from './frontmatter-parser.js';
 import { UnifiedPathResolver } from './unified-path-resolver.js';
+import { ProjectDetector, type ProjectDetectionResult } from './project-detector.js';
 
 // Async file operations for better performance
 const readFile = promisify(fs.readFile);
@@ -132,17 +133,22 @@ export class TrackdownIndexManager {
   private config: ProjectConfig;
   private pathResolver: UnifiedPathResolver;
   private frontmatterParser: FrontmatterParser;
+  private projectDetector: ProjectDetector;
   
   // Memory cache for performance
   private cachedIndex: TrackdownIndex | null = null;
   private cacheTimestamp: number = 0;
   private readonly CACHE_TTL = 5000; // 5 seconds cache TTL
+  
+  // Store project detection results for auto-project creation
+  private lastProjectDetection: ProjectDetectionResult | null = null;
 
   constructor(config: ProjectConfig, projectPath: string, cliTasksDir?: string) {
     this.config = config;
     this.projectPath = projectPath;
     this.pathResolver = new UnifiedPathResolver(config, projectPath, cliTasksDir);
     this.frontmatterParser = new FrontmatterParser();
+    this.projectDetector = new ProjectDetector(projectPath);
     
     const paths = this.pathResolver.getUnifiedPaths();
     this.tasksDir = paths.tasksRoot;
@@ -272,6 +278,33 @@ export class TrackdownIndexManager {
     };
 
     try {
+      // Detect project structure before scanning directories
+      console.log('🔍 Detecting project structure...');
+      const projectDetection = this.projectDetector.detectProjectMode();
+      this.lastProjectDetection = projectDetection;
+      
+      // Log detection results
+      console.log(`📋 Project Mode: ${projectDetection.mode.toUpperCase()}`);
+      if (projectDetection.mode === 'multi') {
+        if (projectDetection.detectedProjects && projectDetection.detectedProjects.length > 0) {
+          console.log(`📁 Detected Projects: ${projectDetection.detectedProjects.join(', ')}`);
+        }
+        if (projectDetection.projectsDir) {
+          console.log(`📂 Projects Directory: ${projectDetection.projectsDir}`);
+        }
+      }
+      
+      if (projectDetection.migrationNeeded) {
+        console.log('⚠️  Migration may be needed for optimal structure');
+      }
+      
+      if (projectDetection.recommendations.length > 0) {
+        console.log('💡 Recommendations available (run with --show-recommendations for details)');
+      }
+      
+      // Auto-create projects based on detection results (ISS-0015 & ISS-0016)
+      await this.autoCreateProjects(projectDetection);
+      
       const paths = this.pathResolver.getUnifiedPaths();
       
       // Parallel processing for better performance
@@ -495,6 +528,172 @@ export class TrackdownIndexManager {
   public clearCache(): void {
     this.cachedIndex = null;
     this.cacheTimestamp = 0;
+  }
+
+  /**
+   * Get the last project detection results for auto-project creation
+   */
+  public getLastProjectDetection(): ProjectDetectionResult | null {
+    return this.lastProjectDetection;
+  }
+
+  /**
+   * Get project detector instance for direct access
+   */
+  public getProjectDetector(): ProjectDetector {
+    return this.projectDetector;
+  }
+
+  /**
+   * Auto-create projects based on detection results (ISS-0015 & ISS-0016)
+   */
+  private async autoCreateProjects(detection: ProjectDetectionResult): Promise<void> {
+    try {
+      // Check if projects should be auto-created
+      if (detection.mode === 'single') {
+        await this.autoCreateSingleProject(detection);
+      } else if (detection.mode === 'multi') {
+        await this.autoCreateMultiProjects(detection);
+      }
+    } catch (error) {
+      console.warn(`⚠️  Auto-project creation warning: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Auto-create default project for single-project structure (ISS-0015)
+   */
+  private async autoCreateSingleProject(detection: ProjectDetectionResult): Promise<void> {
+    // Import ProjectContextManager here to avoid circular dependency
+    const { ProjectContextManager } = await import('./project-context-manager.js');
+    
+    // Check if a project task already exists in single-project mode
+    const existingProjects = await this.checkExistingProjects();
+    if (existingProjects.length > 0) {
+      console.log(`📋 Found existing projects: ${existingProjects.join(', ')}`);
+      return;
+    }
+
+    console.log('🚀 Auto-creating default project for single-project structure...');
+    
+    try {
+      const contextManager = new ProjectContextManager(detection.projectRoot);
+      await contextManager.initializeContext();
+      
+      // Create a default project entry in the index
+      const defaultProjectName = 'default-project';
+      
+      // Since we're in single-project mode, we'll create a conceptual project
+      // that represents the entire codebase
+      console.log(`📁 Creating default project: ${defaultProjectName}`);
+      
+      // Ensure project structure exists
+      await contextManager.ensureProjectStructure();
+      
+      console.log(`✅ Auto-created default project for single-project structure`);
+      
+    } catch (error) {
+      throw new Error(`Failed to auto-create single project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Auto-create project tasks for multi-project structure (ISS-0016)  
+   */
+  private async autoCreateMultiProjects(detection: ProjectDetectionResult): Promise<void> {
+    // Import ProjectContextManager here to avoid circular dependency
+    const { ProjectContextManager } = await import('./project-context-manager.js');
+    
+    if (!detection.detectedProjects || detection.detectedProjects.length === 0) {
+      console.log('📋 No projects detected for auto-creation in multi-project mode');
+      return;
+    }
+
+    console.log(`🚀 Auto-creating projects for multi-project structure...`);
+    console.log(`📁 Detected ${detection.detectedProjects.length} projects: ${detection.detectedProjects.join(', ')}`);
+    
+    const contextManager = new ProjectContextManager(detection.projectRoot);
+    await contextManager.initializeContext();
+    
+    // Check if projects already exist to avoid duplicates
+    const existingProjects = await this.checkExistingProjects();
+    
+    let createdCount = 0;
+    
+    for (const projectName of detection.detectedProjects) {
+      if (existingProjects.includes(projectName)) {
+        console.log(`📋 Project '${projectName}' already exists, skipping...`);
+        continue;
+      }
+      
+      try {
+        console.log(`📁 Auto-creating project: ${projectName}`);
+        
+        // In multi-project mode, the directory structure should already exist
+        // We just need to ensure the project has proper configuration
+        if (detection.projectsDir) {
+          const projectPath = path.join(detection.projectsDir, projectName);
+          if (fs.existsSync(projectPath)) {
+            // Create a simple config manager for this project
+            const { ConfigManager } = await import('./config-manager.js');
+            const projectConfigManager = new ConfigManager(projectPath);
+            
+            // Check if project already has config, if not create minimal one
+            if (!projectConfigManager.isProjectDirectory(projectPath)) {
+              const defaultConfig = {
+                name: projectName,
+                description: `Auto-created project for ${projectName}`,
+                version: '1.0.0',
+                project_mode: 'multi' as const,
+                structure: {
+                  epics_dir: 'epics',
+                  issues_dir: 'issues', 
+                  tasks_dir: 'tasks',
+                  templates_dir: 'templates',
+                  prs_dir: 'prs'
+                },
+                naming_conventions: {
+                  project_prefix: 'PROJ',
+                  epic_prefix: 'EP',
+                  issue_prefix: 'ISS',
+                  task_prefix: 'TSK',
+                  pr_prefix: 'PR',
+                  file_extension: '.md'
+                }
+              };
+              
+              projectConfigManager.initializeProject(projectName, defaultConfig);
+              createdCount++;
+              console.log(`✅ Auto-created project: ${projectName}`);
+            } else {
+              console.log(`📋 Project '${projectName}' already configured, skipping...`);
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.warn(`⚠️  Failed to auto-create project '${projectName}': ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
+    if (createdCount > 0) {
+      console.log(`✅ Auto-created ${createdCount} projects for multi-project structure`);
+    } else {
+      console.log(`📋 All detected projects already exist or are configured`);
+    }
+  }
+
+  /**
+   * Check for existing projects to avoid duplicates
+   */
+  private async checkExistingProjects(): Promise<string[]> {
+    try {
+      const index = await this.loadIndex();
+      return Object.keys(index.projects);
+    } catch (error) {
+      // Index doesn't exist yet or is corrupted
+      return [];
+    }
   }
 
   /**
