@@ -64,7 +64,22 @@ async function showEpic(epicId: string, options: ShowOptions): Promise<void> {
   // Get epic hierarchy
   const hierarchy = relationshipManager.getEpicHierarchy(epicId);
   if (!hierarchy) {
-    throw new Error(`Epic not found: ${epicId}`);
+    // Provide helpful error message with suggestions
+    const cacheStats = relationshipManager.getCacheStats();
+    let errorMessage = `Epic not found: ${epicId}\n`;
+    errorMessage += `\nSearched in: ${paths.epicsDir}`;
+    errorMessage += `\nFound ${cacheStats.epics} epics in this project.`;
+    
+    if (cacheStats.epics > 0) {
+      errorMessage += `\n\nTry one of these commands:`;
+      errorMessage += `\n  • aitrackdown epic list --active`;
+      errorMessage += `\n  • aitrackdown epic show <epic-id> --project-dir <path>`;
+    } else {
+      errorMessage += `\n\nNo epics found. Create one with:`;
+      errorMessage += `\n  • aitrackdown epic create "Epic Title"`;
+    }
+    
+    throw new Error(errorMessage);
   }
   
   const { epic, issues, tasks } = hierarchy;

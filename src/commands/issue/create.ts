@@ -35,10 +35,10 @@ export function createIssueCreateCommand(): Command {
   const cmd = new Command('create');
   
   cmd
-    .description('Create a new issue within an epic')
+    .description('Create a new issue (optionally within an epic)')
     .argument('[title]', 'issue title (optional if using --title flag)')
     .option('--title <text>', 'issue title (alternative to positional argument)')
-    .option('-e, --epic <epic-id>', 'parent epic ID (required for issue creation)')
+    .option('-e, --epic <epic-id>', 'parent epic ID (auto-creates if missing)')
     .option('-d, --description <text>', 'issue description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
@@ -88,19 +88,37 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const idGenerator = new IdGenerator();
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   
-  // Validate that the epic parameter is provided
-  if (!options.epic) {
-    throw new Error('Epic ID is required for issue creation. Use -e or --epic to specify the parent epic ID.');
-  }
+  // Handle epic parameter with flexible creation
+  let epicId = options.epic;
+  let epicHierarchy: any = null;
   
-  // Validate that the epic exists
-  const epicHierarchy = relationshipManager.getEpicHierarchy(options.epic);
-  if (!epicHierarchy) {
-    throw new Error(`Epic not found: ${options.epic}`);
+  if (epicId) {
+    // Check if epic exists
+    epicHierarchy = relationshipManager.getEpicHierarchy(epicId);
+    if (!epicHierarchy) {
+      console.warn(Formatter.warning(`Epic ${epicId} not found. Creating placeholder epic...`));
+      
+      // Auto-create missing epic
+      try {
+        await createPlaceholderEpic(epicId, paths, configManager, parser, idGenerator);
+        console.log(Formatter.success(`Created placeholder epic ${epicId}`));
+        
+        // Reload relationship manager to pick up new epic
+        relationshipManager.rebuildCache();
+        epicHierarchy = relationshipManager.getEpicHierarchy(epicId);
+      } catch (error) {
+        console.warn(Formatter.warning(`Failed to create placeholder epic: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.log(Formatter.info(`Continuing with issue creation without epic...`));
+        epicId = undefined;
+      }
+    }
+  } else {
+    // No epic specified - create standalone issue
+    console.log(Formatter.info(`Creating standalone issue without epic...`));
   }
   
   // Generate issue ID
-  const issueId = idGenerator.generateIssueId(options.epic, title);
+  const issueId = idGenerator.generateIssueId(epicId, title);
   
   // Get template
   const template = configManager.getTemplateWithFallback('issue', options.template || 'default');
@@ -116,7 +134,7 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   const now = new Date().toISOString();
   const issueFrontmatter: IssueFrontmatter = {
     issue_id: issueId,
-    epic_id: options.epic,
+    epic_id: epicId,
     title,
     description: options.description || template.frontmatter_template.description || '',
     status: options.status || 'planning',
@@ -151,7 +169,7 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
     console.log(Formatter.info('Dry run - Issue would be created with:'));
     console.log(Formatter.debug(`File: ${filePath}`));
     console.log(Formatter.debug(`Issue ID: ${issueId}`));
-    console.log(Formatter.debug(`Epic ID: ${options.epic}`));
+    console.log(Formatter.debug(`Epic ID: ${epicId || 'none'}`));
     console.log(Formatter.debug(`Title: ${title}`));
     console.log(Formatter.debug(`Status: ${issueFrontmatter.status}`));
     console.log(Formatter.debug(`Priority: ${issueFrontmatter.priority}`));
@@ -173,16 +191,20 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   // Write the issue file
   parser.writeIssue(filePath, issueFrontmatter, content);
   
-  // Update the epic's related issues
-  const epic = epicHierarchy.epic;
-  const updatedRelatedIssues = [...(epic.related_issues || []), issueId];
-  parser.updateFile(epic.file_path, { related_issues: updatedRelatedIssues });
+  // Update the epic's related issues (if epic exists)
+  if (epicHierarchy && epicHierarchy.epic) {
+    const epic = epicHierarchy.epic;
+    const updatedRelatedIssues = [...(epic.related_issues || []), issueId];
+    parser.updateFile(epic.file_path, { related_issues: updatedRelatedIssues });
+  }
   
   // Update the index for better performance
   try {
     const indexManager = new TrackdownIndexManager(config, paths.projectRoot, cliTasksDir);
     await indexManager.updateItem('issue', issueId);
-    await indexManager.updateItem('epic', options.epic); // Update parent epic too
+    if (epicId) {
+      await indexManager.updateItem('epic', epicId); // Update parent epic too
+    }
   } catch (error) {
     console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
   }
@@ -192,7 +214,7 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   
   console.log(Formatter.success(`Issue created successfully!`));
   console.log(Formatter.info(`Issue ID: ${issueId}`));
-  console.log(Formatter.info(`Epic ID: ${options.epic}`));
+  console.log(Formatter.info(`Epic ID: ${epicId || 'none'}`));
   console.log(Formatter.info(`File: ${filePath}`));
   console.log(Formatter.info(`Title: ${title}`));
   console.log(Formatter.info(`Status: ${issueFrontmatter.status}`));
@@ -212,5 +234,59 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
   }
   
   console.log('');
-  console.log(Formatter.success(`Issue added to epic "${epic.title}"`));
+  if (epicHierarchy) {
+    console.log(Formatter.success(`Issue added to epic "${epicHierarchy.epic.title}"`));
+  } else {
+    console.log(Formatter.success(`Standalone issue created successfully`));
+  }
+}
+
+/**
+ * Create a placeholder epic when an epic ID is referenced but doesn't exist
+ */
+async function createPlaceholderEpic(
+  epicId: string,
+  paths: any,
+  configManager: ConfigManager,
+  parser: FrontmatterParser,
+  idGenerator: IdGenerator
+): Promise<void> {
+  const config = configManager.getConfig();
+  
+  // Get template for placeholder epic
+  const template = configManager.getTemplateWithFallback('epic', 'default');
+  if (!template) {
+    throw new Error('No epic template found for placeholder creation');
+  }
+  
+  const now = new Date().toISOString();
+  const epicFrontmatter = {
+    epic_id: epicId,
+    title: `Placeholder Epic - ${epicId}`,
+    description: `Auto-generated placeholder epic for ${epicId}. Please update with proper details.`,
+    status: 'planning',
+    priority: 'medium',
+    assignee: config.default_assignee || 'unassigned',
+    created_date: now,
+    updated_date: now,
+    estimated_tokens: 0,
+    actual_tokens: 0,
+    ai_context: template.ai_context_defaults || [],
+    sync_status: 'local',
+    related_issues: [],
+    dependencies: [],
+    completion_percentage: 0
+  };
+  
+  // Generate content from template
+  const content = template.content_template
+    .replace(/\{\{title\}\}/g, epicFrontmatter.title)
+    .replace(/\{\{description\}\}/g, epicFrontmatter.description);
+  
+  // Create filename
+  const filename = `${epicId}-placeholder-epic${config.naming_conventions.file_extension}`;
+  const filePath = path.join(paths.epicsDir, filename);
+  
+  // Create epic file
+  parser.writeEpic(filePath, epicFrontmatter, content);
 }
