@@ -11,6 +11,8 @@ import { createIssueUpdateCommand } from './issue/update.js';
 import { createIssueDeleteCommand } from './issue/delete.js';
 import { createIssueCompleteCommand } from './issue/complete.js';
 import { createIssueAssignCommand } from './issue/assign.js';
+import { createIssueCloseCommand } from './issue/close.js';
+import { createIssueReopenCommand } from './issue/reopen.js';
 
 export function createIssueCommand(): Command {
   const cmd = new Command('issue');
@@ -24,7 +26,9 @@ export function createIssueCommand(): Command {
     .addCommand(createIssueUpdateCommand())
     .addCommand(createIssueDeleteCommand())
     .addCommand(createIssueCompleteCommand())
-    .addCommand(createIssueAssignCommand());
+    .addCommand(createIssueAssignCommand())
+    .addCommand(createIssueCloseCommand())
+    .addCommand(createIssueReopenCommand());
 
   return cmd;
 }

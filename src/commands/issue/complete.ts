@@ -13,6 +13,7 @@ interface CompleteOptions {
   force?: boolean;
   actualTokens?: number;
   completionNotes?: string;
+  comment?: string;
   autoCompleteTasks?: boolean;
   dryRun?: boolean;
 }
@@ -26,6 +27,7 @@ export function createIssueCompleteCommand(): Command {
     .option('-f, --force', 'complete even if tasks are not completed')
     .option('--actual-tokens <number>', 'set actual token usage')
     .option('--completion-notes <text>', 'add completion notes')
+    .option('-c, --comment <text>', 'add completion comment')
     .option('--auto-complete-tasks', 'automatically complete all child tasks')
     .option('--dry-run', 'show what would be completed without completing')
     .action(async (issueId: string, options: CompleteOptions) => {
@@ -48,7 +50,8 @@ async function completeIssue(issueId: string, options: CompleteOptions): Promise
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
 
   // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   const parser = new FrontmatterParser();
   
   // Get issue hierarchy
@@ -111,6 +114,11 @@ async function completeIssue(issueId: string, options: CompleteOptions): Promise
     (updates as any).actual_tokens = parseInt(options.actualTokens.toString(), 10);
   }
   
+  // Add comment if provided
+  if (options.comment) {
+    (updates as any).completion_comment = options.comment;
+  }
+  
   // Prepare task completions if auto-complete is enabled
   const taskUpdates = [];
   
@@ -135,6 +143,10 @@ async function completeIssue(issueId: string, options: CompleteOptions): Promise
   
   if (options.actualTokens !== undefined) {
     console.log(`    Actual Tokens: ${issue.actual_tokens || 0} → ${options.actualTokens}`);
+  }
+  
+  if (options.comment) {
+    console.log(`    Comment: ${options.comment}`);
   }
   
   if (taskUpdates.length > 0) {
@@ -190,6 +202,10 @@ async function completeIssue(issueId: string, options: CompleteOptions): Promise
     
     if (options.completionNotes) {
       console.log(`  • Notes: ${options.completionNotes}`);
+    }
+    
+    if (options.comment) {
+      console.log(`  • Comment: ${options.comment}`);
     }
     
   } catch (error) {
