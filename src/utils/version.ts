@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import semver from 'semver';
 
 export interface VersionInfo {
@@ -17,8 +18,12 @@ export class VersionManager {
    * Get the project root directory
    */
   private static getProjectRoot(): string {
-    // First try to find the CLI package root from __dirname
-    let cliRoot = __dirname;
+    // Get the current file's directory using ES module approach
+    const currentFile = fileURLToPath(import.meta.url);
+    const currentDir = path.dirname(currentFile);
+    
+    // First try to find the CLI package root from current file location
+    let cliRoot = currentDir;
     while (cliRoot !== path.dirname(cliRoot)) {
       const packageJsonPath = path.join(cliRoot, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
