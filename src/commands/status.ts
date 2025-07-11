@@ -4,9 +4,10 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
 import type { TrackdownItem, StatusFilter } from '../types/index.js';
-import { ConfigManager } from '../utils/config.js';
+import { ConfigManager } from '../utils/config-manager.js';
 import { PathResolver } from '../utils/path-resolver.js';
 import { ProjectContextManager } from '../utils/project-context-manager.js';
+import { RelationshipManager } from '../utils/relationship-manager.js';
 import { Formatter } from '../utils/formatter.js';
 import {
   validateStatus,
@@ -176,8 +177,8 @@ Current Sprint Filter:
           const spinner = ora('Analyzing project status...').start();
 
           try {
-            // Get and parse all items
-            const items = await getAllItemsEnhanced(trackdownDir, pathResolver);
+            // Get and parse all items using RelationshipManager (same as individual commands)
+            const items = await getAllItemsWithRelationshipManager(config, pathResolver);
 
             spinner.text = 'Applying filters...';
 
@@ -449,7 +450,7 @@ async function runWatchMode(trackdownDir: string, options: any, config: any, pat
       );
 
       // Get items and generate hash for change detection
-      const items = await getAllItemsEnhanced(trackdownDir, pathResolver);
+      const items = await getAllItemsWithRelationshipManager(config, pathResolver);
       const currentHash = JSON.stringify(
         items.map((i) => `${i.id}-${i.updatedAt.getTime()}`)
       ).substring(0, 20);
@@ -504,93 +505,107 @@ async function runWatchMode(trackdownDir: string, options: any, config: any, pat
   });
 }
 
-async function getAllItemsEnhanced(trackdownDir: string, pathResolver: PathResolver): Promise<TrackdownItem[]> {
+async function getAllItemsWithRelationshipManager(config: any, pathResolver: PathResolver): Promise<TrackdownItem[]> {
+  // Get CLI tasks directory from parent command options
+  const cliTasksDir = process.env.CLI_TASKS_DIR;
+  
+  // Get absolute paths with CLI override (same as individual commands)
+  const configManager = new ConfigManager();
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  
+  // Initialize relationship manager (same as individual commands)
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  
+  // Get all items from the relationship manager
+  const epics = relationshipManager.getAllEpics();
+  const issues = relationshipManager.getAllIssues();
+  const tasks = relationshipManager.getAllTasks();
+  
+  // Convert to TrackdownItem format for compatibility with existing status command logic
   const items: TrackdownItem[] = [];
-  const directories = [
-    pathResolver.getActiveDir(),
-    pathResolver.getCompletedDir(),
-  ];
-
-  for (const dir of directories) {
-    const fullPath = join(process.cwd(), dir);
-    if (existsSync(fullPath)) {
-      const files = readdirSync(fullPath).filter((file) => file.endsWith('.md'));
-
-      for (const file of files) {
-        try {
-          const item = parseTrackdownFileEnhanced(join(fullPath, file));
-          if (item) {
-            items.push(item);
-          }
-        } catch (_error) {
-          console.warn(Formatter.warning(`Could not parse file: ${file}`));
-        }
-      }
-    }
+  
+  // Add epics
+  for (const epic of epics) {
+    items.push({
+      id: epic.epic_id,
+      title: epic.title,
+      description: epic.description,
+      status: mapStatus(epic.status),
+      priority: mapPriority(epic.priority),
+      assignee: epic.assignee !== 'unassigned' ? epic.assignee : undefined,
+      createdAt: new Date(epic.created_date),
+      updatedAt: new Date(epic.updated_date),
+      tags: epic.tags,
+      estimate: epic.estimated_tokens || undefined,
+    });
   }
-
+  
+  // Add issues
+  for (const issue of issues) {
+    items.push({
+      id: issue.issue_id,
+      title: issue.title,
+      description: issue.description,
+      status: mapStatus(issue.status),
+      priority: mapPriority(issue.priority),
+      assignee: issue.assignee !== 'unassigned' ? issue.assignee : undefined,
+      createdAt: new Date(issue.created_date),
+      updatedAt: new Date(issue.updated_date),
+      tags: issue.tags,
+      estimate: issue.estimated_tokens || undefined,
+    });
+  }
+  
+  // Add tasks
+  for (const task of tasks) {
+    items.push({
+      id: task.task_id,
+      title: task.title,
+      description: task.description,
+      status: mapStatus(task.status),
+      priority: mapPriority(task.priority),
+      assignee: task.assignee !== 'unassigned' ? task.assignee : undefined,
+      createdAt: new Date(task.created_date),
+      updatedAt: new Date(task.updated_date),
+      tags: task.tags,
+      estimate: task.estimated_tokens || undefined,
+    });
+  }
+  
   return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
-function parseTrackdownFileEnhanced(filePath: string): TrackdownItem | null {
-  try {
-    const content = readFileSync(filePath, 'utf-8');
-    const stats = statSync(filePath);
-
-    // Extract metadata from markdown
-    const titleMatch = content.match(/^# (.+)$/m);
-    const idMatch = content.match(/\*\*ID\*\*:\s*(.+)$/m);
-    const statusMatch = content.match(/\*\*Status\*\*:\s*(.+)$/m);
-    const priorityMatch = content.match(/\*\*Priority\*\*:\s*(.+)$/m);
-    const assigneeMatch = content.match(/\*\*Assignee\*\*:\s*(.+)$/m);
-    const createdMatch = content.match(/\*\*Created\*\*:\s*(.+)$/m);
-    const updatedMatch = content.match(/\*\*Updated\*\*:\s*(.+)$/m);
-    const tagsMatch = content.match(/\*\*Tags\*\*:\s*(.+)$/m);
-    const labelsMatch = content.match(/\*\*Labels\*\*:\s*(.+)$/m);
-    const estimateMatch = content.match(/\*\*Story Points\*\*:\s*(.+)$/m);
-
-    if (!titleMatch || !idMatch) {
-      return null;
-    }
-
-    // Extract description (content between Description and next section)
-    const descriptionMatch = content.match(/## Description\n\n(.*?)\n\n##/s);
-
-    // Parse tags and labels
-    const tags = tagsMatch
-      ? tagsMatch[1]
-          .split(',')
-          .map((tag) => tag.trim().replace(/`/g, ''))
-          .filter(Boolean)
-      : undefined;
-
-    const labels = labelsMatch
-      ? labelsMatch[1]
-          .split(',')
-          .map((label) => label.trim().replace(/`/g, ''))
-          .filter(Boolean)
-      : undefined;
-
-    const estimate = estimateMatch ? parseFloat(estimateMatch[1].trim()) : undefined;
-
-    return {
-      id: idMatch[1].trim(),
-      title: titleMatch[1].trim(),
-      description: descriptionMatch ? descriptionMatch[1].trim() : undefined,
-      status: (statusMatch?.[1]?.trim() || 'todo') as 'todo' | 'in-progress' | 'done' | 'blocked',
-      priority: (priorityMatch?.[1]?.trim() || 'medium') as 'low' | 'medium' | 'high' | 'critical',
-      assignee:
-        assigneeMatch?.[1]?.trim() !== 'Unassigned' ? assigneeMatch?.[1]?.trim() : undefined,
-      createdAt: createdMatch ? new Date(createdMatch[1].trim()) : stats.birthtime,
-      updatedAt: updatedMatch ? new Date(updatedMatch[1].trim()) : stats.mtime,
-      tags,
-      labels,
-      estimate,
-    };
-  } catch (_error) {
-    return null;
+// Helper functions to map status and priority values
+function mapStatus(status: string): 'todo' | 'in-progress' | 'done' | 'blocked' {
+  switch (status) {
+    case 'planning':
+      return 'todo';
+    case 'active':
+      return 'in-progress';
+    case 'completed':
+      return 'done';
+    case 'blocked':
+      return 'blocked';
+    default:
+      return 'todo';
   }
 }
+
+function mapPriority(priority: string): 'low' | 'medium' | 'high' | 'critical' {
+  switch (priority) {
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'high':
+      return 'high';
+    case 'critical':
+      return 'critical';
+    default:
+      return 'medium';
+  }
+}
+
 
 function parseFilters(options: any): StatusFilter {
   const filters: StatusFilter = {};

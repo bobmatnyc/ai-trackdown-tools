@@ -18,6 +18,7 @@ import { createAiCommand } from './commands/ai.js';
 import { createSyncCommand } from './commands/sync.js';
 import { createMigrateCommand } from './commands/migrate.js';
 import { createMigrateStructureCommand } from './commands/migrate-structure.js';
+import { createHealthCommand } from './commands/health.js';
 import { VersionManager } from './utils/version.js';
 import { Formatter } from './utils/formatter.js';
 
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
   program.addCommand(createPortfolioCommand());
   program.addCommand(createExportCommand());
   program.addCommand(createVersionCommand());
+  program.addCommand(createHealthCommand());
   
   // AI-Trackdown hierarchical commands
   program.addCommand(createProjectCommand());
