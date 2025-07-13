@@ -54,8 +54,8 @@ export class FrontmatterParser {
     const { frontmatter, content } = this.parseFile(filePath);
 
     // Validate that this is an issue
-    if (!frontmatter.issue_id || !frontmatter.epic_id) {
-      throw new Error(`File ${filePath} is missing required issue_id or epic_id field`);
+    if (!frontmatter.issue_id) {
+      throw new Error(`File ${filePath} is missing required issue_id field`);
     }
 
     const issueFrontmatter = frontmatter as IssueFrontmatter;
@@ -75,8 +75,8 @@ export class FrontmatterParser {
     const { frontmatter, content } = this.parseFile(filePath);
 
     // Validate that this is a task
-    if (!frontmatter.task_id || !frontmatter.issue_id || !frontmatter.epic_id) {
-      throw new Error(`File ${filePath} is missing required task_id, issue_id, or epic_id field`);
+    if (!frontmatter.task_id || !frontmatter.issue_id) {
+      throw new Error(`File ${filePath} is missing required task_id or issue_id field`);
     }
 
     const taskFrontmatter = frontmatter as TaskFrontmatter;
@@ -96,8 +96,8 @@ export class FrontmatterParser {
     const { frontmatter, content } = this.parseFile(filePath);
 
     // Validate that this is a PR
-    if (!frontmatter.pr_id || !frontmatter.issue_id || !frontmatter.epic_id) {
-      throw new Error(`File ${filePath} is missing required pr_id, issue_id, or epic_id field`);
+    if (!frontmatter.pr_id || !frontmatter.issue_id) {
+      throw new Error(`File ${filePath} is missing required pr_id or issue_id field`);
     }
 
     const prFrontmatter = frontmatter as PRFrontmatter;
@@ -125,7 +125,6 @@ export class FrontmatterParser {
       return this.parseEpic(filePath);
     } else if (
       frontmatter.issue_id &&
-      frontmatter.epic_id &&
       !frontmatter.task_id &&
       !frontmatter.pr_id
     ) {
@@ -133,14 +132,12 @@ export class FrontmatterParser {
     } else if (
       frontmatter.task_id &&
       frontmatter.issue_id &&
-      frontmatter.epic_id &&
       !frontmatter.pr_id
     ) {
       return this.parseTask(filePath);
     } else if (
       frontmatter.pr_id &&
       frontmatter.issue_id &&
-      frontmatter.epic_id &&
       !frontmatter.task_id
     ) {
       return this.parsePR(filePath);
@@ -369,7 +366,6 @@ export class FrontmatterParser {
   private validateIssueFrontmatter(data: IssueFrontmatter): void {
     const required = [
       'issue_id',
-      'epic_id',
       'title',
       'status',
       'priority',
@@ -390,7 +386,6 @@ export class FrontmatterParser {
     const required = [
       'task_id',
       'issue_id',
-      'epic_id',
       'title',
       'status',
       'priority',
@@ -411,7 +406,6 @@ export class FrontmatterParser {
     const required = [
       'pr_id',
       'issue_id',
-      'epic_id',
       'title',
       'status',
       'pr_status',
@@ -463,8 +457,6 @@ export class FrontmatterParser {
     // Required field validation
     if (!data.issue_id)
       errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id)
-      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
     if (!data.title)
       errors.push({ field: 'title', message: 'Title is required', severity: 'error' });
 
@@ -492,8 +484,6 @@ export class FrontmatterParser {
       errors.push({ field: 'task_id', message: 'Task ID is required', severity: 'error' });
     if (!data.issue_id)
       errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id)
-      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
 
     // Format validation
     if (data.task_id && !/^TSK-\d{4}$/.test(data.task_id)) {
@@ -519,8 +509,6 @@ export class FrontmatterParser {
       errors.push({ field: 'pr_id', message: 'PR ID is required', severity: 'error' });
     if (!data.issue_id)
       errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id)
-      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
     if (!data.pr_status)
       errors.push({ field: 'pr_status', message: 'PR status is required', severity: 'error' });
 

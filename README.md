@@ -4,6 +4,7 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 
 ## What's New in v1.1.2
 
+🚀 **Flexible Epic Assignment**: Epic IDs are now optional - create standalone issues or add epic assignment later  
 🚀 **Anywhere-Submit Functionality**: Execute commands from anywhere with `--project-dir` for seamless multi-project workflows  
 🚀 **Enhanced Template System**: Bundled default templates with robust fallback mechanisms  
 🚀 **Performance Optimizations**: 90%+ faster operations with intelligent indexing system  
@@ -14,7 +15,7 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 
 ✅ **Anywhere-Submit Capability**: Work with any project from anywhere using `--project-dir`  
 ✅ **AI-First Design**: Built for AI collaboration with context generation and token tracking  
-✅ **Hierarchical Structure**: Epic → Issue → Task relationships with YAML frontmatter  
+✅ **Flexible Hierarchical Structure**: Optional Epic → Issue → Task relationships with YAML frontmatter  
 ✅ **Complete PR Management**: 12 comprehensive PR commands with GitHub-independent workflows  
 ✅ **Agent-Optimized**: Batch operations and intelligent automation for AI-driven development  
 ✅ **Token Management**: Comprehensive token tracking and budget alerts  
@@ -35,11 +36,14 @@ npm install -g @bobmatnyc/ai-trackdown-tools
 # Initialize a new ai-trackdown project
 aitrackdown init --framework ai-trackdown
 
-# Create an epic
+# Create an epic (optional)
 aitrackdown epic create "User Authentication System" --priority high
 
 # Create an issue under the epic
 aitrackdown issue create "Login Flow Implementation" --epic EP-0001
+
+# Or create a standalone issue (no epic required)
+aitrackdown issue create "Bug fix for login validation" --priority medium
 
 # Create a task under the issue
 aitrackdown task create "JWT Token Validation" --issue ISS-0001
@@ -79,7 +83,9 @@ aitrackdown epic list
 aitrackdown epic show EP-0001 --show-issues --show-tasks
 aitrackdown epic complete EP-0001 --actual-tokens 1500
 
-# Issue Management with anywhere-submit
+# Issue Management with flexible epic assignment
+aitrackdown issue create "Feature implementation" --epic EP-0001  # Epic-assigned
+aitrackdown issue create "Bug fix" --priority urgent             # Standalone issue
 aitrackdown --project-dir /path/to/project issue assign ISS-0001 developer
 aitrackdown issue complete ISS-0001 --auto-complete-tasks
 
@@ -97,8 +103,9 @@ aitrackdown ai context --item-id EP-0001 --add "requirements context"
 Comprehensive PR management with 12 powerful commands and enhanced performance:
 
 ```bash
-# Create PR from completed tasks with anywhere-submit
+# Create PR from completed tasks (epic-assigned or standalone issues)
 aitrackdown --project-dir /path/to/project pr create "Implement user authentication" --issue ISS-0001 --from-tasks TSK-0001,TSK-0002
+aitrackdown pr create "Bug fix for standalone issue" --issue ISS-0005 --priority urgent
 
 # List and filter PRs (< 100ms response time)
 aitrackdown pr list --pr-status open --assignee @developer --priority high
@@ -183,10 +190,102 @@ project/
 └── llms.txt                     # Generated AI context
 ```
 
+## Flexible Epic Assignment (v1.1.2)
+
+AI Trackdown now supports flexible epic assignment, allowing teams to work with or without epic structure:
+
+### Choose Your Workflow
+
+**Option 1: Epic-First Workflow (Traditional)**
+```bash
+# Create epic first
+aitrackdown epic create "User Authentication System" --priority high
+
+# Create issues under epic
+aitrackdown issue create "Login Flow Implementation" --epic EP-0001
+aitrackdown issue create "JWT Token Validation" --epic EP-0001
+```
+
+**Option 2: Issue-First Workflow (Flexible)**
+```bash
+# Create standalone issues
+aitrackdown issue create "Bug fix for login validation" --priority medium
+aitrackdown issue create "Update user profile form" --priority low
+
+# Optionally assign to epic later
+aitrackdown issue update ISS-0001 --epic EP-0001
+```
+
+**Option 3: Mixed Workflow (Best of Both)**
+```bash
+# Some issues belong to epics
+aitrackdown issue create "Feature A implementation" --epic EP-0001
+
+# Others stand alone
+aitrackdown issue create "Emergency hotfix" --priority urgent
+
+# Convert standalone to epic-assigned later
+aitrackdown issue update ISS-0003 --epic EP-0002
+```
+
+### Migration Benefits
+
+- **Backward Compatible**: Existing epic-assigned workflows unchanged
+- **No Breaking Changes**: All existing commands work exactly as before  
+- **Gradual Adoption**: Teams can migrate to flexible workflows over time
+- **Performance**: Optional epic validation improves parser performance
+- **Simplified CI/CD**: Automated issue creation without epic dependencies
+
+### When to Use Each Approach
+
+**Use Epic-First When:**
+- Managing large, structured features
+- Team prefers hierarchical planning
+- Epic-level reporting and tracking needed
+- Long-term project organization required
+
+**Use Issue-First When:**
+- Rapid development and iteration
+- Bug fixes and maintenance tasks
+- Small team or solo development
+- CI/CD automated issue creation
+
 ## YAML Frontmatter
 
 All items use structured YAML frontmatter for metadata:
 
+### Epic-Assigned Issue (Traditional Workflow)
+```yaml
+---
+issue_id: ISS-0001
+epic_id: EP-0001  # Optional - links to epic
+title: "Login Flow Implementation"
+status: active
+priority: high
+assignee: developer
+estimated_tokens: 800
+---
+
+# Issue Description
+Implement user login flow with JWT validation...
+```
+
+### Standalone Issue (Flexible Workflow)
+```yaml
+---
+issue_id: ISS-0002
+title: "Independent bug fix"
+status: planning
+priority: medium
+assignee: developer
+# epic_id is optional - can be added later if needed
+---
+
+# Issue Description
+Fix validation error in user registration form...
+```
+
+### Epic Example
 ```yaml
 ---
 epic_id: EP-0001
@@ -227,8 +326,9 @@ aitrackdown migrate --from-csv tasks.csv
 - `epic complete` - Mark epic complete with token tracking
 
 ### Issue Commands  
-- `issue create` - Create issue linked to epic
+- `issue create` - Create issue with optional epic assignment (`--epic` is optional)
 - `issue assign` - Assign issue to team member
+- `issue update` - Update issue properties including epic assignment
 - `issue complete` - Complete issue with auto-task completion
 - `issue list` - List issues (basic listing)
 - `issue show` - Show detailed issue information
@@ -263,9 +363,55 @@ aitrackdown migrate --from-csv tasks.csv
 - `status` - Show project overview with metrics (< 10ms with indexing)
 - `export` - Export project data in various formats
 
+## Troubleshooting
+
+### Epic Assignment Issues (Resolved in v1.1.2)
+
+**Previous Issue**: "epic_id is required" parser errors when creating standalone issues
+**Resolution**: Epic IDs are now optional in all ticket formats
+
+**Previous Issue**: Parser validation failed when epic_id field was missing  
+**Resolution**: Updated TypeScript interfaces and parser to handle optional epic assignment
+
+**Previous Issue**: Could not create issues without epic assignment  
+**Resolution**: Issue creation now works with or without epic_id field
+
+### Common Migration Questions
+
+**Q: Will my existing epic-assigned issues still work?**  
+A: Yes, all existing workflows are fully backward compatible. No changes needed.
+
+**Q: Can I mix epic-assigned and standalone issues in the same project?**  
+A: Yes, you can use any combination. The parser handles both formats seamlessly.
+
+**Q: How do I convert a standalone issue to epic-assigned later?**  
+A: Use `aitrackdown issue update ISS-XXXX --epic EP-YYYY` to assign an epic to an existing issue.
+
+**Q: Do I need to update my templates?**  
+A: No, existing templates continue to work. Epic_id field is optional in all templates.
+
+**Q: Will this affect performance?**  
+A: Performance actually improves due to optional validation reducing parser overhead.
+
+### General Troubleshooting
+
+For other issues, check:
+1. Verify ai-trackdown initialization: `aitrackdown status`
+2. Check project structure: Ensure `.ai-trackdown/` directory exists
+3. Template issues: CLI includes bundled fallback templates
+4. Performance: Index rebuilds automatically if corrupted
+
 ## Recent Enhancements
 
 ### Major Enhancements
+
+#### Flexible Epic Assignment (v1.1.2)
+- **Optional Epic IDs**: Create standalone issues without epic assignment requirement
+- **Backward Compatible**: All existing epic-assigned workflows continue unchanged
+- **Mixed Workflows**: Support both epic-assigned and standalone issues in same project
+- **Performance Improvement**: Optional validation reduces parser overhead
+- **CI/CD Friendly**: Automated issue creation without epic dependencies
+- **Gradual Migration**: Teams can adopt flexible workflows over time
 
 #### Anywhere-Submit Functionality
 - **Global Project Access**: Execute commands from any location using `--project-dir`

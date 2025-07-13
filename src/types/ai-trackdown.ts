@@ -84,7 +84,7 @@ export interface EpicFrontmatter extends BaseFrontmatter {
 export interface IssueFrontmatter extends BaseFrontmatter {
   issue_id: string;
   project_id?: string; // Optional for backward compatibility in single-project mode
-  epic_id: string;
+  epic_id?: string;
   related_tasks: string[];
   related_prs?: string[];
   related_issues?: string[];
@@ -101,7 +101,7 @@ export interface TaskFrontmatter extends BaseFrontmatter {
   task_id: string;
   project_id?: string; // Optional for backward compatibility in single-project mode
   issue_id: string;
-  epic_id: string;
+  epic_id?: string;
   subtasks?: string[];
   parent_task?: string;
   tags?: string[];
@@ -122,7 +122,7 @@ export interface PRFrontmatter extends BaseFrontmatter {
   pr_id: string;
   project_id?: string; // Optional for backward compatibility in single-project mode
   issue_id: string;
-  epic_id: string;
+  epic_id?: string;
   pr_status: PRStatus;
   branch_name?: string;
   source_branch?: string;
@@ -339,15 +339,15 @@ export function isEpicFrontmatter(item: AnyFrontmatter): item is EpicFrontmatter
 }
 
 export function isIssueFrontmatter(item: AnyFrontmatter): item is IssueFrontmatter {
-  return 'issue_id' in item && 'epic_id' in item && !('task_id' in item) && !('pr_id' in item);
+  return 'issue_id' in item && !('task_id' in item) && !('pr_id' in item);
 }
 
 export function isTaskFrontmatter(item: AnyFrontmatter): item is TaskFrontmatter {
-  return 'task_id' in item && 'issue_id' in item && 'epic_id' in item && !('pr_id' in item);
+  return 'task_id' in item && 'issue_id' in item && !('pr_id' in item);
 }
 
 export function isPRFrontmatter(item: AnyFrontmatter): item is PRFrontmatter {
-  return 'pr_id' in item && 'issue_id' in item && 'epic_id' in item && !('task_id' in item);
+  return 'pr_id' in item && 'issue_id' in item && !('task_id' in item);
 }
 
 export function isProjectData(item: AnyItemData): item is ProjectData {
