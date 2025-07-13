@@ -59,6 +59,7 @@ ai-trackdown-verification/
 trackdown/
 tasks/
 .trackdown-backup/
+.claude-pm/
 
 # Development documentation
 ATT-*.md
