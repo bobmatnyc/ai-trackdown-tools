@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { extname, join } from 'node:path';
 import YAML from 'yaml';
 import type { TrackdownConfig } from '../types/index.js';
 
@@ -88,7 +88,7 @@ export class ConfigManager {
       } else {
         return JSON.parse(fileContent) as TrackdownConfig;
       }
-    } catch (error) {
+    } catch (_error) {
       console.warn(`Warning: Could not load config from ${path}, skipping`);
       return {};
     }

@@ -83,7 +83,14 @@ export interface IssueDeleteOptions extends BaseCommandOptions {
 export interface IssueSearchOptions extends BaseCommandOptions {
   query: string;
   state?: 'open' | 'closed' | 'all';
-  sort?: 'comments' | 'reactions' | 'reactions-+1' | 'reactions--1' | 'interactions' | 'created' | 'updated';
+  sort?:
+    | 'comments'
+    | 'reactions'
+    | 'reactions-+1'
+    | 'reactions--1'
+    | 'interactions'
+    | 'created'
+    | 'updated';
   order?: SortDirection;
   limit?: number;
   page?: number;
@@ -477,7 +484,7 @@ export interface ProgressOptions {
 }
 
 // Export utility types
-export type AnyCommandOptions = 
+export type AnyCommandOptions =
   | IssueCreateOptions
   | IssueListOptions
   | IssueShowOptions
@@ -499,7 +506,7 @@ export type AnyCommandOptions =
   | MilestoneAssignOptions
   | MilestoneProgressOptions;
 
-export type CommandName = 
+export type CommandName =
   | 'issue'
   | 'label'
   | 'milestone'
@@ -509,7 +516,7 @@ export type CommandName =
   | 'auth'
   | 'repo';
 
-export type IssueSubcommand = 
+export type IssueSubcommand =
   | 'create'
   | 'list'
   | 'show'
@@ -519,15 +526,9 @@ export type IssueSubcommand =
   | 'delete'
   | 'search';
 
-export type LabelSubcommand = 
-  | 'create'
-  | 'list'
-  | 'update'
-  | 'delete'
-  | 'apply'
-  | 'remove';
+export type LabelSubcommand = 'create' | 'list' | 'update' | 'delete' | 'apply' | 'remove';
 
-export type MilestoneSubcommand = 
+export type MilestoneSubcommand =
   | 'create'
   | 'list'
   | 'update'

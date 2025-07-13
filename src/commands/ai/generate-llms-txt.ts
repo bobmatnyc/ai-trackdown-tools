@@ -3,12 +3,13 @@
  * Generates llms.txt file from project structure
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
-import * as fs from 'fs';
-import * as path from 'path';
+import type { EpicData, IssueData, ProjectConfig, TaskData } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
 import { Formatter } from '../../utils/formatter.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
 
 interface GenerateOptions {
   output?: string;
@@ -18,9 +19,22 @@ interface GenerateOptions {
   dryRun?: boolean;
 }
 
+interface ProjectOverview {
+  totals: {
+    epics: number;
+    issues: number;
+    tasks: number;
+  };
+  completion_metrics: {
+    overall_completion: number;
+  };
+  status_breakdown: Record<string, number>;
+  priority_breakdown: Record<string, number>;
+}
+
 export function createAiGenerateLlmsCommand(): Command {
   const cmd = new Command('generate-llms-txt');
-  
+
   cmd
     .description('Generate llms.txt file from project structure')
     .option('-o, --output <path>', 'output file path', 'llms.txt')
@@ -32,7 +46,11 @@ export function createAiGenerateLlmsCommand(): Command {
       try {
         await generateLlmsTxt(options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to generate llms.txt: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to generate llms.txt: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -48,40 +66,48 @@ async function generateLlmsTxt(options: GenerateOptions): Promise<void> {
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
 
   // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+
   // Get project overview
   const overview = relationshipManager.getProjectOverview();
-  
+
   // Get all items
   const searchResult = relationshipManager.search({});
   const allItems = searchResult.items;
-  
+
   // Filter items based on options
   let filteredItems = allItems;
   if (!options.includeCompleted) {
-    filteredItems = allItems.filter(item => item.status !== 'completed');
+    filteredItems = allItems.filter((item) => item.status !== 'completed');
   }
-  
+
   // Separate by type
-  const epics = filteredItems.filter(item => 'epic_id' in item && !('issue_id' in item));
-  const issues = filteredItems.filter(item => 'issue_id' in item && !('task_id' in item));
-  const tasks = filteredItems.filter(item => 'task_id' in item);
-  
+  const epics = filteredItems.filter((item) => 'epic_id' in item && !('issue_id' in item));
+  const issues = filteredItems.filter((item) => 'issue_id' in item && !('task_id' in item));
+  const tasks = filteredItems.filter((item) => 'task_id' in item);
+
   // Generate content based on format
   let content = '';
-  
+
   switch (options.format) {
     case 'summary':
       content = generateSummaryFormat(config, overview, epics, issues, tasks);
       break;
     case 'detailed':
-      content = generateDetailedFormat(config, overview, epics, issues, tasks, options.includeContent);
+      content = generateDetailedFormat(
+        config,
+        overview,
+        epics,
+        issues,
+        tasks,
+        options.includeContent
+      );
       break;
     default:
       content = generateStandardFormat(config, overview, epics, issues, tasks);
   }
-  
+
   if (options.dryRun) {
     console.log(Formatter.info('Dry run - Generated llms.txt content:'));
     console.log('');
@@ -90,11 +116,11 @@ async function generateLlmsTxt(options: GenerateOptions): Promise<void> {
     console.log(Formatter.info(`Content length: ${content.length} characters`));
     return;
   }
-  
+
   // Write to file
   const outputPath = path.resolve(options.output || 'llms.txt');
   fs.writeFileSync(outputPath, content, 'utf8');
-  
+
   console.log(Formatter.success(`llms.txt generated successfully!`));
   console.log(Formatter.info(`Output: ${outputPath}`));
   console.log(Formatter.info(`Format: ${options.format || 'standard'}`));
@@ -105,7 +131,13 @@ async function generateLlmsTxt(options: GenerateOptions): Promise<void> {
   console.log(`  • Tasks: ${tasks.length}`);
 }
 
-function generateSummaryFormat(config: any, overview: any, epics: any[], issues: any[], tasks: any[]): string {
+function generateSummaryFormat(
+  config: ProjectConfig,
+  overview: ProjectOverview,
+  epics: EpicData[],
+  issues: IssueData[],
+  tasks: TaskData[]
+): string {
   return `# ${config.name} - Project Summary
 
 ## Overview
@@ -114,29 +146,37 @@ function generateSummaryFormat(config: any, overview: any, epics: any[], issues:
 - **Generated**: ${new Date().toISOString()}
 
 ## Status Breakdown
-${Object.entries(overview.status_breakdown).map(([status, count]) => 
-  `- **${status.charAt(0).toUpperCase() + status.slice(1)}**: ${count}`
-).join('\n')}
+${Object.entries(overview.status_breakdown)
+  .map(([status, count]) => `- **${status.charAt(0).toUpperCase() + status.slice(1)}**: ${count}`)
+  .join('\n')}
 
 ## Priority Breakdown
-${Object.entries(overview.priority_breakdown).map(([priority, count]) => 
-  `- **${priority.charAt(0).toUpperCase() + priority.slice(1)}**: ${count}`
-).join('\n')}
+${Object.entries(overview.priority_breakdown)
+  .map(
+    ([priority, count]) => `- **${priority.charAt(0).toUpperCase() + priority.slice(1)}**: ${count}`
+  )
+  .join('\n')}
 
 ## Active Items
 
 ### Epics (${epics.length})
-${epics.map(epic => `- ${epic.epic_id}: ${epic.title} [${epic.status}]`).join('\n')}
+${epics.map((epic) => `- ${epic.epic_id}: ${epic.title} [${epic.status}]`).join('\n')}
 
 ### Issues (${issues.length})
-${issues.map(issue => `- ${issue.issue_id}: ${issue.title} [${issue.status}]`).join('\n')}
+${issues.map((issue) => `- ${issue.issue_id}: ${issue.title} [${issue.status}]`).join('\n')}
 
 ### Tasks (${tasks.length})
-${tasks.map(task => `- ${task.task_id}: ${task.title} [${task.status}]`).join('\n')}
+${tasks.map((task) => `- ${task.task_id}: ${task.title} [${task.status}]`).join('\n')}
 `;
 }
 
-function generateStandardFormat(config: any, overview: any, epics: any[], issues: any[], tasks: any[]): string {
+function generateStandardFormat(
+  config: ProjectConfig,
+  overview: ProjectOverview,
+  epics: EpicData[],
+  issues: IssueData[],
+  tasks: TaskData[]
+): string {
   let content = `# ${config.name} - AI Project Context
 
 > Generated on ${new Date().toISOString()}
@@ -153,18 +193,24 @@ function generateStandardFormat(config: any, overview: any, epics: any[], issues
 `;
 
   // Group issues by epic
-  const issuesByEpic = issues.reduce((acc, issue) => {
-    if (!acc[issue.epic_id]) acc[issue.epic_id] = [];
-    acc[issue.epic_id].push(issue);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const issuesByEpic = issues.reduce(
+    (acc, issue) => {
+      if (!acc[issue.epic_id]) acc[issue.epic_id] = [];
+      acc[issue.epic_id].push(issue);
+      return acc;
+    },
+    {} as Record<string, IssueData[]>
+  );
 
   // Group tasks by issue
-  const tasksByIssue = tasks.reduce((acc, task) => {
-    if (!acc[task.issue_id]) acc[task.issue_id] = [];
-    acc[task.issue_id].push(task);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const tasksByIssue = tasks.reduce(
+    (acc, task) => {
+      if (!acc[task.issue_id]) acc[task.issue_id] = [];
+      acc[task.issue_id].push(task);
+      return acc;
+    },
+    {} as Record<string, TaskData[]>
+  );
 
   for (const epic of epics) {
     content += `### ${epic.epic_id}: ${epic.title}\n`;
@@ -197,26 +243,33 @@ function generateStandardFormat(config: any, overview: any, epics: any[], issues
   return content;
 }
 
-function generateDetailedFormat(config: any, overview: any, epics: any[], issues: any[], tasks: any[], includeContent: boolean = false): string {
+function generateDetailedFormat(
+  config: ProjectConfig,
+  overview: ProjectOverview,
+  epics: EpicData[],
+  issues: IssueData[],
+  tasks: TaskData[],
+  includeContent: boolean = false
+): string {
   let content = generateStandardFormat(config, overview, epics, issues, tasks);
-  
+
   if (includeContent) {
     content += '\n## Detailed Content\n\n';
-    
+
     for (const epic of epics) {
       content += `### ${epic.epic_id} Content\n`;
       content += '```markdown\n';
       content += epic.content || '(No content)';
       content += '\n```\n\n';
     }
-    
+
     for (const issue of issues) {
       content += `### ${issue.issue_id} Content\n`;
       content += '```markdown\n';
       content += issue.content || '(No content)';
       content += '\n```\n\n';
     }
-    
+
     for (const task of tasks) {
       content += `### ${task.task_id} Content\n`;
       content += '```markdown\n';
@@ -224,7 +277,7 @@ function generateDetailedFormat(config: any, overview: any, epics: any[], issues
       content += '\n```\n\n';
     }
   }
-  
+
   // Add AI context information
   content += '\n## AI Context Templates\n\n';
   if (config.ai_context_templates && config.ai_context_templates.length > 0) {
@@ -234,17 +287,23 @@ function generateDetailedFormat(config: any, overview: any, epics: any[], issues
   } else {
     content += 'No AI context templates configured.\n';
   }
-  
+
   // Add token usage summary
   content += '\n## Token Usage Summary\n\n';
-  const totalEstimated = [...epics, ...issues, ...tasks].reduce((sum, item) => sum + (item.estimated_tokens || 0), 0);
-  const totalActual = [...epics, ...issues, ...tasks].reduce((sum, item) => sum + (item.actual_tokens || 0), 0);
-  
+  const totalEstimated = [...epics, ...issues, ...tasks].reduce(
+    (sum, item) => sum + (item.estimated_tokens || 0),
+    0
+  );
+  const totalActual = [...epics, ...issues, ...tasks].reduce(
+    (sum, item) => sum + (item.actual_tokens || 0),
+    0
+  );
+
   content += `- **Total Estimated Tokens**: ${totalEstimated}\n`;
   content += `- **Total Actual Tokens**: ${totalActual}\n`;
   if (totalEstimated > 0) {
     content += `- **Token Efficiency**: ${((totalActual / totalEstimated) * 100).toFixed(1)}%\n`;
   }
-  
+
   return content;
 }

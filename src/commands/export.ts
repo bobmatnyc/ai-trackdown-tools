@@ -1,18 +1,17 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import type { TrackdownItem, StatusFilter } from '../types/index.js';
+import type { StatusFilter, TrackdownItem } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
-import { PathResolver } from '../utils/path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
+import { PathResolver } from '../utils/path-resolver.js';
 import {
-  validateStatus,
-  validatePriority,
-  validateAssignee,
-  validateId,
   ValidationError,
+  validateAssignee,
+  validatePriority,
+  validateStatus,
 } from '../utils/validation.js';
 
 export function createExportCommand(): Command {
@@ -121,7 +120,7 @@ Export Templates:
 
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
-          
+
           // Initialize path resolver with CLI override
           const pathResolver = new PathResolver(configManager, rootDirOption);
 
@@ -132,13 +131,17 @@ Export Templates:
             if (pathResolver.shouldMigrate()) {
               pathResolver.showMigrationWarning();
               console.log('\nMigration commands:');
-              pathResolver.getMigrationCommands().forEach(cmd => {
+              pathResolver.getMigrationCommands().forEach((cmd) => {
                 console.log(Formatter.highlight(cmd));
               });
               process.exit(1);
             }
-            
-            console.error(Formatter.error(`No ${pathResolver.getRootDirectory()} project found in current directory`));
+
+            console.error(
+              Formatter.error(
+                `No ${pathResolver.getRootDirectory()} project found in current directory`
+              )
+            );
             console.log(Formatter.info('Run "aitrackdown init" to initialize a new project'));
             process.exit(1);
           }
@@ -438,7 +441,7 @@ async function validateAndProcessExportOptions(options: any, config: any): Promi
   // Validate limit if provided
   if (exportConfig.limit) {
     const limit = parseInt(exportConfig.limit);
-    if (isNaN(limit) || limit <= 0) {
+    if (Number.isNaN(limit) || limit <= 0) {
       throw new ValidationError('Limit must be a positive number');
     }
   }
@@ -607,18 +610,20 @@ function sortItems(items: TrackdownItem[], sortField: string, order: string): Tr
       case 'updated':
         comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
         break;
-      case 'priority':
+      case 'priority': {
         const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
         comparison =
           (priorityOrder[a.priority as keyof typeof priorityOrder] || 0) -
           (priorityOrder[b.priority as keyof typeof priorityOrder] || 0);
         break;
-      case 'status':
+      }
+      case 'status': {
         const statusOrder = { todo: 1, 'in-progress': 2, blocked: 3, done: 4 };
         comparison =
           (statusOrder[a.status as keyof typeof statusOrder] || 0) -
           (statusOrder[b.status as keyof typeof statusOrder] || 0);
         break;
+      }
       case 'title':
         comparison = a.title.localeCompare(b.title);
         break;
@@ -653,7 +658,11 @@ async function displayExportPreview(items: TrackdownItem[], config: any): Promis
   console.log(Formatter.info(`Full export would contain ${items.length} items`));
 }
 
-function resolveOutputPath(outputPath: string, trackdownDir: string, pathResolver: PathResolver): string {
+function resolveOutputPath(
+  outputPath: string,
+  _trackdownDir: string,
+  pathResolver: PathResolver
+): string {
   if (outputPath.startsWith('/') || outputPath.includes(':')) {
     // Absolute path
     return outputPath;
@@ -783,8 +792,6 @@ function applyTemplate(items: TrackdownItem[], template: string, config: any): a
         updatedAt: item.updatedAt,
         tags: item.tags,
       }));
-
-    case 'detailed':
     default:
       return items.map((item) => ({
         ...item,
@@ -926,7 +933,7 @@ function generateMarkdownExport(items: any[], metadata: any, config: any): strin
   return lines.join('\n');
 }
 
-function generateTableExport(items: any[], metadata: any, config: any): string {
+function generateTableExport(items: any[], _metadata: any, _config: any): string {
   // Use the formatter's table functionality
   return Formatter.formatTable(items as TrackdownItem[]);
 }
@@ -950,7 +957,11 @@ function getAppliedFiltersInfo(config: any): Record<string, any> {
 }
 
 // Keep the enhanced collectItems and parseTrackdownFile functions from the original
-function collectItems(trackdownDir: string, includeCompleted: boolean, pathResolver: PathResolver): TrackdownItem[] {
+function collectItems(
+  _trackdownDir: string,
+  includeCompleted: boolean,
+  pathResolver: PathResolver
+): TrackdownItem[] {
   const items: TrackdownItem[] = [];
   const directories = [pathResolver.getActiveDir()];
 

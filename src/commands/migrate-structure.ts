@@ -3,12 +3,12 @@
  * ATT-004: Migrate from separate root directories to unified structure
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
-import * as fs from 'fs';
-import * as path from 'path';
 import { ConfigManager } from '../utils/config-manager.js';
-import { UnifiedPathResolver } from '../utils/unified-path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
+import { UnifiedPathResolver } from '../utils/unified-path-resolver.js';
 
 interface MigrateOptions {
   dryRun?: boolean;
@@ -20,7 +20,7 @@ interface MigrateOptions {
 
 export function createMigrateStructureCommand(): Command {
   const cmd = new Command('migrate-structure');
-  
+
   cmd
     .description('Migrate from separate root directories to unified structure')
     .option('--dry-run', 'show what would be migrated without making changes')
@@ -28,7 +28,9 @@ export function createMigrateStructureCommand(): Command {
     .option('--verbose', 'verbose output')
     .option('--force', 'force migration even if target directories exist')
     .option('--tasks-dir <path>', 'target tasks directory (default: from config or "tasks")')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ aitrackdown migrate-structure --dry-run
   $ aitrackdown migrate-structure --backup --verbose
@@ -55,12 +57,17 @@ After Migration:
       ├── tasks/
       ├── prs/
       └── templates/
-`)
+`
+    )
     .action(async (options: MigrateOptions) => {
       try {
         await migrateStructure(options);
       } catch (error) {
-        console.error(Formatter.error(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -70,7 +77,7 @@ After Migration:
 
 async function migrateStructure(options: MigrateOptions): Promise<void> {
   const projectRoot = process.cwd();
-  
+
   try {
     // Check if this is an AI-Trackdown project
     const configManager = new ConfigManager(projectRoot);
@@ -80,42 +87,46 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
 
     const config = configManager.getConfig();
     const cliTasksDir = options.tasksDir || process.env.CLI_TASKS_DIR;
-    
+
     // Create path resolver to detect legacy structure
     const pathResolver = new UnifiedPathResolver(config, projectRoot, cliTasksDir);
     const legacy = pathResolver.detectLegacyStructure();
-    
+
     if (!legacy.hasLegacy) {
-      console.log(Formatter.success('✅ No legacy directory structure detected. Project already uses unified structure.'));
-      
+      console.log(
+        Formatter.success(
+          '✅ No legacy directory structure detected. Project already uses unified structure.'
+        )
+      );
+
       // Show current structure for verification
       pathResolver.showStructureInfo();
       return;
     }
 
     console.log(Formatter.warning('🔍 Legacy directory structure detected:'));
-    legacy.legacyDirs.forEach(dir => {
+    legacy.legacyDirs.forEach((dir) => {
       console.log(Formatter.info(`   • ${path.relative(projectRoot, dir)}`));
     });
 
     const targetPaths = pathResolver.getUnifiedPaths();
     const targetTasksRoot = path.relative(projectRoot, targetPaths.tasksRoot);
-    
+
     console.log(Formatter.info(`\n📋 Migration Plan:`));
     console.log(Formatter.info(`   Target structure: ${targetTasksRoot}/`));
 
     // Plan the migration
     const migrationPlan = planMigration(projectRoot, legacy.legacyDirs, pathResolver);
-    
+
     if (migrationPlan.length === 0) {
       console.log(Formatter.warning('No files to migrate.'));
       return;
     }
 
     console.log(Formatter.info(`\n📁 Files to migrate: ${migrationPlan.length}`));
-    
+
     if (options.verbose || options.dryRun) {
-      migrationPlan.forEach(item => {
+      migrationPlan.forEach((item) => {
         const sourcePath = path.relative(projectRoot, item.source);
         const targetPath = path.relative(projectRoot, item.target);
         console.log(Formatter.debug(`   ${sourcePath} → ${targetPath}`));
@@ -123,19 +134,25 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
     }
 
     if (options.dryRun) {
-      console.log(Formatter.info('\n🔍 Dry run completed. Use without --dry-run to perform migration.'));
+      console.log(
+        Formatter.info('\n🔍 Dry run completed. Use without --dry-run to perform migration.')
+      );
       return;
     }
 
     // Check for conflicts
-    const conflicts = migrationPlan.filter(item => fs.existsSync(item.target));
+    const conflicts = migrationPlan.filter((item) => fs.existsSync(item.target));
     if (conflicts.length > 0 && !options.force) {
       console.log(Formatter.error('\n❌ Migration conflicts detected:'));
-      conflicts.forEach(item => {
+      conflicts.forEach((item) => {
         const targetPath = path.relative(projectRoot, item.target);
         console.log(Formatter.error(`   Target exists: ${targetPath}`));
       });
-      console.log(Formatter.info('\n💡 Use --force to overwrite existing files or --backup to create backups first.'));
+      console.log(
+        Formatter.info(
+          '\n💡 Use --force to overwrite existing files or --backup to create backups first.'
+        )
+      );
       return;
     }
 
@@ -146,10 +163,10 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
 
     // Perform the migration
     console.log(Formatter.info('\n🚀 Starting migration...'));
-    
+
     // Create target directories
     await createTargetDirectories(pathResolver);
-    
+
     // Move files
     let migratedCount = 0;
     for (const item of migrationPlan) {
@@ -163,14 +180,18 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
         // Move file
         fs.renameSync(item.source, item.target);
         migratedCount++;
-        
+
         if (options.verbose) {
           const sourcePath = path.relative(projectRoot, item.source);
           const targetPath = path.relative(projectRoot, item.target);
           console.log(Formatter.success(`   ✓ ${sourcePath} → ${targetPath}`));
         }
       } catch (error) {
-        console.error(Formatter.error(`Failed to migrate ${item.source}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to migrate ${item.source}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
     }
 
@@ -180,7 +201,9 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
     // Update configuration if needed
     if (cliTasksDir && cliTasksDir !== config.tasks_directory) {
       configManager.updateConfig({ tasks_directory: cliTasksDir });
-      console.log(Formatter.success(`✅ Updated configuration: tasks_directory = "${cliTasksDir}"`));
+      console.log(
+        Formatter.success(`✅ Updated configuration: tasks_directory = "${cliTasksDir}"`)
+      );
     }
 
     console.log(Formatter.success(`\n🎉 Migration completed successfully!`));
@@ -190,15 +213,16 @@ async function migrateStructure(options: MigrateOptions): Promise<void> {
     // Show final structure
     console.log(Formatter.info('\n📁 Final directory structure:'));
     pathResolver.showStructureInfo();
-
   } catch (error) {
-    throw new Error(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
 function planMigration(
-  projectRoot: string, 
-  legacyDirs: string[], 
+  _projectRoot: string,
+  legacyDirs: string[],
   pathResolver: UnifiedPathResolver
 ): Array<{ source: string; target: string; type: string }> {
   const plan: Array<{ source: string; target: string; type: string }> = [];
@@ -224,16 +248,17 @@ function planMigration(
       case 'templates':
         targetDir = targetPaths.templatesDir;
         break;
-      case 'trackdown':
+      case 'trackdown': {
         // For old trackdown structure, check subdirectories
-        const subdirs = fs.readdirSync(legacyDir, { withFileTypes: true })
-          .filter(dirent => dirent.isDirectory())
-          .map(dirent => dirent.name);
-        
+        const subdirs = fs
+          .readdirSync(legacyDir, { withFileTypes: true })
+          .filter((dirent) => dirent.isDirectory())
+          .map((dirent) => dirent.name);
+
         for (const subdir of subdirs) {
           const sourceSubdir = path.join(legacyDir, subdir);
           let targetSubdir: string;
-          
+
           switch (subdir) {
             case 'active':
             case 'epics':
@@ -251,36 +276,39 @@ function planMigration(
             default:
               continue; // Skip unknown subdirectories
           }
-          
+
           // Add files from trackdown subdirectory
           if (fs.existsSync(sourceSubdir)) {
-            const files = fs.readdirSync(sourceSubdir)
-              .filter(file => file.endsWith('.md') || file.endsWith('.yaml'));
-            
+            const files = fs
+              .readdirSync(sourceSubdir)
+              .filter((file) => file.endsWith('.md') || file.endsWith('.yaml'));
+
             for (const file of files) {
               plan.push({
                 source: path.join(sourceSubdir, file),
                 target: path.join(targetSubdir, file),
-                type: subdir
+                type: subdir,
               });
             }
           }
         }
         continue;
+      }
       default:
         continue; // Skip unknown directories
     }
 
     // Add files from legacy directory
     if (fs.existsSync(legacyDir)) {
-      const files = fs.readdirSync(legacyDir)
-        .filter(file => file.endsWith('.md') || file.endsWith('.yaml'));
-      
+      const files = fs
+        .readdirSync(legacyDir)
+        .filter((file) => file.endsWith('.md') || file.endsWith('.yaml'));
+
       for (const file of files) {
         plan.push({
           source: path.join(legacyDir, file),
           target: path.join(targetDir, file),
-          type: dirName
+          type: dirName,
         });
       }
     }
@@ -291,7 +319,7 @@ function planMigration(
 
 async function createTargetDirectories(pathResolver: UnifiedPathResolver): Promise<void> {
   const requiredDirs = pathResolver.getRequiredDirectories();
-  
+
   for (const dir of requiredDirs) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -302,18 +330,18 @@ async function createTargetDirectories(pathResolver: UnifiedPathResolver): Promi
 async function createBackup(projectRoot: string, legacyDirs: string[]): Promise<void> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupDir = path.join(projectRoot, `.backup-${timestamp}`);
-  
+
   console.log(Formatter.info(`📦 Creating backup in ${path.relative(projectRoot, backupDir)}...`));
-  
+
   fs.mkdirSync(backupDir, { recursive: true });
-  
+
   for (const legacyDir of legacyDirs) {
     if (fs.existsSync(legacyDir)) {
       const targetBackupDir = path.join(backupDir, path.basename(legacyDir));
       await copyDirectory(legacyDir, targetBackupDir);
     }
   }
-  
+
   console.log(Formatter.success(`✅ Backup created: ${path.relative(projectRoot, backupDir)}`));
 }
 
@@ -321,13 +349,13 @@ async function copyDirectory(source: string, target: string): Promise<void> {
   if (!fs.existsSync(target)) {
     fs.mkdirSync(target, { recursive: true });
   }
-  
+
   const items = fs.readdirSync(source, { withFileTypes: true });
-  
+
   for (const item of items) {
     const sourcePath = path.join(source, item.name);
     const targetPath = path.join(target, item.name);
-    
+
     if (item.isDirectory()) {
       await copyDirectory(sourcePath, targetPath);
     } else {
@@ -346,7 +374,7 @@ async function removeEmptyLegacyDirectories(legacyDirs: string[]): Promise<void>
           console.log(Formatter.success(`✅ Removed empty directory: ${path.basename(dir)}`));
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors removing directories
     }
   }

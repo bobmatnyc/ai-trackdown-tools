@@ -49,7 +49,7 @@ program
 // Enhanced help
 program.addHelpText('beforeAll', () => {
   try {
-    return chalk.cyan(figlet.textSync('AI Trackdown', { horizontalLayout: 'fitted' })) + '\n';
+    return `${chalk.cyan(figlet.textSync('AI Trackdown', { horizontalLayout: 'fitted' }))}\n`;
   } catch {
     return chalk.cyan.bold('AI TRACKDOWN CLI\n');
   }

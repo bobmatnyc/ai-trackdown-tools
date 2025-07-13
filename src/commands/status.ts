@@ -1,20 +1,19 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import type { TrackdownItem, StatusFilter } from '../types/index.js';
+import type { StatusFilter, TrackdownItem } from '../types/index.js';
 import { ConfigManager } from '../utils/config-manager.js';
-import { PathResolver } from '../utils/path-resolver.js';
-import { ProjectContextManager } from '../utils/project-context-manager.js';
-import { RelationshipManager } from '../utils/relationship-manager.js';
 import { Formatter } from '../utils/formatter.js';
+import { PathResolver } from '../utils/path-resolver.js';
+import { RelationshipManager } from '../utils/relationship-manager.js';
 import {
-  validateStatus,
-  validatePriority,
+  ValidationError,
   validateAssignee,
   validateId,
-  ValidationError,
+  validatePriority,
+  validateStatus,
 } from '../utils/validation.js';
 
 export function createStatusCommand(): Command {
@@ -137,7 +136,7 @@ Current Sprint Filter:
           // Load configuration first
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
-          
+
           // Initialize path resolver with CLI override
           const pathResolver = new PathResolver(configManager, rootDirOption);
 
@@ -148,16 +147,22 @@ Current Sprint Filter:
             if (pathResolver.shouldMigrate()) {
               pathResolver.showMigrationWarning();
               console.log('\nMigration commands:');
-              pathResolver.getMigrationCommands().forEach(cmd => {
+              pathResolver.getMigrationCommands().forEach((cmd) => {
                 console.log(Formatter.highlight(cmd));
               });
               process.exit(1);
             }
-            
-            console.error(Formatter.error(`No ${pathResolver.getRootDirectory()} project found in current directory`));
+
+            console.error(
+              Formatter.error(
+                `No ${pathResolver.getRootDirectory()} project found in current directory`
+              )
+            );
             console.log(Formatter.info('Run "aitrackdown init" to initialize a new project'));
             console.log(
-              Formatter.info(`Or navigate to a directory with an existing ${pathResolver.getRootDirectory()} project`)
+              Formatter.info(
+                `Or navigate to a directory with an existing ${pathResolver.getRootDirectory()} project`
+              )
             );
             process.exit(1);
           }
@@ -187,7 +192,7 @@ Current Sprint Filter:
 
             // Apply all filters
             let filteredItems = applyAdvancedFilters(items, filters);
-            
+
             // Apply current sprint filter if requested
             if (options?.currentSprint) {
               filteredItems = applyCurrentSprintFilter(filteredItems);
@@ -208,14 +213,18 @@ Current Sprint Filter:
             );
 
             // Display banner
-            const headerText = options?.currentSprint 
+            const headerText = options?.currentSprint
               ? `🏃 ${config.projectName || 'Trackdown'} Current Sprint`
               : `📊 ${config.projectName || 'Trackdown'} Project Status`;
             console.log(Formatter.header(headerText));
 
             // Show current sprint explanation if in current sprint mode
             if (options?.currentSprint) {
-              console.log(Formatter.info('🎯 Current Sprint: In-progress items + High/Critical priority todos + Blocked items'));
+              console.log(
+                Formatter.info(
+                  '🎯 Current Sprint: In-progress items + High/Critical priority todos + Blocked items'
+                )
+              );
               console.log('');
             }
 
@@ -312,7 +321,7 @@ Current Sprint Filter:
 }
 
 // Enhanced functions for Phase 2 implementation
-async function runInteractiveStatusMode(currentOptions: any): Promise<any> {
+async function runInteractiveStatusMode(_currentOptions: any): Promise<any> {
   console.log(Formatter.header('🔍 Interactive Status Filtering'));
 
   const answers = await inquirer.prompt([
@@ -387,7 +396,7 @@ async function runInteractiveStatusMode(currentOptions: any): Promise<any> {
       validate: (input: string) => {
         if (!input) return true;
         const num = parseInt(input);
-        if (isNaN(num) || num < 1) return 'Please enter a valid positive number';
+        if (Number.isNaN(num) || num < 1) return 'Please enter a valid positive number';
         return true;
       },
     },
@@ -431,7 +440,12 @@ function buildFilterExpression(answers: any): string {
   return filters.join(',');
 }
 
-async function runWatchMode(trackdownDir: string, options: any, config: any, pathResolver: PathResolver): Promise<void> {
+async function runWatchMode(
+  trackdownDir: string,
+  options: any,
+  config: any,
+  pathResolver: PathResolver
+): Promise<void> {
   console.log(Formatter.info('👁️ Watch mode enabled - monitoring for changes...'));
   console.log(Formatter.info('Press Ctrl+C to exit'));
 
@@ -505,25 +519,28 @@ async function runWatchMode(trackdownDir: string, options: any, config: any, pat
   });
 }
 
-async function getAllItemsWithRelationshipManager(config: any, pathResolver: PathResolver): Promise<TrackdownItem[]> {
+async function getAllItemsWithRelationshipManager(
+  config: any,
+  _pathResolver: PathResolver
+): Promise<TrackdownItem[]> {
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR;
-  
+
   // Get absolute paths with CLI override (same as individual commands)
   const configManager = new ConfigManager();
   const paths = configManager.getAbsolutePaths(cliTasksDir);
-  
+
   // Initialize relationship manager (same as individual commands)
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+
   // Get all items from the relationship manager
   const epics = relationshipManager.getAllEpics();
   const issues = relationshipManager.getAllIssues();
   const tasks = relationshipManager.getAllTasks();
-  
+
   // Convert to TrackdownItem format for compatibility with existing status command logic
   const items: TrackdownItem[] = [];
-  
+
   // Add epics
   for (const epic of epics) {
     items.push({
@@ -539,7 +556,7 @@ async function getAllItemsWithRelationshipManager(config: any, pathResolver: Pat
       estimate: epic.estimated_tokens || undefined,
     });
   }
-  
+
   // Add issues
   for (const issue of issues) {
     items.push({
@@ -555,7 +572,7 @@ async function getAllItemsWithRelationshipManager(config: any, pathResolver: Pat
       estimate: issue.estimated_tokens || undefined,
     });
   }
-  
+
   // Add tasks
   for (const task of tasks) {
     items.push({
@@ -571,7 +588,7 @@ async function getAllItemsWithRelationshipManager(config: any, pathResolver: Pat
       estimate: task.estimated_tokens || undefined,
     });
   }
-  
+
   return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
@@ -605,7 +622,6 @@ function mapPriority(priority: string): 'low' | 'medium' | 'high' | 'critical' {
       return 'medium';
   }
 }
-
 
 function parseFilters(options: any): StatusFilter {
   const filters: StatusFilter = {};
@@ -725,7 +741,7 @@ function applyAdvancedFilters(items: TrackdownItem[], filters: StatusFilter): Tr
 
     // Tags filter - item must have at least one matching tag
     if (filters.tags && filters.tags.length > 0) {
-      if (!item.tags || !filters.tags.some((tag) => item.tags!.includes(tag))) return false;
+      if (!item.tags || !filters.tags.some((tag) => item.tags?.includes(tag))) return false;
     }
 
     // Date filters
@@ -764,14 +780,16 @@ function applySorting(
       case 'title':
         comparison = a.title.localeCompare(b.title);
         break;
-      case 'priority':
+      case 'priority': {
         const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
         comparison = priorityOrder[a.priority] - priorityOrder[b.priority];
         break;
-      case 'status':
+      }
+      case 'status': {
         const statusOrder = { todo: 1, 'in-progress': 2, blocked: 3, done: 4 };
         comparison = statusOrder[a.status] - statusOrder[b.status];
         break;
+      }
       default:
         comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
     }
@@ -786,12 +804,12 @@ function applyPagination(items: TrackdownItem[], limit?: string, offset?: string
 
   if (offset) {
     start = parseInt(offset);
-    if (isNaN(start) || start < 0) start = 0;
+    if (Number.isNaN(start) || start < 0) start = 0;
   }
 
   if (limit) {
     const limitNum = parseInt(limit);
-    if (!isNaN(limitNum) && limitNum > 0) {
+    if (!Number.isNaN(limitNum) && limitNum > 0) {
       end = start + limitNum;
     }
   }
@@ -799,12 +817,21 @@ function applyPagination(items: TrackdownItem[], limit?: string, offset?: string
   return items.slice(start, end);
 }
 
-function displayProjectOverview(trackdownDir: string, items: TrackdownItem[], config: any, pathResolver: PathResolver): void {
+function displayProjectOverview(
+  trackdownDir: string,
+  items: TrackdownItem[],
+  _config: any,
+  pathResolver: PathResolver
+): void {
   const summary = getProjectSummaryEnhanced(trackdownDir, items, pathResolver);
   console.log(summary);
 }
 
-function getProjectSummaryEnhanced(trackdownDir: string, items: TrackdownItem[], pathResolver: PathResolver): string {
+function getProjectSummaryEnhanced(
+  _trackdownDir: string,
+  items: TrackdownItem[],
+  _pathResolver: PathResolver
+): string {
   const activeItems = items.filter((item) => item.status !== 'done');
   const completedItems = items.filter((item) => item.status === 'done');
   const total = items.length;
@@ -971,7 +998,7 @@ function displayPaginationInfo(totalCount: number, displayedCount: number, optio
 async function exportResults(
   items: TrackdownItem[],
   exportFile: string,
-  config: any
+  _config: any
 ): Promise<void> {
   const spinner = ora('Exporting filtered results...').start();
 
@@ -989,7 +1016,7 @@ async function exportResults(
   }
 }
 
-function displayNextSteps(items: TrackdownItem[], config: any): void {
+function displayNextSteps(items: TrackdownItem[], _config: any): void {
   console.log(Formatter.header('💡 Quick Actions'));
 
   const todoItems = items.filter((item) => item.status === 'todo');
@@ -1073,83 +1100,100 @@ function applyCurrentSprintFilter(items: TrackdownItem[]): TrackdownItem[] {
     if (item.status === 'in-progress') {
       return true;
     }
-    
+
     // Include high priority todo items
     if (item.status === 'todo' && (item.priority === 'high' || item.priority === 'critical')) {
       return true;
     }
-    
+
     // Include blocked items that need attention
     if (item.status === 'blocked') {
       return true;
     }
-    
+
     return false;
   });
 }
 
-function displaySummaryView(trackdownDir: string, allItems: TrackdownItem[], filteredItems: TrackdownItem[], config: any, pathResolver: PathResolver): void {
+function displaySummaryView(
+  _trackdownDir: string,
+  allItems: TrackdownItem[],
+  filteredItems: TrackdownItem[],
+  _config: any,
+  _pathResolver: PathResolver
+): void {
   const total = allItems.length;
   const filtered = filteredItems.length;
-  
+
   // Basic counts
-  const activeItems = allItems.filter(item => item.status !== 'done');
-  const completedItems = allItems.filter(item => item.status === 'done');
-  const blockedItems = allItems.filter(item => item.status === 'blocked');
-  const inProgressItems = allItems.filter(item => item.status === 'in-progress');
-  
+  const activeItems = allItems.filter((item) => item.status !== 'done');
+  const completedItems = allItems.filter((item) => item.status === 'done');
+  const blockedItems = allItems.filter((item) => item.status === 'blocked');
+  const inProgressItems = allItems.filter((item) => item.status === 'in-progress');
+
   // Priority breakdown
-  const priorityBreakdown = allItems.reduce((acc, item) => {
-    acc[item.priority] = (acc[item.priority] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
+  const priorityBreakdown = allItems.reduce(
+    (acc, item) => {
+      acc[item.priority] = (acc[item.priority] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   // Calculate completion rate
   const completionRate = total > 0 ? Math.round((completedItems.length / total) * 100) : 0;
-  
+
   // Recent activity (last 7 days)
   const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - 7);
-  const recentlyUpdated = allItems.filter(item => item.updatedAt >= lastWeek).length;
-  
+  const recentlyUpdated = allItems.filter((item) => item.updatedAt >= lastWeek).length;
+
   // Display summary
   console.log(Formatter.subheader('📋 Project Summary'));
   console.log(`   Total Items: ${Formatter.highlight(total.toString())}`);
-  console.log(`   Active: ${Formatter.highlight(activeItems.length.toString())} | Completed: ${Formatter.highlight(completedItems.length.toString())} | Blocked: ${Formatter.highlight(blockedItems.length.toString())}`);
+  console.log(
+    `   Active: ${Formatter.highlight(activeItems.length.toString())} | Completed: ${Formatter.highlight(completedItems.length.toString())} | Blocked: ${Formatter.highlight(blockedItems.length.toString())}`
+  );
   console.log(`   Progress: ${Formatter.highlight(`${completionRate}%`)} complete`);
   console.log('');
-  
+
   console.log(Formatter.subheader('🎯 Status Breakdown'));
-  console.log(`   📝 Todo: ${allItems.filter(item => item.status === 'todo').length}`);
+  console.log(`   📝 Todo: ${allItems.filter((item) => item.status === 'todo').length}`);
   console.log(`   🔄 In Progress: ${inProgressItems.length}`);
   console.log(`   🚫 Blocked: ${blockedItems.length}`);
   console.log(`   ✅ Done: ${completedItems.length}`);
   console.log('');
-  
+
   console.log(Formatter.subheader('⚡ Priority Distribution'));
   console.log(`   🔴 Critical: ${priorityBreakdown.critical || 0}`);
   console.log(`   🟠 High: ${priorityBreakdown.high || 0}`);
   console.log(`   🟡 Medium: ${priorityBreakdown.medium || 0}`);
   console.log(`   🟢 Low: ${priorityBreakdown.low || 0}`);
   console.log('');
-  
+
   console.log(Formatter.subheader('🔄 Recent Activity'));
-  console.log(`   Items updated in last 7 days: ${Formatter.highlight(recentlyUpdated.toString())}`);
-  
+  console.log(
+    `   Items updated in last 7 days: ${Formatter.highlight(recentlyUpdated.toString())}`
+  );
+
   // Show filter info if filters are applied
   if (filtered !== total) {
     console.log('');
     console.log(Formatter.info(`📊 ${filtered} of ${total} items match current filters`));
   }
-  
+
   // Show key actionable items
-  const highPriorityActive = activeItems.filter(item => item.priority === 'high' || item.priority === 'critical');
+  const highPriorityActive = activeItems.filter(
+    (item) => item.priority === 'high' || item.priority === 'critical'
+  );
   if (highPriorityActive.length > 0) {
     console.log('');
     console.log(Formatter.subheader('⚠️ High Priority Active Items'));
     highPriorityActive.slice(0, 3).forEach((item, index) => {
       const priorityColor = getPriorityColor(item.priority);
-      console.log(`   ${index + 1}. ${priorityColor(item.priority.toUpperCase())} ${item.title} ${Formatter.dim(`(${item.id})`)}`);
+      console.log(
+        `   ${index + 1}. ${priorityColor(item.priority.toUpperCase())} ${item.title} ${Formatter.dim(`(${item.id})`)}`
+      );
     });
     if (highPriorityActive.length > 3) {
       console.log(`   ... and ${highPriorityActive.length - 3} more high priority items`);
@@ -1158,10 +1202,13 @@ function displaySummaryView(trackdownDir: string, allItems: TrackdownItem[], fil
 }
 
 function validateTags(tags: string): string[] {
-  return tags.split(',').map(tag => tag.trim()).filter(Boolean);
+  return tags
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 }
 
-function validateStatus(status: string): string {
+function _validateStatus(status: string): string {
   const validStatuses = ['todo', 'in-progress', 'blocked', 'done'];
   const normalizedStatus = status.toLowerCase().trim();
 

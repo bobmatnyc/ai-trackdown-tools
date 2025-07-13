@@ -4,11 +4,9 @@
  */
 
 import { Command } from 'commander';
-import { ConfigManager } from '../../utils/config-manager.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
-import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import { Formatter } from '../../utils/formatter.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
 
 interface ShowOptions {
   format?: 'detailed' | 'json' | 'yaml';
@@ -21,7 +19,7 @@ interface ShowOptions {
 
 export function createEpicShowCommand(): Command {
   const cmd = new Command('show');
-  
+
   cmd
     .description('Show detailed information about an epic')
     .argument('<epic-id>', 'epic ID to show')
@@ -35,7 +33,11 @@ export function createEpicShowCommand(): Command {
       try {
         await showEpic(epicId, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to show epic: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to show epic: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -60,7 +62,7 @@ async function showEpic(epicId: string, options: ShowOptions): Promise<void> {
   // Get absolute paths with CLI override
   const paths = projectContext.paths;
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+
   // Get epic hierarchy
   const hierarchy = relationshipManager.getEpicHierarchy(epicId);
   if (!hierarchy) {
@@ -69,7 +71,7 @@ async function showEpic(epicId: string, options: ShowOptions): Promise<void> {
     let errorMessage = `Epic not found: ${epicId}\n`;
     errorMessage += `\nSearched in: ${paths.epicsDir}`;
     errorMessage += `\nFound ${cacheStats.epics} epics in this project.`;
-    
+
     if (cacheStats.epics > 0) {
       errorMessage += `\n\nTry one of these commands:`;
       errorMessage += `\n  • aitrackdown epic list --active`;
@@ -78,33 +80,35 @@ async function showEpic(epicId: string, options: ShowOptions): Promise<void> {
       errorMessage += `\n\nNo epics found. Create one with:`;
       errorMessage += `\n  • aitrackdown epic create "Epic Title"`;
     }
-    
+
     throw new Error(errorMessage);
   }
-  
+
   const { epic, issues, tasks } = hierarchy;
-  
+
   // Output based on format
   switch (options.format) {
-    case 'json':
+    case 'json': {
       const jsonOutput = {
         epic,
         ...(options.showIssues && { issues }),
-        ...(options.showTasks && { tasks })
+        ...(options.showTasks && { tasks }),
       };
       console.log(JSON.stringify(jsonOutput, null, 2));
       break;
-      
-    case 'yaml':
+    }
+
+    case 'yaml': {
       const YAML = await import('yaml');
       const yamlOutput = {
         epic,
         ...(options.showIssues && { issues }),
-        ...(options.showTasks && { tasks })
+        ...(options.showTasks && { tasks }),
       };
       console.log(YAML.stringify(yamlOutput));
       break;
-      
+    }
+
     default:
       await displayEpicDetailed(epic, issues, tasks, options, relationshipManager);
   }
@@ -121,57 +125,57 @@ async function displayEpicDetailed(
   console.log(Formatter.success(`\n=== EPIC: ${epic.title} ===`));
   console.log(Formatter.info(`ID: ${epic.epic_id}`));
   console.log('');
-  
+
   // Basic Information
   console.log(Formatter.success('Basic Information:'));
   console.log(`  Title: ${epic.title}`);
   console.log(`  Status: ${getStatusDisplay(epic.status)}`);
   console.log(`  Priority: ${getPriorityDisplay(epic.priority)}`);
   console.log(`  Assignee: ${epic.assignee}`);
-  
+
   if (epic.milestone) {
     console.log(`  Milestone: ${epic.milestone}`);
   }
-  
+
   if (epic.tags && epic.tags.length > 0) {
     console.log(`  Tags: ${epic.tags.join(', ')}`);
   }
-  
+
   if (epic.completion_percentage !== undefined) {
     console.log(`  Progress: ${epic.completion_percentage}%`);
   }
-  
+
   console.log('');
-  
+
   // Dates and Tracking
   console.log(Formatter.success('Tracking Information:'));
   console.log(`  Created: ${formatDateTime(epic.created_date)}`);
   console.log(`  Updated: ${formatDateTime(epic.updated_date)}`);
   console.log(`  Estimated Tokens: ${epic.estimated_tokens || 0}`);
   console.log(`  Actual Tokens: ${epic.actual_tokens || 0}`);
-  
+
   if (epic.estimated_tokens > 0) {
     const efficiency = epic.actual_tokens / epic.estimated_tokens;
     console.log(`  Token Efficiency: ${(efficiency * 100).toFixed(1)}%`);
   }
-  
+
   console.log(`  Sync Status: ${epic.sync_status || 'local'}`);
   console.log('');
-  
+
   // Description
   if (epic.description) {
     console.log(Formatter.success('Description:'));
     console.log(`  ${epic.description}`);
     console.log('');
   }
-  
+
   // Content
   if (options.showContent && epic.content) {
     console.log(Formatter.success('Content:'));
     console.log(epic.content);
     console.log('');
   }
-  
+
   // AI Context
   if (epic.ai_context && epic.ai_context.length > 0) {
     console.log(Formatter.success('AI Context:'));
@@ -180,7 +184,7 @@ async function displayEpicDetailed(
     }
     console.log('');
   }
-  
+
   // Dependencies
   if (epic.dependencies && epic.dependencies.length > 0) {
     console.log(Formatter.success('Dependencies:'));
@@ -189,7 +193,7 @@ async function displayEpicDetailed(
     }
     console.log('');
   }
-  
+
   // Related Issues
   if (options.showIssues || issues.length > 0) {
     console.log(Formatter.success(`Related Issues (${issues.length}):`));
@@ -204,7 +208,7 @@ async function displayEpicDetailed(
     }
     console.log('');
   }
-  
+
   // Related Tasks
   if (options.showTasks || tasks.length > 0) {
     console.log(Formatter.success(`All Related Tasks (${tasks.length}):`));
@@ -212,14 +216,17 @@ async function displayEpicDetailed(
       console.log(Formatter.debug('  No tasks found'));
     } else {
       // Group tasks by issue
-      const tasksByIssue = tasks.reduce((acc, task) => {
-        if (!acc[task.issue_id]) acc[task.issue_id] = [];
-        acc[task.issue_id].push(task);
-        return acc;
-      }, {} as Record<string, any[]>);
-      
+      const tasksByIssue = tasks.reduce(
+        (acc, task) => {
+          if (!acc[task.issue_id]) acc[task.issue_id] = [];
+          acc[task.issue_id].push(task);
+          return acc;
+        },
+        {} as Record<string, any[]>
+      );
+
       for (const [issueId, issueTasks] of Object.entries(tasksByIssue)) {
-        const issue = issues.find(i => i.issue_id === issueId);
+        const issue = issues.find((i) => i.issue_id === issueId);
         console.log(`  ${issue ? issue.title : issueId}:`);
         for (const task of issueTasks) {
           const statusIcon = getStatusIcon(task.status);
@@ -229,11 +236,11 @@ async function displayEpicDetailed(
     }
     console.log('');
   }
-  
+
   // Related Items (if requested)
   if (options.showRelated) {
     const related = relationshipManager.getRelatedItems(epic.epic_id);
-    
+
     if (related.dependencies.length > 0) {
       console.log(Formatter.success('Dependencies:'));
       for (const dep of related.dependencies) {
@@ -241,7 +248,7 @@ async function displayEpicDetailed(
       }
       console.log('');
     }
-    
+
     if (related.dependents.length > 0) {
       console.log(Formatter.success('Dependents:'));
       for (const dep of related.dependents) {
@@ -250,63 +257,63 @@ async function displayEpicDetailed(
       console.log('');
     }
   }
-  
+
   // File Information
   console.log(Formatter.success('File Information:'));
   console.log(`  Path: ${epic.file_path}`);
   console.log('');
-  
+
   // Summary Statistics
-  const completedIssues = issues.filter(i => i.status === 'completed').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  
+  const completedIssues = issues.filter((i) => i.status === 'completed').length;
+  const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+
   console.log(Formatter.success('Summary:'));
   console.log(`  Issues: ${completedIssues}/${issues.length} completed`);
   console.log(`  Tasks: ${completedTasks}/${tasks.length} completed`);
-  
+
   if (issues.length > 0) {
-    const issueCompletionRate = (completedIssues / issues.length * 100).toFixed(1);
+    const issueCompletionRate = ((completedIssues / issues.length) * 100).toFixed(1);
     console.log(`  Issue Completion: ${issueCompletionRate}%`);
   }
-  
+
   if (tasks.length > 0) {
-    const taskCompletionRate = (completedTasks / tasks.length * 100).toFixed(1);
+    const taskCompletionRate = ((completedTasks / tasks.length) * 100).toFixed(1);
     console.log(`  Task Completion: ${taskCompletionRate}%`);
   }
 }
 
 function getStatusDisplay(status: string): string {
   const statusColors: Record<string, (text: string) => string> = {
-    'planning': (text) => Formatter.info(text),
-    'active': (text) => Formatter.success(text),
-    'completed': (text) => Formatter.success(text),
-    'archived': (text) => Formatter.debug(text)
+    planning: (text) => Formatter.info(text),
+    active: (text) => Formatter.success(text),
+    completed: (text) => Formatter.success(text),
+    archived: (text) => Formatter.debug(text),
   };
-  
+
   const colorFn = statusColors[status] || ((text) => text);
   return colorFn(status.toUpperCase());
 }
 
 function getPriorityDisplay(priority: string): string {
   const priorityColors: Record<string, (text: string) => string> = {
-    'critical': (text) => Formatter.error(text),
-    'high': (text) => Formatter.warning(text),
-    'medium': (text) => Formatter.info(text),
-    'low': (text) => Formatter.debug(text)
+    critical: (text) => Formatter.error(text),
+    high: (text) => Formatter.warning(text),
+    medium: (text) => Formatter.info(text),
+    low: (text) => Formatter.debug(text),
   };
-  
+
   const colorFn = priorityColors[priority] || ((text) => text);
   return colorFn(priority.toUpperCase());
 }
 
 function getStatusIcon(status: string): string {
   const icons: Record<string, string> = {
-    'planning': '⏳',
-    'active': '🔄',
-    'completed': '✅',
-    'archived': '📦'
+    planning: '⏳',
+    active: '🔄',
+    completed: '✅',
+    archived: '📦',
   };
-  
+
   return icons[status] || '❓';
 }
 

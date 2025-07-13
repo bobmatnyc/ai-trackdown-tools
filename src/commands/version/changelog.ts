@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { ChangelogManager } from '../../utils/changelog.js';
-import { VersionManager } from '../../utils/version.js';
-import { GitManager } from '../../utils/git.js';
 import { Formatter } from '../../utils/formatter.js';
+import { GitManager } from '../../utils/git.js';
+import { VersionManager } from '../../utils/version.js';
 
 export function createChangelogCommand(): Command {
   const command = new Command('changelog');

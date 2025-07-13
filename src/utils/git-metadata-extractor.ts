@@ -6,8 +6,8 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { GitManager } from './git.js';
 import type { ProjectFrontmatter } from '../types/ai-trackdown.js';
+import { GitManager } from './git.js';
 
 export interface GitMetadata {
   // Repository information
@@ -16,22 +16,22 @@ export interface GitMetadata {
   git_origin?: string;
   default_branch?: string;
   current_branch?: string;
-  
+
   // Project analysis
   languages?: string[];
   framework?: string;
   license?: string;
-  
+
   // Team information
   team_members?: string[];
   contributors?: GitContributor[];
-  
+
   // Repository health
   is_git_repo: boolean;
   has_uncommitted_changes: boolean;
   commit_count: number;
   last_commit_date?: string;
-  
+
   // Additional metadata
   repository_size?: string;
   total_files?: number;
@@ -64,7 +64,7 @@ export interface FrameworkDetection {
 export class GitMetadataExtractor {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private static cache = new Map<string, { data: GitMetadata; timestamp: number }>();
-  
+
   private readonly projectPath: string;
   private readonly enableCache: boolean;
 
@@ -78,7 +78,7 @@ export class GitMetadataExtractor {
    */
   async extractMetadata(): Promise<GitMetadata> {
     const cacheKey = this.projectPath;
-    
+
     // Check cache first
     if (this.enableCache && GitMetadataExtractor.cache.has(cacheKey)) {
       const cached = GitMetadataExtractor.cache.get(cacheKey)!;
@@ -95,7 +95,7 @@ export class GitMetadataExtractor {
     };
 
     const originalCwd = process.cwd();
-    
+
     try {
       // Check if this is a Git repository in the specific path
       if (fs.existsSync(this.projectPath)) {
@@ -104,29 +104,29 @@ export class GitMetadataExtractor {
       } else {
         metadata.is_git_repo = false;
       }
-      
+
       if (!metadata.is_git_repo) {
         return metadata;
       }
 
       // Extract basic Git information
       await this.extractBasicGitInfo(metadata);
-      
+
       // Extract repository URLs
       await this.extractRepositoryUrls(metadata);
-      
+
       // Analyze programming languages
       await this.extractLanguageInfo(metadata);
-      
+
       // Detect framework
       await this.extractFrameworkInfo(metadata);
-      
+
       // Extract team members
       await this.extractTeamMembers(metadata);
-      
+
       // Extract license information
       await this.extractLicenseInfo(metadata);
-      
+
       // Extract additional repository metadata
       await this.extractAdditionalMetadata(metadata);
 
@@ -134,7 +134,7 @@ export class GitMetadataExtractor {
       if (this.enableCache) {
         GitMetadataExtractor.cache.set(cacheKey, {
           data: metadata,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
 
@@ -159,16 +159,16 @@ export class GitMetadataExtractor {
     try {
       // Current branch
       metadata.current_branch = GitManager.getCurrentBranch();
-      
+
       // Default branch (try multiple methods)
       metadata.default_branch = await this.getDefaultBranch();
-      
+
       // Uncommitted changes
       metadata.has_uncommitted_changes = GitManager.hasUncommittedChanges();
-      
+
       // Commit count
       metadata.commit_count = await this.getCommitCount();
-      
+
       // Last commit date
       metadata.last_commit_date = await this.getLastCommitDate();
     } catch (error) {
@@ -183,7 +183,7 @@ export class GitMetadataExtractor {
     try {
       // Origin URL
       metadata.git_origin = GitManager.getRepositoryUrl();
-      
+
       if (metadata.git_origin) {
         // Convert to standardized formats
         metadata.repository_url = this.normalizeRepositoryUrl(metadata.git_origin);
@@ -203,7 +203,7 @@ export class GitMetadataExtractor {
       metadata.languages = languageStats
         .sort((a, b) => b.files - a.files)
         .slice(0, 5) // Top 5 languages
-        .map(stat => stat.language);
+        .map((stat) => stat.language);
     } catch (error) {
       console.warn(`Language analysis failed: ${error}`);
     }
@@ -223,7 +223,7 @@ export class GitMetadataExtractor {
           metadata.framework += ` ${topFramework.version}`;
         }
       }
-      
+
       // Detect package manager
       metadata.package_manager = await this.detectPackageManager();
     } catch (error) {
@@ -239,7 +239,7 @@ export class GitMetadataExtractor {
       metadata.contributors = await this.getContributors();
       metadata.team_members = metadata.contributors
         .slice(0, 10) // Top 10 contributors
-        .map(contributor => contributor.name);
+        .map((contributor) => contributor.name);
     } catch (error) {
       console.warn(`Team member extraction failed: ${error}`);
     }
@@ -263,10 +263,10 @@ export class GitMetadataExtractor {
     try {
       // README existence
       metadata.readme_exists = await this.hasReadme();
-      
+
       // Repository size
       metadata.repository_size = await this.getRepositorySize();
-      
+
       // Total files
       metadata.total_files = await this.getTotalFiles();
     } catch (error) {
@@ -280,25 +280,27 @@ export class GitMetadataExtractor {
   private async getDefaultBranch(): Promise<string> {
     try {
       // Try remote HEAD
-      const remoteHead = execSync('git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || echo ""', 
-        { encoding: 'utf8', cwd: this.projectPath }).trim();
-      
+      const remoteHead = execSync(
+        'git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || echo ""',
+        { encoding: 'utf8', cwd: this.projectPath }
+      ).trim();
+
       if (remoteHead) {
         return remoteHead.replace('refs/remotes/origin/', '');
       }
-      
+
       // Try common default branches
       const commonBranches = ['main', 'master', 'develop'];
       for (const branch of commonBranches) {
         try {
-          execSync(`git show-ref --verify refs/heads/${branch}`, 
-            { stdio: 'ignore', cwd: this.projectPath });
+          execSync(`git show-ref --verify refs/heads/${branch}`, {
+            stdio: 'ignore',
+            cwd: this.projectPath,
+          });
           return branch;
-        } catch {
-          continue;
-        }
+        } catch {}
       }
-      
+
       // Fallback to current branch
       return GitManager.getCurrentBranch();
     } catch {
@@ -311,8 +313,10 @@ export class GitMetadataExtractor {
    */
   private async getCommitCount(): Promise<number> {
     try {
-      const count = execSync('git rev-list --count HEAD', 
-        { encoding: 'utf8', cwd: this.projectPath }).trim();
+      const count = execSync('git rev-list --count HEAD', {
+        encoding: 'utf8',
+        cwd: this.projectPath,
+      }).trim();
       return parseInt(count, 10) || 0;
     } catch {
       return 0;
@@ -324,8 +328,10 @@ export class GitMetadataExtractor {
    */
   private async getLastCommitDate(): Promise<string | undefined> {
     try {
-      const date = execSync('git log -1 --format=%ci', 
-        { encoding: 'utf8', cwd: this.projectPath }).trim();
+      const date = execSync('git log -1 --format=%ci', {
+        encoding: 'utf8',
+        cwd: this.projectPath,
+      }).trim();
       return date || undefined;
     } catch {
       return undefined;
@@ -346,7 +352,7 @@ export class GitMetadataExtractor {
         return `https://${host}/${path}`;
       }
     }
-    
+
     return url.replace(/\.git$/, '');
   }
 
@@ -357,8 +363,8 @@ export class GitMetadataExtractor {
     if (originUrl.startsWith('https://')) {
       return originUrl;
     }
-    
-    return this.normalizeRepositoryUrl(originUrl) + '.git';
+
+    return `${this.normalizeRepositoryUrl(originUrl)}.git`;
   }
 
   /**
@@ -366,7 +372,7 @@ export class GitMetadataExtractor {
    */
   private async analyzeLanguages(): Promise<LanguageStats[]> {
     const languageMap = new Map<string, number>();
-    
+
     // Language extension mappings
     const extensionMap: Record<string, string> = {
       '.js': 'JavaScript',
@@ -419,15 +425,14 @@ export class GitMetadataExtractor {
 
     try {
       // Get all tracked files
-      const files = execSync('git ls-files', 
-        { encoding: 'utf8', cwd: this.projectPath })
+      const files = execSync('git ls-files', { encoding: 'utf8', cwd: this.projectPath })
         .split('\n')
-        .filter(file => file.trim());
+        .filter((file) => file.trim());
 
       for (const file of files) {
         const ext = path.extname(file).toLowerCase();
         const language = extensionMap[ext];
-        
+
         if (language) {
           languageMap.set(language, (languageMap.get(language) || 0) + 1);
         }
@@ -446,7 +451,7 @@ export class GitMetadataExtractor {
    */
   private async detectFrameworks(): Promise<FrameworkDetection[]> {
     const frameworks: FrameworkDetection[] = [];
-    
+
     const detectors = [
       this.detectNodeJsFramework.bind(this),
       this.detectPythonFramework.bind(this),
@@ -463,7 +468,7 @@ export class GitMetadataExtractor {
         if (detected) {
           frameworks.push(detected);
         }
-      } catch (error) {
+      } catch (_error) {
         // Continue with other detectors
       }
     }
@@ -476,7 +481,7 @@ export class GitMetadataExtractor {
    */
   private async detectNodeJsFramework(): Promise<FrameworkDetection | null> {
     const packageJsonPath = path.join(this.projectPath, 'package.json');
-    
+
     if (!fs.existsSync(packageJsonPath)) {
       return null;
     }
@@ -484,7 +489,7 @@ export class GitMetadataExtractor {
     try {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
       const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-      
+
       // Framework detection patterns
       const patterns = [
         { name: 'Next.js', packages: ['next'], confidence: 0.9 },
@@ -501,14 +506,14 @@ export class GitMetadataExtractor {
       ];
 
       for (const pattern of patterns) {
-        const hasFramework = pattern.packages.some(pkg => deps[pkg]);
+        const hasFramework = pattern.packages.some((pkg) => deps[pkg]);
         if (hasFramework) {
           const version = deps[pattern.packages[0]];
           return {
             name: pattern.name,
             version: version?.replace(/^[\^~]/, ''),
             config_files: [packageJsonPath],
-            confidence: pattern.confidence
+            confidence: pattern.confidence,
           };
         }
       }
@@ -528,10 +533,10 @@ export class GitMetadataExtractor {
       'Pipfile',
       'pyproject.toml',
       'setup.py',
-      'poetry.lock'
+      'poetry.lock',
     ];
 
-    const foundConfigs = configFiles.filter(file => 
+    const foundConfigs = configFiles.filter((file) =>
       fs.existsSync(path.join(this.projectPath, file))
     );
 
@@ -544,7 +549,7 @@ export class GitMetadataExtractor {
       return {
         name: 'Django',
         config_files: foundConfigs,
-        confidence: 0.9
+        confidence: 0.9,
       };
     }
 
@@ -557,7 +562,7 @@ export class GitMetadataExtractor {
           return {
             name: 'Flask',
             config_files: foundConfigs,
-            confidence: 0.8
+            confidence: 0.8,
           };
         }
       }
@@ -568,7 +573,7 @@ export class GitMetadataExtractor {
     return {
       name: 'Python',
       config_files: foundConfigs,
-      confidence: 0.6
+      confidence: 0.6,
     };
   }
 
@@ -577,7 +582,7 @@ export class GitMetadataExtractor {
    */
   private async detectJavaFramework(): Promise<FrameworkDetection | null> {
     const configFiles = ['pom.xml', 'build.gradle', 'build.gradle.kts'];
-    const foundConfigs = configFiles.filter(file => 
+    const foundConfigs = configFiles.filter((file) =>
       fs.existsSync(path.join(this.projectPath, file))
     );
 
@@ -594,7 +599,7 @@ export class GitMetadataExtractor {
           return {
             name: 'Spring Boot',
             config_files: foundConfigs,
-            confidence: 0.9
+            confidence: 0.9,
           };
         }
       }
@@ -605,7 +610,7 @@ export class GitMetadataExtractor {
     return {
       name: 'Java',
       config_files: foundConfigs,
-      confidence: 0.6
+      confidence: 0.6,
     };
   }
 
@@ -614,35 +619,35 @@ export class GitMetadataExtractor {
    */
   private async detectRustFramework(): Promise<FrameworkDetection | null> {
     const cargoPath = path.join(this.projectPath, 'Cargo.toml');
-    
+
     if (!fs.existsSync(cargoPath)) {
       return null;
     }
 
     try {
       const cargo = fs.readFileSync(cargoPath, 'utf8');
-      
+
       if (cargo.includes('actix-web')) {
         return {
           name: 'Actix Web',
           config_files: ['Cargo.toml'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (cargo.includes('rocket')) {
         return {
           name: 'Rocket',
           config_files: ['Cargo.toml'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (cargo.includes('warp')) {
         return {
           name: 'Warp',
           config_files: ['Cargo.toml'],
-          confidence: 0.8
+          confidence: 0.8,
         };
       }
     } catch {
@@ -652,7 +657,7 @@ export class GitMetadataExtractor {
     return {
       name: 'Rust',
       config_files: ['Cargo.toml'],
-      confidence: 0.7
+      confidence: 0.7,
     };
   }
 
@@ -661,35 +666,35 @@ export class GitMetadataExtractor {
    */
   private async detectGoFramework(): Promise<FrameworkDetection | null> {
     const goModPath = path.join(this.projectPath, 'go.mod');
-    
+
     if (!fs.existsSync(goModPath)) {
       return null;
     }
 
     try {
       const goMod = fs.readFileSync(goModPath, 'utf8');
-      
+
       if (goMod.includes('gin-gonic/gin')) {
         return {
           name: 'Gin',
           config_files: ['go.mod'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (goMod.includes('echo')) {
         return {
           name: 'Echo',
           config_files: ['go.mod'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (goMod.includes('fiber')) {
         return {
           name: 'Fiber',
           config_files: ['go.mod'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
     } catch {
@@ -699,7 +704,7 @@ export class GitMetadataExtractor {
     return {
       name: 'Go',
       config_files: ['go.mod'],
-      confidence: 0.7
+      confidence: 0.7,
     };
   }
 
@@ -708,7 +713,7 @@ export class GitMetadataExtractor {
    */
   private async detectPhpFramework(): Promise<FrameworkDetection | null> {
     const composerPath = path.join(this.projectPath, 'composer.json');
-    
+
     if (!fs.existsSync(composerPath)) {
       return null;
     }
@@ -716,20 +721,20 @@ export class GitMetadataExtractor {
     try {
       const composer = JSON.parse(fs.readFileSync(composerPath, 'utf8'));
       const deps = { ...composer.require, ...composer['require-dev'] };
-      
+
       if (deps['laravel/framework']) {
         return {
           name: 'Laravel',
           config_files: ['composer.json'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (deps['symfony/framework-bundle']) {
         return {
           name: 'Symfony',
           config_files: ['composer.json'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
     } catch {
@@ -739,7 +744,7 @@ export class GitMetadataExtractor {
     return {
       name: 'PHP',
       config_files: ['composer.json'],
-      confidence: 0.6
+      confidence: 0.6,
     };
   }
 
@@ -748,27 +753,27 @@ export class GitMetadataExtractor {
    */
   private async detectRubyFramework(): Promise<FrameworkDetection | null> {
     const gemfilePath = path.join(this.projectPath, 'Gemfile');
-    
+
     if (!fs.existsSync(gemfilePath)) {
       return null;
     }
 
     try {
       const gemfile = fs.readFileSync(gemfilePath, 'utf8');
-      
+
       if (gemfile.includes('rails')) {
         return {
           name: 'Ruby on Rails',
           config_files: ['Gemfile'],
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
-      
+
       if (gemfile.includes('sinatra')) {
         return {
           name: 'Sinatra',
           config_files: ['Gemfile'],
-          confidence: 0.8
+          confidence: 0.8,
         };
       }
     } catch {
@@ -778,7 +783,7 @@ export class GitMetadataExtractor {
     return {
       name: 'Ruby',
       config_files: ['Gemfile'],
-      confidence: 0.6
+      confidence: 0.6,
     };
   }
 
@@ -805,9 +810,7 @@ export class GitMetadataExtractor {
     // Check for lockfiles first (more specific)
     for (const pm of packageManagers) {
       if (pm.name === 'npm') continue; // Handle npm last
-      const hasFiles = pm.files.some(file => 
-        fs.existsSync(path.join(this.projectPath, file))
-      );
+      const hasFiles = pm.files.some((file) => fs.existsSync(path.join(this.projectPath, file)));
       if (hasFiles) {
         return pm.name;
       }
@@ -826,21 +829,21 @@ export class GitMetadataExtractor {
    */
   private async getContributors(): Promise<GitContributor[]> {
     try {
-      const output = execSync(
-        'git log --format="%an|%ae|%ci" --no-merges',
-        { encoding: 'utf8', cwd: this.projectPath }
-      );
+      const output = execSync('git log --format="%an|%ae|%ci" --no-merges', {
+        encoding: 'utf8',
+        cwd: this.projectPath,
+      });
 
       const contributorMap = new Map<string, GitContributor>();
-      
+
       for (const line of output.split('\n')) {
         if (!line.trim()) continue;
-        
+
         const [name, email, date] = line.split('|');
         if (!name || !email || !date) continue;
-        
+
         const key = `${name}|${email}`;
-        
+
         if (contributorMap.has(key)) {
           const contributor = contributorMap.get(key)!;
           contributor.commits++;
@@ -851,13 +854,12 @@ export class GitMetadataExtractor {
             email,
             commits: 1,
             first_commit: date,
-            last_commit: date
+            last_commit: date,
           });
         }
       }
 
-      return Array.from(contributorMap.values())
-        .sort((a, b) => b.commits - a.commits);
+      return Array.from(contributorMap.values()).sort((a, b) => b.commits - a.commits);
     } catch {
       return [];
     }
@@ -873,7 +875,7 @@ export class GitMetadataExtractor {
       'LICENSE.md',
       'LICENCE',
       'LICENCE.txt',
-      'LICENCE.md'
+      'LICENCE.md',
     ];
 
     for (const file of licenseFiles) {
@@ -882,9 +884,7 @@ export class GitMetadataExtractor {
         try {
           const content = fs.readFileSync(licensePath, 'utf8');
           return this.parseLicense(content);
-        } catch {
-          continue;
-        }
+        } catch {}
       }
     }
 
@@ -909,7 +909,7 @@ export class GitMetadataExtractor {
    */
   private parseLicense(content: string): string {
     const upperContent = content.toUpperCase();
-    
+
     const licenses = [
       { name: 'MIT', keywords: ['MIT LICENSE', 'MIT'] },
       { name: 'Apache 2.0', keywords: ['APACHE LICENSE', 'APACHE 2.0'] },
@@ -926,9 +926,7 @@ export class GitMetadataExtractor {
     ];
 
     for (const license of licenses) {
-      const hasKeywords = license.keywords.some(keyword => 
-        upperContent.includes(keyword)
-      );
+      const hasKeywords = license.keywords.some((keyword) => upperContent.includes(keyword));
       if (hasKeywords) {
         return license.name;
       }
@@ -948,12 +946,10 @@ export class GitMetadataExtractor {
       'README',
       'readme.md',
       'readme.txt',
-      'readme'
+      'readme',
     ];
 
-    return readmeFiles.some(file => 
-      fs.existsSync(path.join(this.projectPath, file))
-    );
+    return readmeFiles.some((file) => fs.existsSync(path.join(this.projectPath, file)));
   }
 
   /**
@@ -961,9 +957,8 @@ export class GitMetadataExtractor {
    */
   private async getRepositorySize(): Promise<string | undefined> {
     try {
-      const output = execSync('git count-objects -vH', 
-        { encoding: 'utf8', cwd: this.projectPath });
-      
+      const output = execSync('git count-objects -vH', { encoding: 'utf8', cwd: this.projectPath });
+
       const sizeMatch = output.match(/size-pack:\s*(\S+)/);
       if (sizeMatch) {
         return sizeMatch[1];
@@ -971,8 +966,9 @@ export class GitMetadataExtractor {
     } catch {
       // Fallback to directory size
       try {
-        const output = execSync(`du -sh "${this.projectPath}" 2>/dev/null || echo "Unknown"`, 
-          { encoding: 'utf8' });
+        const output = execSync(`du -sh "${this.projectPath}" 2>/dev/null || echo "Unknown"`, {
+          encoding: 'utf8',
+        });
         return output.split('\t')[0];
       } catch {
         return undefined;
@@ -985,8 +981,7 @@ export class GitMetadataExtractor {
    */
   private async getTotalFiles(): Promise<number | undefined> {
     try {
-      const output = execSync('git ls-files | wc -l', 
-        { encoding: 'utf8', cwd: this.projectPath });
+      const output = execSync('git ls-files | wc -l', { encoding: 'utf8', cwd: this.projectPath });
       return parseInt(output.trim(), 10);
     } catch {
       return undefined;
@@ -1000,7 +995,7 @@ export class GitMetadataExtractor {
     frontmatter: Partial<ProjectFrontmatter>
   ): Promise<ProjectFrontmatter> {
     const metadata = await this.extractMetadata();
-    
+
     return {
       // Required fields with defaults
       title: frontmatter.title || 'Untitled Project',
@@ -1017,7 +1012,7 @@ export class GitMetadataExtractor {
       project_id: frontmatter.project_id || 'PROJECT-001',
       type: 'project' as const,
       name: frontmatter.name || frontmatter.title || 'Untitled Project',
-      
+
       // Git metadata
       git_origin: metadata.git_origin,
       git_branch: metadata.current_branch,
@@ -1028,7 +1023,7 @@ export class GitMetadataExtractor {
       framework: metadata.framework,
       team_members: metadata.team_members,
       license: metadata.license,
-      
+
       // Optional fields
       deployment_url: frontmatter.deployment_url,
       documentation_url: frontmatter.documentation_url,
@@ -1037,7 +1032,7 @@ export class GitMetadataExtractor {
       tags: frontmatter.tags,
       dependencies: frontmatter.dependencies,
       milestone: frontmatter.milestone,
-      
+
       // GitHub sync metadata
       github_id: frontmatter.github_id,
       github_number: frontmatter.github_number,
@@ -1062,7 +1057,7 @@ export class GitMetadataExtractor {
   static getCacheStats(): { size: number; entries: string[] } {
     return {
       size: GitMetadataExtractor.cache.size,
-      entries: Array.from(GitMetadataExtractor.cache.keys())
+      entries: Array.from(GitMetadataExtractor.cache.keys()),
     };
   }
 }
@@ -1071,7 +1066,7 @@ export class GitMetadataExtractor {
  * Utility function to extract Git metadata for a project
  */
 export async function extractGitMetadata(
-  projectPath?: string, 
+  projectPath?: string,
   enableCache: boolean = true
 ): Promise<GitMetadata> {
   const extractor = new GitMetadataExtractor(projectPath, enableCache);

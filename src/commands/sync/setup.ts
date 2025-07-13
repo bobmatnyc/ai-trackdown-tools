@@ -5,21 +5,25 @@
 
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import { Formatter } from '../../utils/formatter.js';
+import type { GitHubSyncConfig } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
+import { Formatter } from '../../utils/formatter.js';
 import { GitHubClient } from '../../utils/github-client.js';
-import { GitHubSyncConfig } from '../../types/ai-trackdown.js';
 
 export function createSyncSetupCommand(): Command {
   const command = new Command('setup');
-  
+
   command
     .description('Configure GitHub sync for the project')
     .option('--repository <repo>', 'GitHub repository (owner/repo format)')
     .option('--token <token>', 'GitHub personal access token')
     .option('--auto-sync', 'Enable automatic sync')
     .option('--no-auto-sync', 'Disable automatic sync')
-    .option('--conflict-resolution <strategy>', 'Conflict resolution strategy (most_recent|local_wins|remote_wins)', 'most_recent')
+    .option(
+      '--conflict-resolution <strategy>',
+      'Conflict resolution strategy (most_recent|local_wins|remote_wins)',
+      'most_recent'
+    )
     .option('--sync-labels', 'Enable label synchronization')
     .option('--no-sync-labels', 'Disable label synchronization')
     .option('--sync-milestones', 'Enable milestone synchronization')
@@ -34,22 +38,30 @@ export function createSyncSetupCommand(): Command {
       try {
         const configManager = new ConfigManager();
         const config = configManager.getConfig();
-        
+
         // Check if already configured
         if (config.github_sync?.enabled && !options.force) {
-          console.log(Formatter.warning('GitHub sync is already configured. Use --force to reconfigure.'));
+          console.log(
+            Formatter.warning('GitHub sync is already configured. Use --force to reconfigure.')
+          );
           console.log(Formatter.info(`Current repository: ${config.github_sync.repository}`));
-          console.log(Formatter.info(`Auto sync: ${config.github_sync.auto_sync ? 'enabled' : 'disabled'}`));
-          console.log(Formatter.info(`Conflict resolution: ${config.github_sync.conflict_resolution}`));
+          console.log(
+            Formatter.info(`Auto sync: ${config.github_sync.auto_sync ? 'enabled' : 'disabled'}`)
+          );
+          console.log(
+            Formatter.info(`Conflict resolution: ${config.github_sync.conflict_resolution}`)
+          );
           return;
         }
-        
+
         console.log(Formatter.header('🔧 GitHub Sync Setup'));
-        console.log(Formatter.info('Configure bidirectional sync between local issues and GitHub Issues'));
+        console.log(
+          Formatter.info('Configure bidirectional sync between local issues and GitHub Issues')
+        );
         console.log('');
-        
+
         let syncConfig: GitHubSyncConfig;
-        
+
         if (options.repository && options.token) {
           // Non-interactive setup
           syncConfig = {
@@ -141,40 +153,40 @@ export function createSyncSetupCommand(): Command {
               validate: (input: number) => input >= 0,
             },
           ]);
-          
+
           syncConfig = {
             enabled: true,
             ...answers,
           };
         }
-        
+
         if (options.dryRun) {
           console.log(Formatter.info('Dry run - configuration that would be applied:'));
           console.log(JSON.stringify(syncConfig, null, 2));
           return;
         }
-        
+
         // Test connection before saving
         console.log(Formatter.info('Testing GitHub connection...'));
         const testClient = new GitHubClient(syncConfig);
         const testResult = await testClient.testConnection();
-        
+
         if (!testResult.success) {
           console.log(Formatter.error('GitHub connection test failed:'));
           console.log(Formatter.error(testResult.message));
           return;
         }
-        
+
         console.log(Formatter.success('GitHub connection test passed!'));
-        
+
         // Save configuration
         const updatedConfig = {
           ...config,
           github_sync: syncConfig,
         };
-        
+
         configManager.saveConfig(updatedConfig);
-        
+
         console.log(Formatter.success('GitHub sync configuration saved successfully!'));
         console.log('');
         console.log(Formatter.info('Configuration summary:'));
@@ -198,6 +210,6 @@ export function createSyncSetupCommand(): Command {
         process.exit(1);
       }
     });
-  
+
   return command;
 }

@@ -3,13 +3,13 @@
  * ATT-004: Fix Task Directory Structure - Single Root Directory Implementation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdirSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { UnifiedPathResolver } from '../src/utils/unified-path-resolver.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProjectConfig } from '../src/types/ai-trackdown.js';
+import { UnifiedPathResolver } from '../src/utils/unified-path-resolver.js';
 
 describe('UnifiedPathResolver', () => {
   let tempDir: string;
@@ -18,7 +18,7 @@ describe('UnifiedPathResolver', () => {
   beforeEach(async () => {
     // Create temporary directory for tests
     tempDir = await mkdtemp(join(tmpdir(), 'unified-path-test-'));
-    
+
     // Default test configuration
     testConfig = {
       name: 'test-project',
@@ -29,15 +29,15 @@ describe('UnifiedPathResolver', () => {
         issues_dir: 'issues',
         tasks_dir: 'tasks',
         templates_dir: 'templates',
-        prs_dir: 'prs'
+        prs_dir: 'prs',
       },
       naming_conventions: {
         epic_prefix: 'EP',
         issue_prefix: 'ISS',
         task_prefix: 'TSK',
         pr_prefix: 'PR',
-        file_extension: '.md'
-      }
+        file_extension: '.md',
+      },
     };
   });
 
@@ -113,7 +113,7 @@ describe('UnifiedPathResolver', () => {
 
     it('should throw error for unknown item type', () => {
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
-      
+
       expect(() => {
         // @ts-ignore - testing invalid type
         resolver.getItemTypeDirectory('unknown');
@@ -159,12 +159,14 @@ describe('UnifiedPathResolver', () => {
     it('should provide migration suggestions', () => {
       // Create legacy directories
       mkdirSync(join(tempDir, 'epics'), { recursive: true });
-      
+
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
       const result = resolver.detectLegacyStructure();
 
-      expect(result.suggestions).toContain('# Detected legacy directory structure. Migration options:');
-      expect(result.suggestions.some(s => s.includes('mv epics tasks/epics'))).toBe(true);
+      expect(result.suggestions).toContain(
+        '# Detected legacy directory structure. Migration options:'
+      );
+      expect(result.suggestions.some((s) => s.includes('mv epics tasks/epics'))).toBe(true);
     });
   });
 
@@ -180,9 +182,9 @@ describe('UnifiedPathResolver', () => {
     it('should report valid structure when all directories exist', () => {
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
       const requiredDirs = resolver.getRequiredDirectories();
-      
+
       // Create all required directories
-      requiredDirs.forEach(dir => mkdirSync(dir, { recursive: true }));
+      requiredDirs.forEach((dir) => mkdirSync(dir, { recursive: true }));
 
       const result = resolver.validateStructure();
       expect(result.valid).toBe(true);
@@ -192,26 +194,28 @@ describe('UnifiedPathResolver', () => {
     it('should report legacy structure conflicts', () => {
       // Create legacy directories
       mkdirSync(join(tempDir, 'epics'), { recursive: true });
-      
+
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
       const result = resolver.validateStructure();
 
       expect(result.valid).toBe(false);
-      expect(result.issues.some(issue => issue.includes('Legacy directory structure detected'))).toBe(true);
+      expect(
+        result.issues.some((issue) => issue.includes('Legacy directory structure detected'))
+      ).toBe(true);
     });
   });
 
   describe('CLI override functionality', () => {
     it('should allow setting and clearing CLI override', () => {
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
-      
+
       // Initial state
       expect(resolver.getTasksRootDirectory()).toBe('tasks');
-      
+
       // Set CLI override
       resolver.setCliTasksDir('cli-override');
       expect(resolver.getTasksRootDirectory()).toBe('cli-override');
-      
+
       // Clear CLI override
       resolver.clearCliTasksDir();
       expect(resolver.getTasksRootDirectory()).toBe('tasks');
@@ -228,14 +232,14 @@ describe('UnifiedPathResolver', () => {
     it('should prioritize AITRACKDOWN_TASKS_DIR over AITRACKDOWN_ROOT_DIR', () => {
       process.env.AITRACKDOWN_ROOT_DIR = 'root-dir';
       process.env.AITRACKDOWN_TASKS_DIR = 'tasks-dir';
-      
+
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
       expect(resolver.getTasksRootDirectory()).toBe('tasks-dir');
     });
 
     it('should fall back to AITRACKDOWN_ROOT_DIR when AITRACKDOWN_TASKS_DIR not set', () => {
       process.env.AITRACKDOWN_ROOT_DIR = 'root-dir';
-      
+
       const resolver = new UnifiedPathResolver(testConfig, tempDir);
       expect(resolver.getTasksRootDirectory()).toBe('root-dir');
     });

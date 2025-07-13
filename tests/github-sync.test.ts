@@ -3,11 +3,11 @@
  * Comprehensive tests for GitHub sync functionality
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GitHubClient } from '../src/utils/github-client.js';
-import { GitHubSyncEngine } from '../src/integrations/github-sync.js';
-import { GitHubSyncConfig, GitHubIssue, IssueData } from '../src/types/ai-trackdown.js';
 import { RequestError } from '@octokit/request-error';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { GitHubSyncEngine } from '../src/integrations/github-sync.js';
+import type { GitHubIssue, GitHubSyncConfig, IssueData } from '../src/types/ai-trackdown.js';
+import { GitHubClient } from '../src/utils/github-client.js';
 
 // Mock GitHub API responses
 const mockGitHubIssue: GitHubIssue = {
@@ -21,16 +21,16 @@ const mockGitHubIssue: GitHubIssue = {
   html_url: 'https://github.com/owner/repo/issues/1',
   labels: [
     { name: 'bug', color: 'red' },
-    { name: 'priority-high', color: 'orange' }
+    { name: 'priority-high', color: 'orange' },
   ],
   assignee: {
     login: 'testuser',
-    id: 789
+    id: 789,
   },
   milestone: {
     title: 'v1.0.0',
-    number: 1
-  }
+    number: 1,
+  },
 };
 
 const mockLocalIssue: IssueData = {
@@ -49,7 +49,7 @@ const mockLocalIssue: IssueData = {
   sync_status: 'local',
   related_tasks: [],
   content: 'This is the local issue content',
-  file_path: '/path/to/issue.md'
+  file_path: '/path/to/issue.md',
 };
 
 const mockSyncConfig: GitHubSyncConfig = {
@@ -62,7 +62,7 @@ const mockSyncConfig: GitHubSyncConfig = {
   sync_milestones: true,
   sync_assignees: true,
   rate_limit_delay: 100,
-  batch_size: 50
+  batch_size: 50,
 };
 
 describe('GitHubClient', () => {
@@ -91,11 +91,11 @@ describe('GitHubClient', () => {
           repos: {
             get: vi.fn().mockResolvedValue({
               data: {
-                permissions: { push: true }
-              }
-            })
-          }
-        }
+                permissions: { push: true },
+              },
+            }),
+          },
+        },
       };
 
       // Replace the client's octokit instance
@@ -111,16 +111,16 @@ describe('GitHubClient', () => {
         request: {
           method: 'GET',
           url: 'https://api.github.com/repos/owner/repo',
-          headers: {}
-        }
+          headers: {},
+        },
       });
-      
+
       const mockOctokit = {
         rest: {
           repos: {
-            get: vi.fn().mockRejectedValue(mockError)
-          }
-        }
+            get: vi.fn().mockRejectedValue(mockError),
+          },
+        },
       };
 
       (client as any).octokit = mockOctokit;
@@ -136,15 +136,16 @@ describe('GitHubClient', () => {
       const mockOctokit = {
         rest: {
           issues: {
-            listForRepo: vi.fn()
+            listForRepo: vi
+              .fn()
               .mockResolvedValueOnce({
-                data: [mockGitHubIssue]
+                data: [mockGitHubIssue],
               })
               .mockResolvedValueOnce({
-                data: []
-              })
-          }
-        }
+                data: [],
+              }),
+          },
+        },
       };
 
       (client as any).octokit = mockOctokit;
@@ -159,10 +160,10 @@ describe('GitHubClient', () => {
         rest: {
           issues: {
             listForRepo: vi.fn().mockResolvedValue({
-              data: []
-            })
-          }
-        }
+              data: [],
+            }),
+          },
+        },
       };
 
       (client as any).octokit = mockOctokit;
@@ -178,10 +179,10 @@ describe('GitHubClient', () => {
         rest: {
           issues: {
             create: vi.fn().mockResolvedValue({
-              data: mockGitHubIssue
-            })
-          }
-        }
+              data: mockGitHubIssue,
+            }),
+          },
+        },
       };
 
       (client as any).octokit = mockOctokit;
@@ -189,7 +190,7 @@ describe('GitHubClient', () => {
       const issue = await client.createIssue({
         title: 'Test Issue',
         body: 'Test body',
-        labels: ['bug']
+        labels: ['bug'],
       });
 
       expect(issue).toEqual(mockGitHubIssue);
@@ -200,7 +201,7 @@ describe('GitHubClient', () => {
         body: 'Test body',
         labels: ['bug'],
         assignee: undefined,
-        milestone: undefined
+        milestone: undefined,
       });
     });
   });
@@ -211,17 +212,17 @@ describe('GitHubClient', () => {
         rest: {
           issues: {
             update: vi.fn().mockResolvedValue({
-              data: mockGitHubIssue
-            })
-          }
-        }
+              data: mockGitHubIssue,
+            }),
+          },
+        },
       };
 
       (client as any).octokit = mockOctokit;
 
       const issue = await client.updateIssue(1, {
         title: 'Updated Title',
-        state: 'closed'
+        state: 'closed',
       });
 
       expect(issue).toEqual(mockGitHubIssue);
@@ -234,7 +235,7 @@ describe('GitHubClient', () => {
         body: undefined,
         assignee: undefined,
         milestone: undefined,
-        labels: undefined
+        labels: undefined,
       });
     });
   });
@@ -251,14 +252,14 @@ describe('GitHubSyncEngine', () => {
         github_sync: mockSyncConfig,
         naming_conventions: {
           issue_prefix: 'ISS',
-          file_extension: '.md'
+          file_extension: '.md',
         },
-        default_assignee: 'unassigned'
+        default_assignee: 'unassigned',
       }),
       getAbsolutePaths: vi.fn().mockReturnValue({
         issuesDir: '/path/to/issues',
-        configDir: '/path/to/config'
-      })
+        configDir: '/path/to/config',
+      }),
     };
 
     // Mock file system operations
@@ -266,7 +267,7 @@ describe('GitHubSyncEngine', () => {
       existsSync: vi.fn().mockReturnValue(true),
       readFileSync: vi.fn().mockReturnValue('mock file content'),
       writeFileSync: vi.fn(),
-      readdirSync: vi.fn().mockReturnValue(['test.md'])
+      readdirSync: vi.fn().mockReturnValue(['test.md']),
     }));
 
     // Mock frontmatter parser
@@ -274,10 +275,10 @@ describe('GitHubSyncEngine', () => {
       FrontmatterParser: vi.fn().mockImplementation(() => ({
         parse: vi.fn().mockReturnValue({
           frontmatter: mockLocalIssue,
-          content: 'test content'
+          content: 'test content',
         }),
-        stringify: vi.fn().mockReturnValue('stringified content')
-      }))
+        stringify: vi.fn().mockReturnValue('stringified content'),
+      })),
     }));
 
     syncEngine = new GitHubSyncEngine(mockConfigManager);
@@ -290,7 +291,7 @@ describe('GitHubSyncEngine', () => {
 
     it('should throw error if sync not enabled', () => {
       mockConfigManager.getConfig.mockReturnValue({
-        github_sync: { enabled: false }
+        github_sync: { enabled: false },
       });
 
       expect(() => new GitHubSyncEngine(mockConfigManager)).toThrow('GitHub sync is not enabled');
@@ -302,8 +303,8 @@ describe('GitHubSyncEngine', () => {
       const mockClient = {
         testConnection: vi.fn().mockResolvedValue({
           success: true,
-          message: 'Connected successfully'
-        })
+          message: 'Connected successfully',
+        }),
       };
 
       (syncEngine as any).client = mockClient;
@@ -319,19 +320,19 @@ describe('GitHubSyncEngine', () => {
       const mockClient = {
         getRateLimit: vi.fn().mockResolvedValue({
           remaining: 500,
-          limit: 5000
-        })
+          limit: 5000,
+        }),
       };
 
       (syncEngine as any).client = mockClient;
 
       // Mock getLocalIssues
       vi.spyOn(syncEngine as any, 'getLocalIssues').mockResolvedValue([mockLocalIssue]);
-      
+
       // Mock getSyncMetaPath and filesystem calls
       vi.spyOn(syncEngine as any, 'getSyncMetaPath').mockReturnValue('/path/to/sync-metadata.json');
-      
-      const fs = await import('fs');
+
+      const fs = await import('node:fs');
       vi.spyOn(fs, 'existsSync').mockReturnValue(false);
 
       const status = await syncEngine.getSyncStatus();
@@ -342,7 +343,7 @@ describe('GitHubSyncEngine', () => {
 
     it('should return failed status on error', async () => {
       const mockClient = {
-        getRateLimit: vi.fn().mockRejectedValue(new Error('Network error'))
+        getRateLimit: vi.fn().mockRejectedValue(new Error('Network error')),
       };
 
       (syncEngine as any).client = mockClient;
@@ -362,7 +363,7 @@ describe('GitHubSyncEngine', () => {
       const mockClient = {
         getAllIssues: vi.fn().mockResolvedValue([]),
         createIssue: vi.fn().mockResolvedValue(mockGitHubIssue),
-        updateIssue: vi.fn().mockResolvedValue(mockGitHubIssue)
+        updateIssue: vi.fn().mockResolvedValue(mockGitHubIssue),
       };
 
       (syncEngine as any).client = mockClient;
@@ -370,7 +371,9 @@ describe('GitHubSyncEngine', () => {
       // Mock getLocalIssues
       vi.spyOn(syncEngine as any, 'getLocalIssues').mockResolvedValue([mockLocalIssue]);
       vi.spyOn(syncEngine as any, 'updateSyncMetadata').mockResolvedValue(undefined);
-      vi.spyOn(syncEngine as any, 'updateLocalIssueWithGitHubMetadata').mockResolvedValue(undefined);
+      vi.spyOn(syncEngine as any, 'updateLocalIssueWithGitHubMetadata').mockResolvedValue(
+        undefined
+      );
 
       const result = await syncEngine.pushToGitHub();
       expect(result.success).toBe(true);
@@ -381,7 +384,7 @@ describe('GitHubSyncEngine', () => {
   describe('pullFromGitHub', () => {
     it('should pull changes from GitHub', async () => {
       const mockClient = {
-        getAllIssues: vi.fn().mockResolvedValue([mockGitHubIssue])
+        getAllIssues: vi.fn().mockResolvedValue([mockGitHubIssue]),
       };
 
       (syncEngine as any).client = mockClient;
@@ -401,7 +404,7 @@ describe('GitHubSyncEngine', () => {
     it('should perform bidirectional sync', async () => {
       const mockClient = {
         getAllIssues: vi.fn().mockResolvedValue([mockGitHubIssue]),
-        createIssue: vi.fn().mockResolvedValue(mockGitHubIssue)
+        createIssue: vi.fn().mockResolvedValue(mockGitHubIssue),
       };
 
       (syncEngine as any).client = mockClient;
@@ -409,7 +412,9 @@ describe('GitHubSyncEngine', () => {
       // Mock getLocalIssues
       vi.spyOn(syncEngine as any, 'getLocalIssues').mockResolvedValue([mockLocalIssue]);
       vi.spyOn(syncEngine as any, 'updateSyncMetadata').mockResolvedValue(undefined);
-      vi.spyOn(syncEngine as any, 'updateLocalIssueWithGitHubMetadata').mockResolvedValue(undefined);
+      vi.spyOn(syncEngine as any, 'updateLocalIssueWithGitHubMetadata').mockResolvedValue(
+        undefined
+      );
 
       const result = await syncEngine.bidirectionalSync();
       expect(result.success).toBe(true);
@@ -420,16 +425,18 @@ describe('GitHubSyncEngine', () => {
     it('should detect conflicts when both sides have changes', async () => {
       const localIssue = {
         ...mockLocalIssue,
-        updated_date: '2023-01-02T00:00:00Z'
+        updated_date: '2023-01-02T00:00:00Z',
       };
 
       const githubIssue = {
         ...mockGitHubIssue,
-        updated_at: '2023-01-02T00:00:00Z'
+        updated_at: '2023-01-02T00:00:00Z',
       };
 
       // Mock getLastSyncTime to return earlier date
-      vi.spyOn(syncEngine as any, 'getLastSyncTime').mockResolvedValue(new Date('2023-01-01T00:00:00Z'));
+      vi.spyOn(syncEngine as any, 'getLastSyncTime').mockResolvedValue(
+        new Date('2023-01-01T00:00:00Z')
+      );
 
       const hasConflict = await (syncEngine as any).hasConflict(localIssue, githubIssue);
       expect(hasConflict).toBe(true);
@@ -438,16 +445,18 @@ describe('GitHubSyncEngine', () => {
     it('should not detect conflicts when only one side has changes', async () => {
       const localIssue = {
         ...mockLocalIssue,
-        updated_date: '2023-01-01T00:00:00Z'
+        updated_date: '2023-01-01T00:00:00Z',
       };
 
       const githubIssue = {
         ...mockGitHubIssue,
-        updated_at: '2023-01-02T00:00:00Z'
+        updated_at: '2023-01-02T00:00:00Z',
       };
 
       // Mock getLastSyncTime to return earlier date
-      vi.spyOn(syncEngine as any, 'getLastSyncTime').mockResolvedValue(new Date('2023-01-01T00:00:00Z'));
+      vi.spyOn(syncEngine as any, 'getLastSyncTime').mockResolvedValue(
+        new Date('2023-01-01T00:00:00Z')
+      );
 
       const hasConflict = await (syncEngine as any).hasConflict(localIssue, githubIssue);
       expect(hasConflict).toBe(false);

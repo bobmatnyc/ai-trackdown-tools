@@ -3,54 +3,53 @@
  * Handles PR file organization, movement, and directory structure
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { PRData, PRStatus } from '../types/ai-trackdown.js';
-import { ConfigManager } from './config-manager.js';
+import type { ConfigManager } from './config-manager.js';
 import { PRStatusManager } from './pr-status-manager.js';
-import { Formatter } from './formatter.js';
 
 export class PRFileManager {
   private configManager: ConfigManager;
   private statusManager: PRStatusManager;
-  
+
   constructor(configManager: ConfigManager) {
     this.configManager = configManager;
     this.statusManager = new PRStatusManager(configManager);
   }
-  
+
   /**
    * Initialize PR directory structure
    */
   initializePRDirectories(basePRsDir: string): void {
     const directories = [
-      'draft',        // Draft PRs
-      'active',       // Open, review, approved PRs
-      'merged',       // Merged PRs
-      'closed',       // Closed PRs
-      'reviews',      // Review files
-      'logs',         // Activity logs
-      'templates',    // PR templates
-      'attachments'   // File attachments
+      'draft', // Draft PRs
+      'active', // Open, review, approved PRs
+      'merged', // Merged PRs
+      'closed', // Closed PRs
+      'reviews', // Review files
+      'logs', // Activity logs
+      'templates', // PR templates
+      'attachments', // File attachments
     ];
-    
-    directories.forEach(dir => {
+
+    directories.forEach((dir) => {
       const dirPath = path.join(basePRsDir, dir);
       if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
       }
     });
-    
+
     // Create subdirectories for active PRs
     const activeDirs = ['open', 'review', 'approved'];
-    activeDirs.forEach(subdir => {
+    activeDirs.forEach((subdir) => {
       const subDirPath = path.join(basePRsDir, 'active', subdir);
       if (!fs.existsSync(subDirPath)) {
         fs.mkdirSync(subDirPath, { recursive: true });
       }
     });
   }
-  
+
   /**
    * Get the appropriate directory for a PR based on its status
    */
@@ -61,12 +60,12 @@ export class PRFileManager {
       review: path.join(basePRsDir, 'active', 'review'),
       approved: path.join(basePRsDir, 'active', 'approved'),
       merged: path.join(basePRsDir, 'merged'),
-      closed: path.join(basePRsDir, 'closed')
+      closed: path.join(basePRsDir, 'closed'),
     };
-    
+
     return statusDirectories[status];
   }
-  
+
   /**
    * Move PR file to status-appropriate directory
    */
@@ -79,48 +78,48 @@ export class PRFileManager {
     const targetDir = this.getPRDirectory(newStatus, basePRsDir);
     const fileName = path.basename(currentPath);
     const newPath = path.join(targetDir, fileName);
-    
+
     // Check if move is needed
     if (currentPath === newPath) {
       return {
         moved: false,
         oldPath: currentPath,
         newPath: currentPath,
-        reason: 'File already in correct location'
+        reason: 'File already in correct location',
       };
     }
-    
+
     // Ensure target directory exists
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
-    
+
     // Check if target file already exists
     if (fs.existsSync(newPath)) {
       // Generate unique filename
       const uniquePath = this.generateUniqueFilename(newPath);
-      
+
       fs.renameSync(currentPath, uniquePath);
-      
+
       return {
         moved: true,
         oldPath: currentPath,
         newPath: uniquePath,
-        reason: 'Moved to unique filename to avoid conflict'
+        reason: 'Moved to unique filename to avoid conflict',
       };
     }
-    
+
     // Move the file
     fs.renameSync(currentPath, newPath);
-    
+
     return {
       moved: true,
       oldPath: currentPath,
       newPath: newPath,
-      reason: 'Moved to status-appropriate directory'
+      reason: 'Moved to status-appropriate directory',
     };
   }
-  
+
   /**
    * Generate unique filename if conflict exists
    */
@@ -128,18 +127,18 @@ export class PRFileManager {
     const dir = path.dirname(filePath);
     const ext = path.extname(filePath);
     const base = path.basename(filePath, ext);
-    
+
     let counter = 1;
     let uniquePath = filePath;
-    
+
     while (fs.existsSync(uniquePath)) {
       uniquePath = path.join(dir, `${base}-${counter}${ext}`);
       counter++;
     }
-    
+
     return uniquePath;
   }
-  
+
   /**
    * Create PR review file
    */
@@ -151,55 +150,49 @@ export class PRFileManager {
     basePRsDir: string
   ): Promise<string> {
     const reviewsDir = path.join(basePRsDir, 'reviews');
-    
+
     // Ensure reviews directory exists
     if (!fs.existsSync(reviewsDir)) {
       fs.mkdirSync(reviewsDir, { recursive: true });
     }
-    
+
     const reviewId = `${prId}-${reviewType}-${reviewer}-${Date.now()}`;
     const reviewFileName = `${reviewId}.md`;
     const reviewFilePath = path.join(reviewsDir, reviewFileName);
-    
+
     // Write review file
     fs.writeFileSync(reviewFilePath, content, 'utf8');
-    
+
     return reviewFilePath;
   }
-  
+
   /**
    * Archive old PR files
    */
-  async archiveOldPRs(
-    basePRsDir: string,
-    olderThanDays: number = 90
-  ): Promise<ArchiveResult> {
+  async archiveOldPRs(basePRsDir: string, olderThanDays: number = 90): Promise<ArchiveResult> {
     const archiveDir = path.join(basePRsDir, 'archive');
     if (!fs.existsSync(archiveDir)) {
       fs.mkdirSync(archiveDir, { recursive: true });
     }
-    
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-    
+
     const archivedFiles: string[] = [];
     const errors: string[] = [];
-    
+
     // Check merged and closed directories
-    const dirsToCheck = [
-      path.join(basePRsDir, 'merged'),
-      path.join(basePRsDir, 'closed')
-    ];
-    
+    const dirsToCheck = [path.join(basePRsDir, 'merged'), path.join(basePRsDir, 'closed')];
+
     for (const dir of dirsToCheck) {
       if (!fs.existsSync(dir)) continue;
-      
+
       const files = fs.readdirSync(dir);
-      
+
       for (const file of files) {
         const filePath = path.join(dir, file);
         const stats = fs.statSync(filePath);
-        
+
         if (stats.mtime < cutoffDate) {
           try {
             const archivePath = path.join(archiveDir, file);
@@ -211,14 +204,14 @@ export class PRFileManager {
         }
       }
     }
-    
+
     return {
       archivedCount: archivedFiles.length,
       archivedFiles,
-      errors
+      errors,
     };
   }
-  
+
   /**
    * Get PR directory statistics
    */
@@ -232,50 +225,50 @@ export class PRFileManager {
       closed: 0,
       total: 0,
       reviewFiles: 0,
-      diskUsage: 0
+      diskUsage: 0,
     };
-    
+
     const directories = {
       draft: path.join(basePRsDir, 'draft'),
       open: path.join(basePRsDir, 'active', 'open'),
       review: path.join(basePRsDir, 'active', 'review'),
       approved: path.join(basePRsDir, 'active', 'approved'),
       merged: path.join(basePRsDir, 'merged'),
-      closed: path.join(basePRsDir, 'closed')
+      closed: path.join(basePRsDir, 'closed'),
     };
-    
+
     Object.entries(directories).forEach(([status, dir]) => {
       if (fs.existsSync(dir)) {
         const files = fs.readdirSync(dir);
         stats[status as keyof PRDirectoryStats] = files.length;
         stats.total += files.length;
-        
+
         // Calculate disk usage
-        files.forEach(file => {
+        files.forEach((file) => {
           const filePath = path.join(dir, file);
           const fileStats = fs.statSync(filePath);
           stats.diskUsage += fileStats.size;
         });
       }
     });
-    
+
     // Count review files
     const reviewsDir = path.join(basePRsDir, 'reviews');
     if (fs.existsSync(reviewsDir)) {
       const reviewFiles = fs.readdirSync(reviewsDir);
       stats.reviewFiles = reviewFiles.length;
     }
-    
+
     return stats;
   }
-  
+
   /**
    * Clean up empty directories
    */
   cleanupEmptyDirectories(basePRsDir: string): CleanupResult {
     const removedDirs: string[] = [];
     const errors: string[] = [];
-    
+
     const checkAndRemoveEmpty = (dir: string): void => {
       try {
         if (fs.existsSync(dir)) {
@@ -289,88 +282,82 @@ export class PRFileManager {
         errors.push(`Failed to remove ${dir}: ${error}`);
       }
     };
-    
+
     // Check subdirectories first
     const subDirs = [
       path.join(basePRsDir, 'active', 'open'),
       path.join(basePRsDir, 'active', 'review'),
-      path.join(basePRsDir, 'active', 'approved')
+      path.join(basePRsDir, 'active', 'approved'),
     ];
-    
+
     subDirs.forEach(checkAndRemoveEmpty);
-    
+
     return {
       removedCount: removedDirs.length,
       removedDirs,
-      errors
+      errors,
     };
   }
-  
+
   /**
    * Validate PR directory structure
    */
   validatePRDirectoryStructure(basePRsDir: string): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    
-    const requiredDirs = [
-      'draft',
-      'active',
-      'merged',
-      'closed',
-      'reviews'
-    ];
-    
+
+    const requiredDirs = ['draft', 'active', 'merged', 'closed', 'reviews'];
+
     // Check required directories
-    requiredDirs.forEach(dir => {
+    requiredDirs.forEach((dir) => {
       const dirPath = path.join(basePRsDir, dir);
       if (!fs.existsSync(dirPath)) {
         errors.push(`Missing required directory: ${dir}`);
       }
     });
-    
+
     // Check active subdirectories
     const activeSubDirs = ['open', 'review', 'approved'];
-    activeSubDirs.forEach(subdir => {
+    activeSubDirs.forEach((subdir) => {
       const subDirPath = path.join(basePRsDir, 'active', subdir);
       if (!fs.existsSync(subDirPath)) {
         warnings.push(`Missing active subdirectory: ${subdir}`);
       }
     });
-    
+
     // Check for orphaned files
     const prFiles = this.findPRFiles(basePRsDir);
-    prFiles.forEach(file => {
+    prFiles.forEach((file) => {
       const relativePath = path.relative(basePRsDir, file);
       const pathParts = relativePath.split(path.sep);
-      
+
       if (pathParts.length < 2) {
         warnings.push(`PR file in root directory: ${file}`);
       }
     });
-    
+
     return {
       valid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
-  
+
   /**
    * Find all PR files in the directory structure
    */
   findPRFiles(basePRsDir: string): string[] {
     const prFiles: string[] = [];
-    
+
     const searchDir = (dir: string): void => {
       if (!fs.existsSync(dir)) return;
-      
+
       const items = fs.readdirSync(dir);
-      
-      items.forEach(item => {
+
+      items.forEach((item) => {
         const itemPath = path.join(dir, item);
         const stats = fs.statSync(itemPath);
-        
+
         if (stats.isDirectory()) {
           searchDir(itemPath);
         } else if (item.endsWith('.md') && item.startsWith('PR-')) {
@@ -378,7 +365,7 @@ export class PRFileManager {
         }
       });
     };
-    
+
     searchDir(basePRsDir);
     return prFiles;
   }

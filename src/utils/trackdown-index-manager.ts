@@ -1,31 +1,31 @@
 /**
  * TrackdownIndexManager - High-Performance Index File System for AI-Trackdown
  * Implements .ai-trackdown-index file system to eliminate expensive directory searches
- * 
+ *
  * Performance Targets:
  * - Index Load Time: < 10ms for projects with 1000+ items
- * - Update Time: < 5ms for single item updates  
+ * - Update Time: < 5ms for single item updates
  * - Rebuild Time: < 100ms for full project scan
  * - Memory Usage: < 5MB for large projects
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
-import type { 
-  EpicData, 
-  IssueData, 
-  TaskData, 
-  PRData, 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { promisify } from 'node:util';
+import type {
   AnyItemData,
-  ItemType,
+  EpicData,
+  IssueData,
   ItemStatus,
+  ItemType,
+  PRData,
   Priority,
-  ProjectConfig 
+  ProjectConfig,
+  TaskData,
 } from '../types/ai-trackdown.js';
 import { FrontmatterParser } from './frontmatter-parser.js';
+import { type ProjectDetectionResult, ProjectDetector } from './project-detector.js';
 import { UnifiedPathResolver } from './unified-path-resolver.js';
-import { ProjectDetector, type ProjectDetectionResult } from './project-detector.js';
 
 // Async file operations for better performance
 const readFile = promisify(fs.readFile);
@@ -134,14 +134,19 @@ export class TrackdownIndexManager {
   private pathResolver: UnifiedPathResolver;
   private frontmatterParser: FrontmatterParser;
   private projectDetector: ProjectDetector;
-  
+
   // Memory cache for performance
   private cachedIndex: TrackdownIndex | null = null;
   private cacheTimestamp: number = 0;
   private readonly CACHE_TTL = 5000; // 5 seconds cache TTL
-  
+
   // Store project detection results for auto-project creation
   private lastProjectDetection: ProjectDetectionResult | null = null;
+
+  // Test mode flags for performance optimization
+  private readonly isTestMode: boolean;
+  private readonly disableIndexing: boolean;
+  private readonly useMockIndex: boolean;
 
   constructor(config: ProjectConfig, projectPath: string, cliTasksDir?: string) {
     this.config = config;
@@ -149,7 +154,13 @@ export class TrackdownIndexManager {
     this.pathResolver = new UnifiedPathResolver(config, projectPath, cliTasksDir);
     this.frontmatterParser = new FrontmatterParser();
     this.projectDetector = new ProjectDetector(projectPath);
-    
+
+    // Check test mode flags for performance optimization
+    this.isTestMode =
+      process.env.NODE_ENV === 'test' || process.env.AI_TRACKDOWN_TEST_MODE === 'true';
+    this.disableIndexing = process.env.AI_TRACKDOWN_DISABLE_INDEX === 'true';
+    this.useMockIndex = process.env.AI_TRACKDOWN_MOCK_INDEX === 'true';
+
     const paths = this.pathResolver.getUnifiedPaths();
     this.tasksDir = paths.tasksRoot;
     this.indexPath = path.join(this.tasksDir, INDEX_FILE_NAME);
@@ -160,27 +171,41 @@ export class TrackdownIndexManager {
    */
   public async loadIndex(): Promise<TrackdownIndex> {
     const tracker = this.startPerformanceTracking('loadIndex');
-    
+
     try {
       // Check memory cache first
-      if (this.cachedIndex && (Date.now() - this.cacheTimestamp) < this.CACHE_TTL) {
+      if (this.cachedIndex && Date.now() - this.cacheTimestamp < this.CACHE_TTL) {
         this.endPerformanceTracking(tracker);
         return this.cachedIndex;
       }
 
       // Check if index file exists
-      if (!await this.indexExists()) {
-        console.warn(`Index file not found at ${this.indexPath}. Rebuilding...`);
+      if (!(await this.indexExists())) {
+        // In test mode, suppress rebuild warnings and return minimal index
+        if (this.isTestMode && this.disableIndexing) {
+          return this.createMinimalTestIndex();
+        }
+
+        if (!this.isTestMode) {
+          console.warn(`Index file not found at ${this.indexPath}. Rebuilding...`);
+        }
         return await this.rebuildIndex();
       }
 
       // Load from disk
       const indexContent = await readFile(this.indexPath, 'utf8');
       const index = JSON.parse(indexContent) as TrackdownIndex;
-      
+
       // Validate index structure
       if (!this.validateIndexStructure(index)) {
-        console.warn('Index file corrupted. Rebuilding...');
+        // In test mode, suppress warnings and return minimal index
+        if (this.isTestMode && this.disableIndexing) {
+          return this.createMinimalTestIndex();
+        }
+
+        if (!this.isTestMode) {
+          console.warn('Index file corrupted. Rebuilding...');
+        }
         return await this.rebuildIndex();
       }
 
@@ -194,7 +219,16 @@ export class TrackdownIndexManager {
 
       return index;
     } catch (error) {
-      console.warn(`Failed to load index: ${error instanceof Error ? error.message : 'Unknown error'}. Rebuilding...`);
+      // In test mode, suppress warnings and return minimal index
+      if (this.isTestMode && this.disableIndexing) {
+        return this.createMinimalTestIndex();
+      }
+
+      if (!this.isTestMode) {
+        console.warn(
+          `Failed to load index: ${error instanceof Error ? error.message : 'Unknown error'}. Rebuilding...`
+        );
+      }
       return await this.rebuildIndex();
     }
   }
@@ -204,19 +238,19 @@ export class TrackdownIndexManager {
    */
   public async saveIndex(index: TrackdownIndex): Promise<void> {
     const tracker = this.startPerformanceTracking('saveIndex');
-    
+
     try {
       // Update metadata
       index.lastUpdated = new Date().toISOString();
       index.projectPath = this.projectPath;
-      
+
       // Calculate stats
       index.stats.totalProjects = Object.keys(index.projects).length;
       index.stats.totalEpics = Object.keys(index.epics).length;
       index.stats.totalIssues = Object.keys(index.issues).length;
       index.stats.totalTasks = Object.keys(index.tasks).length;
       index.stats.totalPRs = Object.keys(index.prs).length;
-      
+
       // Serialize with proper formatting
       const indexContent = JSON.stringify(index, null, 2);
       index.stats.indexSize = Buffer.byteLength(indexContent, 'utf8');
@@ -227,7 +261,7 @@ export class TrackdownIndexManager {
       // Atomic write using temp file + rename
       const tempPath = `${this.indexPath}.tmp`;
       await writeFile(tempPath, indexContent, 'utf8');
-      
+
       // Rename temp file to final location (atomic operation)
       fs.renameSync(tempPath, this.indexPath);
 
@@ -238,9 +272,10 @@ export class TrackdownIndexManager {
       // Update performance metrics
       const saveTime = this.endPerformanceTracking(tracker);
       index.stats.performanceMetrics.lastUpdateTime = saveTime;
-
     } catch (error) {
-      throw new Error(`Failed to save index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to save index: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -249,9 +284,16 @@ export class TrackdownIndexManager {
    */
   public async rebuildIndex(): Promise<TrackdownIndex> {
     const tracker = this.startPerformanceTracking('rebuildIndex');
-    
-    console.log('🔄 Rebuilding AI-Trackdown index...');
-    
+
+    // In test mode with disabled indexing, return mock index immediately
+    if (this.isTestMode && this.disableIndexing) {
+      return this.createMinimalTestIndex();
+    }
+
+    if (!this.isTestMode) {
+      console.log('🔄 Rebuilding AI-Trackdown index...');
+    }
+
     const newIndex: TrackdownIndex = {
       version: INDEX_VERSION,
       lastUpdated: new Date().toISOString(),
@@ -272,47 +314,51 @@ export class TrackdownIndexManager {
         performanceMetrics: {
           lastLoadTime: 0,
           lastUpdateTime: 0,
-          lastRebuildTime: 0
-        }
-      }
+          lastRebuildTime: 0,
+        },
+      },
     };
 
     try {
       // Detect project structure before scanning directories
-      console.log('🔍 Detecting project structure...');
+      if (!this.isTestMode) {
+        console.log('🔍 Detecting project structure...');
+      }
       const projectDetection = this.projectDetector.detectProjectMode();
       this.lastProjectDetection = projectDetection;
-      
-      // Log detection results
-      console.log(`📋 Project Mode: ${projectDetection.mode.toUpperCase()}`);
-      if (projectDetection.mode === 'multi') {
-        if (projectDetection.detectedProjects && projectDetection.detectedProjects.length > 0) {
-          console.log(`📁 Detected Projects: ${projectDetection.detectedProjects.join(', ')}`);
+
+      // Log detection results (suppress in test mode)
+      if (!this.isTestMode) {
+        console.log(`📋 Project Mode: ${projectDetection.mode.toUpperCase()}`);
+        if (projectDetection.mode === 'multi') {
+          if (projectDetection.detectedProjects && projectDetection.detectedProjects.length > 0) {
+            console.log(`📁 Detected Projects: ${projectDetection.detectedProjects.join(', ')}`);
+          }
+          if (projectDetection.projectsDir) {
+            console.log(`📂 Projects Directory: ${projectDetection.projectsDir}`);
+          }
         }
-        if (projectDetection.projectsDir) {
-          console.log(`📂 Projects Directory: ${projectDetection.projectsDir}`);
+
+        if (projectDetection.migrationNeeded) {
+          console.log('⚠️  Migration may be needed for optimal structure');
+        }
+
+        if (projectDetection.recommendations.length > 0) {
+          console.log('💡 Recommendations available (run with --show-recommendations for details)');
         }
       }
-      
-      if (projectDetection.migrationNeeded) {
-        console.log('⚠️  Migration may be needed for optimal structure');
-      }
-      
-      if (projectDetection.recommendations.length > 0) {
-        console.log('💡 Recommendations available (run with --show-recommendations for details)');
-      }
-      
+
       // Auto-create projects based on detection results (ISS-0015 & ISS-0016)
       await this.autoCreateProjects(projectDetection);
-      
+
       const paths = this.pathResolver.getUnifiedPaths();
-      
+
       // Parallel processing for better performance
       const scanTasks = [
         this.scanDirectory(paths.epicsDir, 'epic'),
-        this.scanDirectory(paths.issuesDir, 'issue'), 
+        this.scanDirectory(paths.issuesDir, 'issue'),
         this.scanDirectory(paths.tasksDir, 'task'),
-        this.scanDirectory(paths.prsDir, 'pr')
+        this.scanDirectory(paths.prsDir, 'pr'),
       ];
 
       const [epics, issues, tasks, prs] = await Promise.all(scanTasks);
@@ -347,12 +393,18 @@ export class TrackdownIndexManager {
       const rebuildTime = this.endPerformanceTracking(tracker);
       newIndex.stats.performanceMetrics.lastRebuildTime = rebuildTime;
 
-      console.log(`✅ Index rebuilt successfully in ${rebuildTime}ms`);
-      console.log(`📊 Indexed: ${newIndex.stats.totalProjects} projects, ${newIndex.stats.totalEpics} epics, ${newIndex.stats.totalIssues} issues, ${newIndex.stats.totalTasks} tasks, ${newIndex.stats.totalPRs} PRs`);
+      if (!this.isTestMode) {
+        console.log(`✅ Index rebuilt successfully in ${rebuildTime}ms`);
+        console.log(
+          `📊 Indexed: ${newIndex.stats.totalProjects} projects, ${newIndex.stats.totalEpics} epics, ${newIndex.stats.totalIssues} issues, ${newIndex.stats.totalTasks} tasks, ${newIndex.stats.totalPRs} PRs`
+        );
+      }
 
       return newIndex;
     } catch (error) {
-      throw new Error(`Failed to rebuild index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to rebuild index: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -361,11 +413,11 @@ export class TrackdownIndexManager {
    */
   public async updateItem(type: ItemType, id: string): Promise<void> {
     const tracker = this.startPerformanceTracking('updateItem');
-    
+
     try {
       const index = await this.loadIndex();
       const filePath = await this.findItemFile(type, id);
-      
+
       if (!filePath || !fs.existsSync(filePath)) {
         // Item was deleted, remove from index
         await this.removeItem(type, id);
@@ -374,7 +426,7 @@ export class TrackdownIndexManager {
 
       // Parse the updated file
       const itemData = this.frontmatterParser.parseAnyItem(filePath);
-      
+
       // Update the appropriate index section
       switch (type) {
         case 'epic':
@@ -396,10 +448,12 @@ export class TrackdownIndexManager {
 
       // Save updated index
       await this.saveIndex(index);
-      
+
       this.endPerformanceTracking(tracker);
     } catch (error) {
-      throw new Error(`Failed to update item ${type}/${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update item ${type}/${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -408,10 +462,10 @@ export class TrackdownIndexManager {
    */
   public async removeItem(type: ItemType, id: string): Promise<void> {
     const tracker = this.startPerformanceTracking('removeItem');
-    
+
     try {
       const index = await this.loadIndex();
-      
+
       // Remove from appropriate index section
       switch (type) {
         case 'epic':
@@ -455,10 +509,12 @@ export class TrackdownIndexManager {
 
       // Save updated index
       await this.saveIndex(index);
-      
+
       this.endPerformanceTracking(tracker);
     } catch (error) {
-      throw new Error(`Failed to remove item ${type}/${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to remove item ${type}/${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -477,32 +533,34 @@ export class TrackdownIndexManager {
   /**
    * Get index statistics and health information
    */
-  public async getIndexStats(): Promise<TrackdownIndex['stats'] & { 
-    healthy: boolean; 
-    cacheHit: boolean;
-    indexFileExists: boolean;
-    lastModified?: Date;
-  }> {
+  public async getIndexStats(): Promise<
+    TrackdownIndex['stats'] & {
+      healthy: boolean;
+      cacheHit: boolean;
+      indexFileExists: boolean;
+      lastModified?: Date;
+    }
+  > {
     try {
       const indexExists = await this.indexExists();
       let lastModified: Date | undefined;
-      
+
       if (indexExists) {
         const stats = await stat(this.indexPath);
         lastModified = stats.mtime;
       }
 
       const index = await this.loadIndex();
-      const cacheHit = (Date.now() - this.cacheTimestamp) < this.CACHE_TTL;
-      
+      const cacheHit = Date.now() - this.cacheTimestamp < this.CACHE_TTL;
+
       return {
         ...index.stats,
         healthy: this.validateIndexStructure(index),
         cacheHit,
         indexFileExists: indexExists,
-        lastModified
+        lastModified,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         totalEpics: 0,
         totalIssues: 0,
@@ -513,11 +571,11 @@ export class TrackdownIndexManager {
         performanceMetrics: {
           lastLoadTime: 0,
           lastUpdateTime: 0,
-          lastRebuildTime: 0
+          lastRebuildTime: 0,
         },
         healthy: false,
         cacheHit: false,
-        indexFileExists: false
+        indexFileExists: false,
       };
     }
   }
@@ -556,7 +614,9 @@ export class TrackdownIndexManager {
         await this.autoCreateMultiProjects(detection);
       }
     } catch (error) {
-      console.warn(`⚠️  Auto-project creation warning: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.warn(
+        `⚠️  Auto-project creation warning: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -566,7 +626,7 @@ export class TrackdownIndexManager {
   private async autoCreateSingleProject(detection: ProjectDetectionResult): Promise<void> {
     // Import ProjectContextManager here to avoid circular dependency
     const { ProjectContextManager } = await import('./project-context-manager.js');
-    
+
     // Check if a project task already exists in single-project mode
     const existingProjects = await this.checkExistingProjects();
     if (existingProjects.length > 0) {
@@ -575,60 +635,63 @@ export class TrackdownIndexManager {
     }
 
     console.log('🚀 Auto-creating default project for single-project structure...');
-    
+
     try {
       const contextManager = new ProjectContextManager(detection.projectRoot);
       await contextManager.initializeContext();
-      
+
       // Create a default project entry in the index
       const defaultProjectName = 'default-project';
-      
+
       // Since we're in single-project mode, we'll create a conceptual project
       // that represents the entire codebase
       console.log(`📁 Creating default project: ${defaultProjectName}`);
-      
+
       // Ensure project structure exists
       await contextManager.ensureProjectStructure();
-      
+
       console.log(`✅ Auto-created default project for single-project structure`);
-      
     } catch (error) {
-      throw new Error(`Failed to auto-create single project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to auto-create single project: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
-   * Auto-create project tasks for multi-project structure (ISS-0016)  
+   * Auto-create project tasks for multi-project structure (ISS-0016)
    */
   private async autoCreateMultiProjects(detection: ProjectDetectionResult): Promise<void> {
     // Import ProjectContextManager here to avoid circular dependency
     const { ProjectContextManager } = await import('./project-context-manager.js');
-    
+
     if (!detection.detectedProjects || detection.detectedProjects.length === 0) {
       console.log('📋 No projects detected for auto-creation in multi-project mode');
       return;
     }
 
     console.log(`🚀 Auto-creating projects for multi-project structure...`);
-    console.log(`📁 Detected ${detection.detectedProjects.length} projects: ${detection.detectedProjects.join(', ')}`);
-    
+    console.log(
+      `📁 Detected ${detection.detectedProjects.length} projects: ${detection.detectedProjects.join(', ')}`
+    );
+
     const contextManager = new ProjectContextManager(detection.projectRoot);
     await contextManager.initializeContext();
-    
+
     // Check if projects already exist to avoid duplicates
     const existingProjects = await this.checkExistingProjects();
-    
+
     let createdCount = 0;
-    
+
     for (const projectName of detection.detectedProjects) {
       if (existingProjects.includes(projectName)) {
         console.log(`📋 Project '${projectName}' already exists, skipping...`);
         continue;
       }
-      
+
       try {
         console.log(`📁 Auto-creating project: ${projectName}`);
-        
+
         // In multi-project mode, the directory structure should already exist
         // We just need to ensure the project has proper configuration
         if (detection.projectsDir) {
@@ -637,7 +700,7 @@ export class TrackdownIndexManager {
             // Create a simple config manager for this project
             const { ConfigManager } = await import('./config-manager.js');
             const projectConfigManager = new ConfigManager(projectPath);
-            
+
             // Check if project already has config, if not create minimal one
             if (!projectConfigManager.isProjectDirectory(projectPath)) {
               const defaultConfig = {
@@ -647,10 +710,10 @@ export class TrackdownIndexManager {
                 project_mode: 'multi' as const,
                 structure: {
                   epics_dir: 'epics',
-                  issues_dir: 'issues', 
+                  issues_dir: 'issues',
                   tasks_dir: 'tasks',
                   templates_dir: 'templates',
-                  prs_dir: 'prs'
+                  prs_dir: 'prs',
                 },
                 naming_conventions: {
                   project_prefix: 'PROJ',
@@ -658,10 +721,10 @@ export class TrackdownIndexManager {
                   issue_prefix: 'ISS',
                   task_prefix: 'TSK',
                   pr_prefix: 'PR',
-                  file_extension: '.md'
-                }
+                  file_extension: '.md',
+                },
               };
-              
+
               projectConfigManager.initializeProject(projectName, defaultConfig);
               createdCount++;
               console.log(`✅ Auto-created project: ${projectName}`);
@@ -670,12 +733,13 @@ export class TrackdownIndexManager {
             }
           }
         }
-        
       } catch (error) {
-        console.warn(`⚠️  Failed to auto-create project '${projectName}': ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.warn(
+          `⚠️  Failed to auto-create project '${projectName}': ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
-    
+
     if (createdCount > 0) {
       console.log(`✅ Auto-created ${createdCount} projects for multi-project structure`);
     } else {
@@ -690,7 +754,7 @@ export class TrackdownIndexManager {
     try {
       const index = await this.loadIndex();
       return Object.keys(index.projects);
-    } catch (error) {
+    } catch (_error) {
       // Index doesn't exist yet or is corrupted
       return [];
     }
@@ -701,7 +765,7 @@ export class TrackdownIndexManager {
    */
   public async getItemsByType(type: ItemType): Promise<TrackdownIndexEntry[]> {
     const index = await this.loadIndex();
-    
+
     switch (type) {
       case 'epic':
         return Object.values(index.epics);
@@ -721,7 +785,7 @@ export class TrackdownIndexManager {
    */
   public async getItemById(type: ItemType, id: string): Promise<TrackdownIndexEntry | null> {
     const index = await this.loadIndex();
-    
+
     switch (type) {
       case 'epic':
         return index.epics[id] || null;
@@ -745,10 +809,10 @@ export class TrackdownIndexManager {
       ...Object.values(index.epics),
       ...Object.values(index.issues),
       ...Object.values(index.tasks),
-      ...Object.values(index.prs)
+      ...Object.values(index.prs),
     ];
-    
-    return allItems.filter(item => item.status === status);
+
+    return allItems.filter((item) => item.status === status);
   }
 
   /**
@@ -767,36 +831,43 @@ export class TrackdownIndexManager {
       ...Object.values(index.epics),
       ...Object.values(index.issues),
       ...Object.values(index.tasks),
-      ...Object.values(index.prs)
+      ...Object.values(index.prs),
     ];
 
     // Calculate metrics
-    const byStatus = allItems.reduce((acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
-      return acc;
-    }, {} as Record<ItemStatus, number>);
+    const byStatus = allItems.reduce(
+      (acc, item) => {
+        acc[item.status] = (acc[item.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<ItemStatus, number>
+    );
 
-    const byPriority = allItems.reduce((acc, item) => {
-      acc[item.priority] = (acc[item.priority] || 0) + 1;
-      return acc;
-    }, {} as Record<Priority, number>);
+    const byPriority = allItems.reduce(
+      (acc, item) => {
+        acc[item.priority] = (acc[item.priority] || 0) + 1;
+        return acc;
+      },
+      {} as Record<Priority, number>
+    );
 
     const byType: Record<ItemType, number> = {
       project: index.stats.totalProjects || 0,
       epic: index.stats.totalEpics,
       issue: index.stats.totalIssues,
       task: index.stats.totalTasks,
-      pr: index.stats.totalPRs
+      pr: index.stats.totalPRs,
     };
 
     const completedItems = byStatus.completed || 0;
-    const completionRate = allItems.length > 0 ? Math.round((completedItems / allItems.length) * 100) : 0;
+    const completionRate =
+      allItems.length > 0 ? Math.round((completedItems / allItems.length) * 100) : 0;
 
     // Get recent activity (last 7 days)
     const lastWeek = new Date();
     lastWeek.setDate(lastWeek.getDate() - 7);
     const recentActivity = allItems
-      .filter(item => new Date(item.lastModified) >= lastWeek)
+      .filter((item) => new Date(item.lastModified) >= lastWeek)
       .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
       .slice(0, 10);
 
@@ -806,7 +877,7 @@ export class TrackdownIndexManager {
       byPriority,
       byType,
       completionRate,
-      recentActivity
+      recentActivity,
     };
   }
 
@@ -842,7 +913,7 @@ export class TrackdownIndexManager {
     }
   }
 
-  private async scanDirectory(dirPath: string, itemType: ItemType): Promise<AnyItemData[]> {
+  private async scanDirectory(dirPath: string, _itemType: ItemType): Promise<AnyItemData[]> {
     try {
       await access(dirPath);
     } catch {
@@ -850,12 +921,12 @@ export class TrackdownIndexManager {
     }
 
     const files = await readdir(dirPath);
-    const mdFiles = files.filter(file => file.endsWith('.md'));
-    
+    const mdFiles = files.filter((file) => file.endsWith('.md'));
+
     // Process files in batches to avoid overwhelming the system
     const results: AnyItemData[] = [];
     const batchSize = Math.min(MAX_CONCURRENT_READS, mdFiles.length);
-    
+
     for (let i = 0; i < mdFiles.length; i += batchSize) {
       const batch = mdFiles.slice(i, i + batchSize);
       const batchPromises = batch.map(async (file) => {
@@ -863,13 +934,15 @@ export class TrackdownIndexManager {
           const filePath = path.join(dirPath, file);
           return this.frontmatterParser.parseAnyItem(filePath);
         } catch (error) {
-          console.warn(`Failed to parse ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.warn(
+            `Failed to parse ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
           return null;
         }
       });
-      
+
       const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults.filter(Boolean) as AnyItemData[]);
+      results.push(...(batchResults.filter(Boolean) as AnyItemData[]));
     }
 
     return results;
@@ -889,7 +962,7 @@ export class TrackdownIndexManager {
       tags: epic.tags,
       issueIds: epic.related_issues || [],
       milestone: epic.milestone,
-      completion_percentage: epic.completion_percentage
+      completion_percentage: epic.completion_percentage,
     };
   }
 
@@ -909,7 +982,7 @@ export class TrackdownIndexManager {
       taskIds: issue.related_tasks || [],
       prIds: issue.related_prs || [],
       blocked_by: issue.blocked_by,
-      blocks: issue.blocks
+      blocks: issue.blocks,
     };
   }
 
@@ -930,7 +1003,7 @@ export class TrackdownIndexManager {
       time_estimate: task.time_estimate,
       time_spent: task.time_spent,
       parent_task: task.parent_task,
-      subtasks: task.subtasks
+      subtasks: task.subtasks,
     };
   }
 
@@ -951,7 +1024,7 @@ export class TrackdownIndexManager {
       pr_status: pr.pr_status,
       branch_name: pr.branch_name,
       pr_number: pr.pr_number,
-      reviewers: pr.reviewers
+      reviewers: pr.reviewers,
     };
   }
 
@@ -959,23 +1032,23 @@ export class TrackdownIndexManager {
     // Build Epic -> Issues relationships
     for (const epic of Object.values(index.epics)) {
       epic.issueIds = Object.values(index.issues)
-        .filter(issue => issue.epicId === epic.id)
-        .map(issue => issue.id);
+        .filter((issue) => issue.epicId === epic.id)
+        .map((issue) => issue.id);
     }
 
     // Build Issue -> Tasks/PRs relationships
     for (const issue of Object.values(index.issues)) {
       issue.taskIds = Object.values(index.tasks)
-        .filter(task => task.issueId === issue.id)
-        .map(task => task.id);
-      
+        .filter((task) => task.issueId === issue.id)
+        .map((task) => task.id);
+
       issue.prIds = Object.values(index.prs)
-        .filter(pr => pr.issueId === issue.id)
-        .map(pr => pr.id);
+        .filter((pr) => pr.issueId === issue.id)
+        .map((pr) => pr.id);
     }
   }
 
-  private updateRelationships(index: TrackdownIndex, type: ItemType, id: string): void {
+  private updateRelationships(index: TrackdownIndex, _type: ItemType, _id: string): void {
     // This is a simplified version - in production, you'd want more sophisticated relationship tracking
     this.buildRelationships(index);
   }
@@ -989,13 +1062,13 @@ export class TrackdownIndexManager {
         break;
       case 'epic':
         for (const epic of Object.values(index.epics)) {
-          epic.issueIds = epic.issueIds.filter(issueId => issueId !== id);
+          epic.issueIds = epic.issueIds.filter((issueId) => issueId !== id);
         }
         break;
       case 'issue':
         for (const issue of Object.values(index.issues)) {
-          issue.taskIds = issue.taskIds.filter(taskId => taskId !== id);
-          issue.prIds = issue.prIds.filter(prId => prId !== id);
+          issue.taskIds = issue.taskIds.filter((taskId) => taskId !== id);
+          issue.prIds = issue.prIds.filter((prId) => prId !== id);
         }
         break;
       case 'task':
@@ -1008,13 +1081,13 @@ export class TrackdownIndexManager {
   }
 
   private async findItemFile(type: ItemType, id: string): Promise<string | null> {
-    const paths = this.pathResolver.getUnifiedPaths();
+    const _paths = this.pathResolver.getUnifiedPaths();
     const typeDir = this.pathResolver.getItemTypeDirectory(type);
-    
+
     try {
       const files = await readdir(typeDir);
-      const mdFiles = files.filter(file => file.endsWith('.md'));
-      
+      const mdFiles = files.filter((file) => file.endsWith('.md'));
+
       for (const file of mdFiles) {
         if (file.includes(id)) {
           return path.join(typeDir, file);
@@ -1023,25 +1096,55 @@ export class TrackdownIndexManager {
     } catch {
       // Directory doesn't exist or other error
     }
-    
+
     return null;
   }
 
   private startPerformanceTracking(operation: string): PerformanceTracker {
     return {
       startTime: Date.now(),
-      operation
+      operation,
     };
   }
 
   private endPerformanceTracking(tracker: PerformanceTracker): number {
     const duration = Date.now() - tracker.startTime;
-    
-    // Log performance if it's unusually slow
-    if (duration > 100) {
+
+    // Log performance if it's unusually slow (suppress in test mode)
+    if (duration > 100 && !this.isTestMode) {
       console.warn(`⚠️ Slow ${tracker.operation}: ${duration}ms`);
     }
-    
+
     return duration;
+  }
+
+  /**
+   * Create minimal test index for fast test execution
+   */
+  private createMinimalTestIndex(): TrackdownIndex {
+    return {
+      version: INDEX_VERSION,
+      lastUpdated: new Date().toISOString(),
+      projectPath: this.projectPath,
+      projects: {},
+      epics: {},
+      issues: {},
+      tasks: {},
+      prs: {},
+      stats: {
+        totalProjects: 0,
+        totalEpics: 0,
+        totalIssues: 0,
+        totalTasks: 0,
+        totalPRs: 0,
+        lastFullScan: new Date().toISOString(),
+        indexSize: 0,
+        performanceMetrics: {
+          lastLoadTime: 1,
+          lastUpdateTime: 1,
+          lastRebuildTime: 1,
+        },
+      },
+    };
   }
 }

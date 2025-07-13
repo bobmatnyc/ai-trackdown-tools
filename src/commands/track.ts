@@ -5,16 +5,16 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import type { TrackdownItem } from '../types/index.js';
 import { ConfigManager } from '../utils/config.js';
-import { PathResolver } from '../utils/path-resolver.js';
 import { Formatter } from '../utils/formatter.js';
+import { PathResolver } from '../utils/path-resolver.js';
 import {
-  validatePriority,
-  validateRequired,
-  validateTags,
+  ValidationError,
   validateAssignee,
   validateId,
+  validatePriority,
+  validateRequired,
   validateStoryPoints,
-  ValidationError,
+  validateTags,
 } from '../utils/validation.js';
 
 export function createTrackCommand(): Command {
@@ -82,7 +82,7 @@ Story Points:
           // Load configuration first
           const configManager = new ConfigManager();
           const config = configManager.getConfig();
-          
+
           // Initialize path resolver with CLI override
           const pathResolver = new PathResolver(configManager, rootDirOption);
 
@@ -156,7 +156,7 @@ Story Points:
               if (pathResolver.shouldMigrate()) {
                 pathResolver.showMigrationWarning();
                 console.log('\nMigration commands:');
-                pathResolver.getMigrationCommands().forEach(cmd => {
+                pathResolver.getMigrationCommands().forEach((cmd) => {
                   console.log(Formatter.highlight(cmd));
                 });
                 process.exit(1);
@@ -389,7 +389,7 @@ function sanitizeFilename(title: string): string {
     .substring(0, 50);
 }
 
-function generateMarkdownContent(item: TrackdownItem, config: any): string {
+function generateMarkdownContent(item: TrackdownItem, _config: any): string {
   const tagsSection = item.tags?.length
     ? `\n**Tags**: ${item.tags.map((tag) => `\`${tag}\``).join(', ')}`
     : '';

@@ -1,6 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { defineConfig } from 'tsup';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export default defineConfig({
   entry: {
@@ -40,7 +40,7 @@ export default defineConfig({
     'js-yaml',
     'yaml',
     'semver',
-    'gray-matter'
+    'gray-matter',
   ],
   noExternal: [],
   treeshake: false,
@@ -52,17 +52,17 @@ export default defineConfig({
   keepNames: true,
   onSuccess: async () => {
     console.log('✅ Build completed successfully');
-    
+
     // Copy templates to dist
     const srcTemplatesDir = path.join(process.cwd(), 'src', 'templates');
     const distTemplatesDir = path.join(process.cwd(), 'dist', 'templates');
-    
+
     if (fs.existsSync(srcTemplatesDir)) {
       // Create dist/templates directory
       if (!fs.existsSync(distTemplatesDir)) {
         fs.mkdirSync(distTemplatesDir, { recursive: true });
       }
-      
+
       // Copy all template files
       const templateFiles = fs.readdirSync(srcTemplatesDir);
       for (const file of templateFiles) {
@@ -73,7 +73,7 @@ export default defineConfig({
           console.log(`📦 Copied template: ${file}`);
         }
       }
-      
+
       console.log('✅ Templates bundled successfully');
     } else {
       console.warn('⚠️  No templates directory found at src/templates');

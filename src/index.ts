@@ -1,32 +1,32 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
-import { createExportCommand } from './commands/export.js';
-import { createInitCommand } from './commands/init.js';
-import { createStatusCommand } from './commands/status.js';
-import { createStatusEnhancedCommand } from './commands/status-enhanced.js';
+import { createAiCommand } from './commands/ai.js';
 import { createBacklogCommand } from './commands/backlog.js';
 import { createBacklogEnhancedCommand } from './commands/backlog-enhanced.js';
-import { createPortfolioCommand } from './commands/portfolio.js';
-import { createTrackCommand } from './commands/track.js';
-import { createVersionCommand } from './commands/version.js';
 import { createEpicCommand } from './commands/epic.js';
+import { createExportCommand } from './commands/export.js';
+import { createHealthCommand } from './commands/health.js';
+import { createInitCommand } from './commands/init.js';
 import { createIssueCommand } from './commands/issue.js';
-import { createTaskCommand } from './commands/task.js';
-import { createPRCommand } from './commands/pr.js';
-import { createProjectCommand } from './commands/project.js';
-import { createAiCommand } from './commands/ai.js';
-import { createSyncCommand } from './commands/sync.js';
 import { createMigrateCommand } from './commands/migrate.js';
 import { createMigrateStructureCommand } from './commands/migrate-structure.js';
-import { createHealthCommand } from './commands/health.js';
-import { VersionManager } from './utils/version.js';
+import { createPortfolioCommand } from './commands/portfolio.js';
+import { createPRCommand } from './commands/pr.js';
+import { createProjectCommand } from './commands/project.js';
+import { createStatusCommand } from './commands/status.js';
+import { createStatusEnhancedCommand } from './commands/status-enhanced.js';
+import { createSyncCommand } from './commands/sync.js';
+import { createTaskCommand } from './commands/task.js';
+import { createTrackCommand } from './commands/track.js';
+import { createVersionCommand } from './commands/version.js';
 import { Formatter } from './utils/formatter.js';
+import { VersionManager } from './utils/version.js';
 
 // Get version from VERSION file
 function getVersion(): string {
   try {
     return VersionManager.getVersion().version;
-  } catch (error) {
+  } catch (_error) {
     console.warn('Warning: Could not read VERSION file, using fallback version');
     return '1.0.1'; // fallback that matches package.json
   }
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   // Handle global options
   program.hook('preAction', (thisCommand) => {
     const opts = program.opts();
-    
+
     // Handle no-color option
     if (opts.noColor) {
       process.env.FORCE_COLOR = '0';
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   program.addCommand(createExportCommand());
   program.addCommand(createVersionCommand());
   program.addCommand(createHealthCommand());
-  
+
   // AI-Trackdown hierarchical commands
   program.addCommand(createProjectCommand());
   program.addCommand(createEpicCommand());
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   program.addCommand(createPRCommand());
   program.addCommand(createAiCommand());
   program.addCommand(createSyncCommand());
-  
+
   // Migration commands
   program.addCommand(createMigrateCommand());
   program.addCommand(createMigrateStructureCommand());
@@ -228,25 +228,31 @@ async function main(): Promise<void> {
     console.log(chalk.bold.cyan('📖 LEARN MORE:'));
     console.log('  Documentation: https://github.com/bobmatnyc/ai-trackdown-tools');
     console.log('  Issues: https://github.com/bobmatnyc/ai-trackdown-tools/issues');
-    console.log('  Version: ' + packageInfo.version);
+    console.log(`  Version: ${packageInfo.version}`);
   });
 
-  // Error handling
-  process.on('uncaughtException', (error) => {
-    console.error(Formatter.error(`Uncaught exception: ${error.message}`));
-    if (program.opts().verbose) {
-      console.error(error.stack);
-    }
-    process.exit(1);
-  });
+  // Error handling - only register in non-test environments to prevent accumulation
+  if (process.env.NODE_ENV !== 'test') {
+    // Remove any existing listeners to prevent accumulation
+    process.removeAllListeners('uncaughtException');
+    process.removeAllListeners('unhandledRejection');
 
-  process.on('unhandledRejection', (reason) => {
-    console.error(Formatter.error(`Unhandled rejection: ${reason}`));
-    if (program.opts().verbose && reason instanceof Error) {
-      console.error(reason.stack);
-    }
-    process.exit(1);
-  });
+    process.on('uncaughtException', (error) => {
+      console.error(Formatter.error(`Uncaught exception: ${error.message}`));
+      if (program.opts().verbose) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason) => {
+      console.error(Formatter.error(`Unhandled rejection: ${reason}`));
+      if (program.opts().verbose && reason instanceof Error) {
+        console.error(reason.stack);
+      }
+      process.exit(1);
+    });
+  }
 
   // Parse arguments
   try {

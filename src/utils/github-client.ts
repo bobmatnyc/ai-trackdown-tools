@@ -3,9 +3,9 @@
  * Handles GitHub Issues API interactions with authentication, rate limiting, and pagination
  */
 
-import { Octokit } from '@octokit/rest';
 import { RequestError } from '@octokit/request-error';
-import { GitHubIssue, GitHubSyncConfig } from '../types/ai-trackdown.js';
+import { Octokit } from '@octokit/rest';
+import type { GitHubIssue, GitHubSyncConfig } from '../types/ai-trackdown.js';
 
 export class GitHubClient {
   private octokit: Octokit;
@@ -15,16 +15,18 @@ export class GitHubClient {
 
   constructor(config: GitHubSyncConfig) {
     this.config = config;
-    
+
     // Parse repository format (owner/repo)
     const [owner, repo] = config.repository.split('/');
     if (!owner || !repo) {
-      throw new Error(`Invalid repository format: ${config.repository}. Expected format: owner/repo`);
+      throw new Error(
+        `Invalid repository format: ${config.repository}. Expected format: owner/repo`
+      );
     }
-    
+
     this.owner = owner;
     this.repo = repo;
-    
+
     // Initialize Octokit with authentication
     this.octokit = new Octokit({
       auth: config.token,
@@ -92,12 +94,14 @@ export class GitHubClient {
   /**
    * Get all issues from GitHub repository with pagination
    */
-  async getAllIssues(options: {
-    state?: 'open' | 'closed' | 'all';
-    sort?: 'created' | 'updated' | 'comments';
-    direction?: 'asc' | 'desc';
-    since?: string;
-  } = {}): Promise<GitHubIssue[]> {
+  async getAllIssues(
+    options: {
+      state?: 'open' | 'closed' | 'all';
+      sort?: 'created' | 'updated' | 'comments';
+      direction?: 'asc' | 'desc';
+      since?: string;
+    } = {}
+  ): Promise<GitHubIssue[]> {
     const issues: GitHubIssue[] = [];
     let page = 1;
     const per_page = Math.min(this.config.batch_size || 100, 100);
@@ -138,7 +142,9 @@ export class GitHubClient {
 
       return issues;
     } catch (error) {
-      throw new Error(`Failed to fetch issues: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch issues: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -158,7 +164,9 @@ export class GitHubClient {
       if (error instanceof RequestError && error.status === 404) {
         return null;
       }
-      throw new Error(`Failed to fetch issue #${issueNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch issue #${issueNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -187,21 +195,26 @@ export class GitHubClient {
 
       return this.convertGitHubIssue(response.data);
     } catch (error) {
-      throw new Error(`Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Update an existing issue in GitHub
    */
-  async updateIssue(issueNumber: number, data: {
-    title?: string;
-    body?: string;
-    state?: 'open' | 'closed';
-    assignee?: string;
-    milestone?: number;
-    labels?: string[];
-  }): Promise<GitHubIssue> {
+  async updateIssue(
+    issueNumber: number,
+    data: {
+      title?: string;
+      body?: string;
+      state?: 'open' | 'closed';
+      assignee?: string;
+      milestone?: number;
+      labels?: string[];
+    }
+  ): Promise<GitHubIssue> {
     try {
       await this.delay(this.config.rate_limit_delay || 100);
 
@@ -219,7 +232,9 @@ export class GitHubClient {
 
       return this.convertGitHubIssue(response.data);
     } catch (error) {
-      throw new Error(`Failed to update issue #${issueNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update issue #${issueNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -247,13 +262,15 @@ export class GitHubClient {
         repo: this.repo,
       });
 
-      return response.data.map(label => ({
+      return response.data.map((label) => ({
         name: label.name,
         color: label.color,
         description: label.description || undefined,
       }));
     } catch (error) {
-      throw new Error(`Failed to fetch labels: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch labels: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -267,13 +284,15 @@ export class GitHubClient {
         repo: this.repo,
       });
 
-      return response.data.map(milestone => ({
+      return response.data.map((milestone) => ({
         title: milestone.title,
         number: milestone.number,
         state: milestone.state,
       }));
     } catch (error) {
-      throw new Error(`Failed to fetch milestones: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch milestones: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -287,12 +306,14 @@ export class GitHubClient {
         repo: this.repo,
       });
 
-      return response.data.map(collaborator => ({
+      return response.data.map((collaborator) => ({
         login: collaborator.login,
         id: collaborator.id,
       }));
     } catch (error) {
-      throw new Error(`Failed to fetch collaborators: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch collaborators: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -316,7 +337,9 @@ export class GitHubClient {
         used: core.used,
       };
     } catch (error) {
-      throw new Error(`Failed to fetch rate limit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch rate limit: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -332,18 +355,22 @@ export class GitHubClient {
       state: issue.state,
       created_at: issue.created_at,
       updated_at: issue.updated_at,
-      assignee: issue.assignee ? {
-        login: issue.assignee.login,
-        id: issue.assignee.id,
-      } : undefined,
+      assignee: issue.assignee
+        ? {
+            login: issue.assignee.login,
+            id: issue.assignee.id,
+          }
+        : undefined,
       labels: issue.labels.map((label: any) => ({
         name: label.name,
         color: label.color,
       })),
-      milestone: issue.milestone ? {
-        title: issue.milestone.title,
-        number: issue.milestone.number,
-      } : undefined,
+      milestone: issue.milestone
+        ? {
+            title: issue.milestone.title,
+            number: issue.milestone.number,
+          }
+        : undefined,
       html_url: issue.html_url,
     };
   }
@@ -352,6 +379,6 @@ export class GitHubClient {
    * Helper method to add delay for rate limiting
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

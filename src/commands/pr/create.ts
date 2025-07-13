@@ -3,15 +3,15 @@
  * Creates new PRs using YAML frontmatter system
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fs from 'fs';
-import { ConfigManager } from '../../utils/config-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
-import { IdGenerator } from '../../utils/simple-id-generator.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
 import type { PRFrontmatter, PRStatus, Priority } from '../../types/ai-trackdown.js';
+import { ConfigManager } from '../../utils/config-manager.js';
 import { Formatter } from '../../utils/formatter.js';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { IdGenerator } from '../../utils/simple-id-generator.js';
 
 interface CreateOptions {
   title?: string;
@@ -34,7 +34,7 @@ interface CreateOptions {
 
 export function createPRCreateCommand(): Command {
   const cmd = new Command('create');
-  
+
   cmd
     .description('Create a new PR within an issue')
     .argument('[title]', 'PR title (optional if using --title flag)')
@@ -43,7 +43,11 @@ export function createPRCreateCommand(): Command {
     .option('-d, --description <text>', 'PR description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
-    .option('-s, --pr-status <status>', 'initial PR status (draft|open|review|approved|merged|closed)', 'draft')
+    .option(
+      '-s, --pr-status <status>',
+      'initial PR status (draft|open|review|approved|merged|closed)',
+      'draft'
+    )
     .option('-t, --template <name>', 'template to use', 'default')
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
@@ -59,11 +63,17 @@ export function createPRCreateCommand(): Command {
         // Support both positional argument and --title flag
         const title = titleArg || options.title;
         if (!title) {
-          throw new Error('PR title is required. Provide it as a positional argument or use --title flag.');
+          throw new Error(
+            'PR title is required. Provide it as a positional argument or use --title flag.'
+          );
         }
         await createPR(title, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to create PR: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to create PR: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -76,34 +86,36 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
   const config = configManager.getConfig();
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
-  
+
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
-  
+
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+
   // Validate that the issue exists
   const issueHierarchy = relationshipManager.getIssueHierarchy(options.issue);
   if (!issueHierarchy) {
     throw new Error(`Issue not found: ${options.issue}`);
   }
-  
+
   // Generate PR ID
   const prId = idGenerator.generatePRId(options.issue, title);
-  
+
   // Get template
   const template = configManager.getTemplateWithFallback('pr', options.template || 'default');
   if (!template) {
     throw new Error(`PR template '${options.template || 'default'}' not found`);
   }
-  
+
   // Parse tags, reviewers, and dependencies
-  const tags = options.tags ? options.tags.split(',').map(tag => tag.trim()) : [];
-  const reviewers = options.reviewers ? options.reviewers.split(',').map(r => r.trim()) : [];
-  const dependencies = options.dependencies ? options.dependencies.split(',').map(dep => dep.trim()) : [];
-  
+  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  const reviewers = options.reviewers ? options.reviewers.split(',').map((r) => r.trim()) : [];
+  const dependencies = options.dependencies
+    ? options.dependencies.split(',').map((dep) => dep.trim())
+    : [];
+
   // Create PR frontmatter
   const now = new Date().toISOString();
   const prFrontmatter: PRFrontmatter = {
@@ -133,9 +145,9 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
     blocked_by: [],
     blocks: [],
     related_prs: [],
-    template_used: options.template || 'default'
+    template_used: options.template || 'default',
   };
-  
+
   // Generate content from template
   const content = template.content_template
     .replace(/\{\{title\}\}/g, title)
@@ -143,11 +155,11 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
     .replace(/\{\{issue_id\}\}/g, options.issue)
     .replace(/\{\{branch_name\}\}/g, prFrontmatter.branch_name || '')
     .replace(/\{\{target_branch\}\}/g, prFrontmatter.target_branch || 'main');
-  
+
   // Create filename
   const filename = `${prId}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${config.naming_conventions.file_extension}`;
   const filePath = path.join(paths.prsDir, filename);
-  
+
   if (options.dryRun) {
     console.log(Formatter.info('Dry run - PR would be created with:'));
     console.log(Formatter.debug(`File: ${filePath}`));
@@ -173,23 +185,23 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
     }
     return;
   }
-  
+
   // Check if file already exists
   if (fs.existsSync(filePath)) {
     throw new Error(`PR file already exists: ${filePath}`);
   }
-  
+
   // Write the PR file
   parser.writePR(filePath, prFrontmatter, content);
-  
+
   // Update the issue's related PRs
   const issue = issueHierarchy.issue;
   const updatedRelatedPRs = [...(issue.related_prs || []), prId];
   parser.updateFile(issue.file_path, { related_prs: updatedRelatedPRs });
-  
+
   // Refresh cache
   relationshipManager.rebuildCache();
-  
+
   console.log(Formatter.success(`PR created successfully!`));
   console.log(Formatter.info(`PR ID: ${prId}`));
   console.log(Formatter.info(`Issue ID: ${options.issue}`));
@@ -200,27 +212,27 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
   console.log(Formatter.info(`Priority: ${prFrontmatter.priority}`));
   console.log(Formatter.info(`Assignee: ${prFrontmatter.assignee}`));
   console.log(Formatter.info(`Target Branch: ${prFrontmatter.target_branch}`));
-  
+
   if (prFrontmatter.branch_name) {
     console.log(Formatter.info(`Branch Name: ${prFrontmatter.branch_name}`));
   }
-  
+
   if (tags.length > 0) {
     console.log(Formatter.info(`Tags: ${tags.join(', ')}`));
   }
-  
+
   if (reviewers.length > 0) {
     console.log(Formatter.info(`Reviewers: ${reviewers.join(', ')}`));
   }
-  
+
   if (dependencies.length > 0) {
     console.log(Formatter.info(`Dependencies: ${dependencies.join(', ')}`));
   }
-  
+
   if (options.repositoryUrl) {
     console.log(Formatter.info(`Repository: ${options.repositoryUrl}`));
   }
-  
+
   console.log('');
   console.log(Formatter.success(`PR added to issue "${issue.title}"`));
 }

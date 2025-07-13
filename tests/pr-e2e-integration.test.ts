@@ -3,14 +3,14 @@
  * Tests complete PR workflows from creation to completion
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawn } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { promisify } from 'util';
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { promisify } from 'node:util';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-const execAsync = promisify(spawn);
+const _execAsync = promisify(spawn);
 
 describe('PR E2E Integration Tests', () => {
   let testDir: string;
@@ -21,10 +21,10 @@ describe('PR E2E Integration Tests', () => {
     originalCwd = process.cwd();
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-trackdown-e2e-'));
     process.chdir(testDir);
-    
+
     // Get CLI path
     cliPath = path.join(originalCwd, 'dist', 'index.cjs');
-    
+
     // Initialize test project
     initializeTestProject();
   });
@@ -57,19 +57,19 @@ describe('PR E2E Integration Tests', () => {
         prs_dir: 'prs',
         tasks_dir: 'tasks',
         issues_dir: 'issues',
-        templates_dir: 'templates'
+        templates_dir: 'templates',
       },
       naming_conventions: {
         pr_prefix: 'PR',
         task_prefix: 'TASK',
-        issue_prefix: 'ISSUE'
-      }
+        issue_prefix: 'ISSUE',
+      },
     };
     fs.writeFileSync(path.join(testDir, 'ai-trackdown.json'), JSON.stringify(config, null, 2));
 
     // Create templates
     createTemplates();
-    
+
     // Create sample tasks and issues
     createSampleData();
   };
@@ -231,15 +231,20 @@ This task involves implementing the core functionality for the new feature.
 - [ ] Code review completed
 - [ ] Documentation updated`;
 
-    fs.writeFileSync(path.join(testDir, 'tasks', 'TASK-001-implement-core-functionality.md'), taskContent);
+    fs.writeFileSync(
+      path.join(testDir, 'tasks', 'TASK-001-implement-core-functionality.md'),
+      taskContent
+    );
   };
 
-  const runCLI = async (args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
+  const runCLI = async (
+    args: string[]
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
     return new Promise((resolve, reject) => {
       const child = spawn('node', [cliPath, ...args], {
         cwd: testDir,
         stdio: 'pipe',
-        env: { ...process.env, NODE_ENV: 'test' }
+        env: { ...process.env, NODE_ENV: 'test' },
       });
 
       let stdout = '';
@@ -257,7 +262,7 @@ This task involves implementing the core functionality for the new feature.
         resolve({
           stdout,
           stderr,
-          exitCode: code || 0
+          exitCode: code || 0,
         });
       });
 
@@ -277,14 +282,21 @@ This task involves implementing the core functionality for the new feature.
     it('should complete full PR lifecycle: create -> review -> approve -> merge', async () => {
       // Step 1: Create PR
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Test Feature Implementation',
-        '--issue', 'ISSUE-001',
-        '--description', 'Implementing the test feature',
-        '--assignee', 'test-user',
-        '--branch-name', 'feature/test-implementation',
-        '--reviewers', 'reviewer1,reviewer2',
-        '--dry-run'
+        'pr',
+        'create',
+        '--title',
+        'Test Feature Implementation',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Implementing the test feature',
+        '--assignee',
+        'test-user',
+        '--branch-name',
+        'feature/test-implementation',
+        '--reviewers',
+        'reviewer1,reviewer2',
+        '--dry-run',
       ]);
 
       expect(createResult.exitCode).toBe(0);
@@ -292,13 +304,20 @@ This task involves implementing the core functionality for the new feature.
 
       // Step 2: Create PR for real
       const createRealResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Test Feature Implementation',
-        '--issue', 'ISSUE-001',
-        '--description', 'Implementing the test feature',
-        '--assignee', 'test-user',
-        '--branch-name', 'feature/test-implementation',
-        '--reviewers', 'reviewer1,reviewer2'
+        'pr',
+        'create',
+        '--title',
+        'Test Feature Implementation',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Implementing the test feature',
+        '--assignee',
+        'test-user',
+        '--branch-name',
+        'feature/test-implementation',
+        '--reviewers',
+        'reviewer1,reviewer2',
       ]);
 
       expect(createRealResult.exitCode).toBe(0);
@@ -317,37 +336,45 @@ This task involves implementing the core functionality for the new feature.
       expect(showResult.stdout).toContain('reviewer2');
 
       // Step 5: Update PR status to review
-      const updateResult = await runCLI([
-        'pr', 'update', 'PR-001',
-        '--status', 'review'
-      ]);
+      const updateResult = await runCLI(['pr', 'update', 'PR-001', '--status', 'review']);
       expect(updateResult.exitCode).toBe(0);
       expect(updateResult.stdout).toContain('PR updated successfully');
 
       // Step 6: Add review
       const reviewResult = await runCLI([
-        'pr', 'review', 'PR-001',
+        'pr',
+        'review',
+        'PR-001',
         '--approve',
-        '--comments', 'This looks good! LGTM.',
-        '--reviewer', 'reviewer1'
+        '--comments',
+        'This looks good! LGTM.',
+        '--reviewer',
+        'reviewer1',
       ]);
       expect(reviewResult.exitCode).toBe(0);
       expect(reviewResult.stdout).toContain('Review added successfully');
 
       // Step 7: Approve PR
       const approveResult = await runCLI([
-        'pr', 'approve', 'PR-001',
-        '--comments', 'Final approval',
-        '--reviewer', 'reviewer2'
+        'pr',
+        'approve',
+        'PR-001',
+        '--comments',
+        'Final approval',
+        '--reviewer',
+        'reviewer2',
       ]);
       expect(approveResult.exitCode).toBe(0);
       expect(approveResult.stdout).toContain('PR approved successfully');
 
       // Step 8: Merge PR
       const mergeResult = await runCLI([
-        'pr', 'merge', 'PR-001',
-        '--strategy', 'squash',
-        '--close-linked-tasks'
+        'pr',
+        'merge',
+        'PR-001',
+        '--strategy',
+        'squash',
+        '--close-linked-tasks',
       ]);
       expect(mergeResult.exitCode).toBe(0);
       expect(mergeResult.stdout).toContain('PR merged successfully');
@@ -361,28 +388,40 @@ This task involves implementing the core functionality for the new feature.
     it('should handle PR rejection workflow', async () => {
       // Create PR
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Feature to be rejected',
-        '--issue', 'ISSUE-001',
-        '--description', 'This feature will be rejected',
-        '--assignee', 'test-user'
+        'pr',
+        'create',
+        '--title',
+        'Feature to be rejected',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'This feature will be rejected',
+        '--assignee',
+        'test-user',
       ]);
       expect(createResult.exitCode).toBe(0);
 
       // Request changes
       const reviewResult = await runCLI([
-        'pr', 'review', 'PR-001',
+        'pr',
+        'review',
+        'PR-001',
         '--request-changes',
-        '--comments', 'This needs significant changes',
-        '--reviewer', 'reviewer1'
+        '--comments',
+        'This needs significant changes',
+        '--reviewer',
+        'reviewer1',
       ]);
       expect(reviewResult.exitCode).toBe(0);
 
       // Close PR
       const closeResult = await runCLI([
-        'pr', 'close', 'PR-001',
-        '--reason', 'rejected',
-        '--update-linked-tasks'
+        'pr',
+        'close',
+        'PR-001',
+        '--reason',
+        'rejected',
+        '--update-linked-tasks',
       ]);
       expect(closeResult.exitCode).toBe(0);
       expect(closeResult.stdout).toContain('PR closed successfully');
@@ -397,19 +436,20 @@ This task involves implementing the core functionality for the new feature.
   describe('Batch Operations', () => {
     it('should handle batch PR operations', async () => {
       // Create multiple PRs
-      const prTitles = [
-        'Batch PR 1',
-        'Batch PR 2',
-        'Batch PR 3'
-      ];
+      const prTitles = ['Batch PR 1', 'Batch PR 2', 'Batch PR 3'];
 
       for (const title of prTitles) {
         const createResult = await runCLI([
-          'pr', 'create',
-          '--title', title,
-          '--issue', 'ISSUE-001',
-          '--description', `Description for ${title}`,
-          '--assignee', 'test-user'
+          'pr',
+          'create',
+          '--title',
+          title,
+          '--issue',
+          'ISSUE-001',
+          '--description',
+          `Description for ${title}`,
+          '--assignee',
+          'test-user',
         ]);
         expect(createResult.exitCode).toBe(0);
       }
@@ -417,16 +457,19 @@ This task involves implementing the core functionality for the new feature.
       // List all PRs
       const listResult = await runCLI(['pr', 'list']);
       expect(listResult.exitCode).toBe(0);
-      prTitles.forEach(title => {
+      prTitles.forEach((title) => {
         expect(listResult.stdout).toContain(title);
       });
 
       // Batch approve (if implemented)
       const batchResult = await runCLI([
-        'pr', 'batch',
-        '--operation', 'approve',
-        '--filter', 'status:open',
-        '--dry-run'
+        'pr',
+        'batch',
+        '--operation',
+        'approve',
+        '--filter',
+        'status:open',
+        '--dry-run',
       ]);
       expect(batchResult.exitCode).toBe(0);
       expect(batchResult.stdout).toContain('Batch operation');
@@ -447,10 +490,14 @@ This task involves implementing the core functionality for the new feature.
 
       // Try to create PR with invalid issue
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Test PR',
-        '--issue', 'INVALID-999',
-        '--description', 'Test description'
+        'pr',
+        'create',
+        '--title',
+        'Test PR',
+        '--issue',
+        'INVALID-999',
+        '--description',
+        'Test description',
       ]);
       expect(createResult.exitCode).not.toBe(0);
       expect(createResult.stderr).toContain('Issue not found');
@@ -459,9 +506,12 @@ This task involves implementing the core functionality for the new feature.
     it('should validate required parameters', async () => {
       // Try to create PR without required title
       const createResult = await runCLI([
-        'pr', 'create',
-        '--issue', 'ISSUE-001',
-        '--description', 'Test description'
+        'pr',
+        'create',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Test description',
       ]);
       expect(createResult.exitCode).not.toBe(0);
       expect(createResult.stderr).toContain('required');
@@ -478,11 +528,16 @@ This task involves implementing the core functionality for the new feature.
       // Create a PR
       const createStart = Date.now();
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Performance Test PR',
-        '--issue', 'ISSUE-001',
-        '--description', 'Testing performance',
-        '--assignee', 'test-user'
+        'pr',
+        'create',
+        '--title',
+        'Performance Test PR',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Testing performance',
+        '--assignee',
+        'test-user',
       ]);
       const createTime = Date.now() - createStart;
 
@@ -550,16 +605,19 @@ This task involves implementing the core functionality for the new feature.
         structure: {
           prs_dir: 'pull-requests',
           tasks_dir: 'tasks',
-          issues_dir: 'issues'
+          issues_dir: 'issues',
         },
         naming_conventions: {
           pr_prefix: 'MR',
           task_prefix: 'TASK',
-          issue_prefix: 'ISSUE'
-        }
+          issue_prefix: 'ISSUE',
+        },
       };
 
-      fs.writeFileSync(path.join(testDir, 'ai-trackdown.json'), JSON.stringify(customConfig, null, 2));
+      fs.writeFileSync(
+        path.join(testDir, 'ai-trackdown.json'),
+        JSON.stringify(customConfig, null, 2)
+      );
 
       // Create directories for custom config
       fs.mkdirSync(path.join(testDir, 'pull-requests', 'draft'), { recursive: true });
@@ -567,11 +625,16 @@ This task involves implementing the core functionality for the new feature.
 
       // Try to create PR with custom config
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'Custom Config Test',
-        '--issue', 'ISSUE-001',
-        '--description', 'Testing custom configuration',
-        '--assignee', 'test-user'
+        'pr',
+        'create',
+        '--title',
+        'Custom Config Test',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Testing custom configuration',
+        '--assignee',
+        'test-user',
       ]);
 
       expect(createResult.exitCode).toBe(0);
@@ -583,11 +646,16 @@ This task involves implementing the core functionality for the new feature.
     it('should maintain proper file organization', async () => {
       // Create PR
       const createResult = await runCLI([
-        'pr', 'create',
-        '--title', 'File System Test',
-        '--issue', 'ISSUE-001',
-        '--description', 'Testing file system integration',
-        '--assignee', 'test-user'
+        'pr',
+        'create',
+        '--title',
+        'File System Test',
+        '--issue',
+        'ISSUE-001',
+        '--description',
+        'Testing file system integration',
+        '--assignee',
+        'test-user',
       ]);
       expect(createResult.exitCode).toBe(0);
 
@@ -597,10 +665,7 @@ This task involves implementing the core functionality for the new feature.
       expect(draftFiles[0]).toContain('PR-001');
 
       // Update status and verify file move
-      const updateResult = await runCLI([
-        'pr', 'update', 'PR-001',
-        '--status', 'open'
-      ]);
+      const updateResult = await runCLI(['pr', 'update', 'PR-001', '--status', 'open']);
       expect(updateResult.exitCode).toBe(0);
 
       // Verify file moved to correct directory

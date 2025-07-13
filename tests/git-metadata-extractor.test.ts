@@ -2,15 +2,15 @@
  * Integration tests for Git Metadata Extractor
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { 
-  GitMetadataExtractor, 
-  extractGitMetadata, 
-  createProjectWithGitMetadata 
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  createProjectWithGitMetadata,
+  extractGitMetadata,
+  GitMetadataExtractor,
 } from '../src/utils/git-metadata-extractor.js';
 
 describe('GitMetadataExtractor', () => {
@@ -22,7 +22,7 @@ describe('GitMetadataExtractor', () => {
     testRepoPath = fs.mkdtempSync(path.join(tmpdir(), 'git-metadata-test-'));
     originalCwd = process.cwd();
     process.chdir(testRepoPath);
-    
+
     // Initialize git repo
     execSync('git init', { stdio: 'ignore' });
     execSync('git config user.email "test@example.com"', { stdio: 'ignore' });
@@ -58,13 +58,13 @@ describe('GitMetadataExtractor', () => {
       // Create non-git directory
       const nonGitPath = fs.mkdtempSync(path.join(tmpdir(), 'non-git-'));
       const extractor = new GitMetadataExtractor(nonGitPath);
-      
+
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.is_git_repo).toBe(false);
       expect(metadata.commit_count).toBe(0);
       expect(metadata.readme_exists).toBe(false);
-      
+
       fs.rmSync(nonGitPath, { recursive: true, force: true });
     });
 
@@ -73,10 +73,10 @@ describe('GitMetadataExtractor', () => {
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test Project');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.is_git_repo).toBe(true);
       expect(metadata.commit_count).toBe(1);
       expect(metadata.readme_exists).toBe(true);
@@ -89,23 +89,23 @@ describe('GitMetadataExtractor', () => {
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test Project');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       // Create uncommitted change
       fs.writeFileSync(path.join(testRepoPath, 'new-file.txt'), 'New content');
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.has_uncommitted_changes).toBe(true);
     });
 
     it('should extract repository URLs', async () => {
       // Set up remote origin
       execSync('git remote add origin https://github.com/user/repo.git', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.git_origin).toBe('https://github.com/user/repo.git');
       expect(metadata.repository_url).toBe('https://github.com/user/repo');
       expect(metadata.clone_url).toBe('https://github.com/user/repo.git');
@@ -114,10 +114,10 @@ describe('GitMetadataExtractor', () => {
     it('should convert SSH URLs to HTTPS', async () => {
       // Set up remote origin with SSH
       execSync('git remote add origin git@github.com:user/repo.git', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.git_origin).toBe('git@github.com:user/repo.git');
       expect(metadata.repository_url).toBe('https://github.com/user/repo');
       expect(metadata.clone_url).toBe('https://github.com/user/repo.git');
@@ -127,22 +127,25 @@ describe('GitMetadataExtractor', () => {
   describe('language detection', () => {
     it('should detect JavaScript/TypeScript project', async () => {
       // Create Node.js project files
-      fs.writeFileSync(path.join(testRepoPath, 'package.json'), JSON.stringify({
-        name: 'test-project',
-        dependencies: {
-          'react': '^18.0.0'
-        }
-      }));
+      fs.writeFileSync(
+        path.join(testRepoPath, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          dependencies: {
+            react: '^18.0.0',
+          },
+        })
+      );
       fs.writeFileSync(path.join(testRepoPath, 'index.js'), 'console.log("Hello");');
       fs.writeFileSync(path.join(testRepoPath, 'app.tsx'), 'export default function App() {}');
-      
+
       // Add to git
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.languages).toContain('JavaScript');
       expect(metadata.languages).toContain('TypeScript');
       expect(metadata.framework).toBe('React 18.0.0');
@@ -154,14 +157,14 @@ describe('GitMetadataExtractor', () => {
       fs.writeFileSync(path.join(testRepoPath, 'requirements.txt'), 'Flask==2.0.1');
       fs.writeFileSync(path.join(testRepoPath, 'app.py'), 'from flask import Flask');
       fs.writeFileSync(path.join(testRepoPath, 'utils.py'), 'def helper(): pass');
-      
+
       // Add to git
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.languages).toContain('Python');
       expect(metadata.framework).toBe('Flask');
       expect(metadata.package_manager).toBe('pip');
@@ -169,23 +172,26 @@ describe('GitMetadataExtractor', () => {
 
     it('should detect Rust project', async () => {
       // Create Rust project files
-      fs.writeFileSync(path.join(testRepoPath, 'Cargo.toml'), `
+      fs.writeFileSync(
+        path.join(testRepoPath, 'Cargo.toml'),
+        `
 [package]
 name = "test-project"
 version = "0.1.0"
 
 [dependencies]
 actix-web = "4.0"
-      `);
+      `
+      );
       fs.writeFileSync(path.join(testRepoPath, 'main.rs'), 'fn main() {}');
-      
+
       // Add to git
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.languages).toContain('Rust');
       expect(metadata.framework).toBe('Actix Web');
       expect(metadata.package_manager).toBe('cargo');
@@ -194,38 +200,43 @@ actix-web = "4.0"
 
   describe('framework detection', () => {
     it('should detect Next.js project', async () => {
-      fs.writeFileSync(path.join(testRepoPath, 'package.json'), JSON.stringify({
-        name: 'test-project',
-        dependencies: {
-          'next': '^13.0.0',
-          'react': '^18.0.0'
-        }
-      }));
-      
+      fs.writeFileSync(
+        path.join(testRepoPath, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          dependencies: {
+            next: '^13.0.0',
+            react: '^18.0.0',
+          },
+        })
+      );
+
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.framework).toBe('Next.js 13.0.0');
     });
 
     it('should detect Django project', async () => {
       fs.writeFileSync(path.join(testRepoPath, 'manage.py'), 'import django');
       fs.writeFileSync(path.join(testRepoPath, 'requirements.txt'), 'Django==4.0.0');
-      
+
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.framework).toBe('Django');
     });
 
     it('should detect Spring Boot project', async () => {
-      fs.writeFileSync(path.join(testRepoPath, 'pom.xml'), `
+      fs.writeFileSync(
+        path.join(testRepoPath, 'pom.xml'),
+        `
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
   <dependencies>
@@ -235,21 +246,24 @@ actix-web = "4.0"
     </dependency>
   </dependencies>
 </project>
-      `);
-      
+      `
+      );
+
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.framework).toBe('Spring Boot');
     });
   });
 
   describe('license detection', () => {
     it('should detect MIT license from LICENSE file', async () => {
-      fs.writeFileSync(path.join(testRepoPath, 'LICENSE'), `
+      fs.writeFileSync(
+        path.join(testRepoPath, 'LICENSE'),
+        `
 MIT License
 
 Copyright (c) 2023 Test User
@@ -271,29 +285,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-      `);
-      
+      `
+      );
+
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.license).toBe('MIT');
     });
 
     it('should detect license from package.json', async () => {
-      fs.writeFileSync(path.join(testRepoPath, 'package.json'), JSON.stringify({
-        name: 'test-project',
-        license: 'Apache-2.0'
-      }));
-      
+      fs.writeFileSync(
+        path.join(testRepoPath, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          license: 'Apache-2.0',
+        })
+      );
+
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.license).toBe('Apache-2.0');
     });
   });
@@ -304,27 +322,27 @@ SOFTWARE.
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test Project');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       // Create second commit with different author
       execSync('git config user.name "Second User"', { stdio: 'ignore' });
       execSync('git config user.email "second@example.com"', { stdio: 'ignore' });
       fs.writeFileSync(path.join(testRepoPath, 'file2.txt'), 'Second commit');
       execSync('git add file2.txt', { stdio: 'ignore' });
       execSync('git commit -m "Second commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const metadata = await extractor.extractMetadata();
-      
+
       expect(metadata.contributors).toHaveLength(2);
       expect(metadata.team_members).toContain('Test User');
       expect(metadata.team_members).toContain('Second User');
-      
+
       // Check contributor details
-      const testUser = metadata.contributors?.find(c => c.name === 'Test User');
+      const testUser = metadata.contributors?.find((c) => c.name === 'Test User');
       expect(testUser?.commits).toBe(1);
       expect(testUser?.email).toBe('test@example.com');
-      
-      const secondUser = metadata.contributors?.find(c => c.name === 'Second User');
+
+      const secondUser = metadata.contributors?.find((c) => c.name === 'Second User');
       expect(secondUser?.commits).toBe(1);
       expect(secondUser?.email).toBe('second@example.com');
     });
@@ -335,17 +353,17 @@ SOFTWARE.
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test Project');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath, true);
-      
+
       // First call
       const metadata1 = await extractor.extractMetadata();
-      
+
       // Second call should return cached result
       const metadata2 = await extractor.extractMetadata();
-      
+
       expect(metadata1).toEqual(metadata2);
-      
+
       const cacheStats = GitMetadataExtractor.getCacheStats();
       expect(cacheStats.size).toBe(1);
       expect(cacheStats.entries).toContain(testRepoPath);
@@ -353,9 +371,9 @@ SOFTWARE.
 
     it('should not cache when disabled', async () => {
       const extractor = new GitMetadataExtractor(testRepoPath, false);
-      
+
       await extractor.extractMetadata();
-      
+
       const cacheStats = GitMetadataExtractor.getCacheStats();
       expect(cacheStats.size).toBe(0);
     });
@@ -363,11 +381,11 @@ SOFTWARE.
     it('should clear cache', async () => {
       const extractor = new GitMetadataExtractor(testRepoPath, true);
       await extractor.extractMetadata();
-      
+
       expect(GitMetadataExtractor.getCacheStats().size).toBe(1);
-      
+
       GitMetadataExtractor.clearCache();
-      
+
       expect(GitMetadataExtractor.getCacheStats().size).toBe(0);
     });
   });
@@ -375,23 +393,26 @@ SOFTWARE.
   describe('populateProjectFrontmatter', () => {
     it('should populate project frontmatter with git metadata', async () => {
       // Set up test repo
-      fs.writeFileSync(path.join(testRepoPath, 'package.json'), JSON.stringify({
-        name: 'test-project',
-        dependencies: { 'react': '^18.0.0' }
-      }));
+      fs.writeFileSync(
+        path.join(testRepoPath, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          dependencies: { react: '^18.0.0' },
+        })
+      );
       fs.writeFileSync(path.join(testRepoPath, 'index.js'), 'console.log("Hello");');
       fs.writeFileSync(path.join(testRepoPath, 'LICENSE'), 'MIT License');
       execSync('git remote add origin https://github.com/user/repo.git', { stdio: 'ignore' });
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const extractor = new GitMetadataExtractor(testRepoPath);
       const result = await extractor.populateProjectFrontmatter({
         title: 'Test Project',
         description: 'A test project',
-        project_id: 'TEST-001'
+        project_id: 'TEST-001',
       });
-      
+
       expect(result.title).toBe('Test Project');
       expect(result.description).toBe('A test project');
       expect(result.project_id).toBe('TEST-001');
@@ -405,7 +426,7 @@ SOFTWARE.
     it('should provide defaults for missing fields', async () => {
       const extractor = new GitMetadataExtractor(testRepoPath);
       const result = await extractor.populateProjectFrontmatter({});
-      
+
       expect(result.title).toBe('Untitled Project');
       expect(result.description).toBe('Project description');
       expect(result.status).toBe('planning');
@@ -428,7 +449,7 @@ describe('utility functions', () => {
     testRepoPath = fs.mkdtempSync(path.join(tmpdir(), 'git-metadata-util-test-'));
     originalCwd = process.cwd();
     process.chdir(testRepoPath);
-    
+
     execSync('git init', { stdio: 'ignore' });
     execSync('git config user.email "test@example.com"', { stdio: 'ignore' });
     execSync('git config user.name "Test User"', { stdio: 'ignore' });
@@ -445,9 +466,9 @@ describe('utility functions', () => {
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const metadata = await extractGitMetadata(testRepoPath);
-      
+
       expect(metadata.is_git_repo).toBe(true);
       expect(metadata.readme_exists).toBe(true);
     });
@@ -456,29 +477,32 @@ describe('utility functions', () => {
       fs.writeFileSync(path.join(testRepoPath, 'README.md'), '# Test');
       execSync('git add README.md', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const metadata = await extractGitMetadata();
-      
+
       expect(metadata.is_git_repo).toBe(true);
     });
   });
 
   describe('createProjectWithGitMetadata', () => {
     it('should create project with git metadata', async () => {
-      fs.writeFileSync(path.join(testRepoPath, 'package.json'), JSON.stringify({
-        name: 'test-project',
-        dependencies: { 'express': '^4.0.0' }
-      }));
+      fs.writeFileSync(
+        path.join(testRepoPath, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          dependencies: { express: '^4.0.0' },
+        })
+      );
       fs.writeFileSync(path.join(testRepoPath, 'server.js'), 'const express = require("express");');
       execSync('git add .', { stdio: 'ignore' });
       execSync('git commit -m "Initial commit"', { stdio: 'ignore' });
-      
+
       const project = await createProjectWithGitMetadata(testRepoPath, {
         title: 'Express API',
         description: 'An Express.js API',
-        project_id: 'API-001'
+        project_id: 'API-001',
       });
-      
+
       expect(project.title).toBe('Express API');
       expect(project.framework).toBe('Express 4.0.0');
       expect(project.languages).toContain('JavaScript');
@@ -490,9 +514,9 @@ describe('error handling', () => {
   it('should handle non-existent directories gracefully', async () => {
     const nonExistentPath = '/path/that/does/not/exist';
     const extractor = new GitMetadataExtractor(nonExistentPath);
-    
+
     const metadata = await extractor.extractMetadata();
-    
+
     expect(metadata.is_git_repo).toBe(false);
     expect(metadata.commit_count).toBe(0);
   });
@@ -501,7 +525,7 @@ describe('error handling', () => {
     // This test would need a corrupted git repo setup
     // For now, we'll just ensure the extractor doesn't crash
     const extractor = new GitMetadataExtractor();
-    
+
     expect(async () => {
       await extractor.extractMetadata();
     }).not.toThrow();
@@ -511,7 +535,7 @@ describe('error handling', () => {
     // This test would need specific permission setup
     // For now, we'll ensure the extractor handles errors
     const extractor = new GitMetadataExtractor();
-    
+
     expect(async () => {
       await extractor.extractMetadata();
     }).not.toThrow();

@@ -7,16 +7,16 @@
  * Adds YAML frontmatter to existing markdown files
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import chalk from 'chalk';
-import ora from 'ora';
 import { Command } from 'commander';
+import ora from 'ora';
 import * as YAML from 'yaml';
-import { FrontmatterParser } from '../utils/frontmatter-parser.js';
-import { ConfigManager } from '../utils/config-manager.js';
-import { IdGenerator } from '../utils/simple-id-generator.js';
 import type { EpicFrontmatter, IssueFrontmatter, TaskFrontmatter } from '../types/ai-trackdown.js';
+import { ConfigManager } from '../utils/config-manager.js';
+import { FrontmatterParser } from '../utils/frontmatter-parser.js';
+import { IdGenerator } from '../utils/simple-id-generator.js';
 
 interface LegacyConfig {
   directory_root?: string;
@@ -49,7 +49,7 @@ export class MigrationTool {
     epicsMigrated: 0,
     issuesMigrated: 0,
     tasksMigrated: 0,
-    errors: []
+    errors: [],
   };
 
   /**
@@ -90,7 +90,6 @@ export class MigrationTool {
 
       spinner.succeed('Migration completed successfully!');
       this.displaySummary();
-
     } catch (error) {
       spinner.fail(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
@@ -104,16 +103,14 @@ export class MigrationTool {
    */
   private async migrateConfiguration(sourceDir: string, dryRun = false): Promise<void> {
     const legacyConfigPath = path.join(sourceDir, '.trackdownrc.json');
-    
+
     if (!fs.existsSync(legacyConfigPath)) {
       console.log(chalk.yellow('No legacy .trackdownrc.json found, creating default config'));
       return;
     }
 
     try {
-      const legacyConfig: LegacyConfig = JSON.parse(
-        fs.readFileSync(legacyConfigPath, 'utf8')
-      );
+      const legacyConfig: LegacyConfig = JSON.parse(fs.readFileSync(legacyConfigPath, 'utf8'));
 
       // Convert to new config format
       const newConfig = {
@@ -122,12 +119,12 @@ export class MigrationTool {
         defaults: {
           assignee: legacyConfig.default_assignee || 'unassigned',
           priority: 'medium',
-          status: 'todo'
+          status: 'todo',
         },
         templates: {
           epic: 'default',
-          issue: 'default', 
-          task: 'default'
+          issue: 'default',
+          task: 'default',
         },
         integrations: {
           // Note: GitHub integration removed in new architecture
@@ -135,8 +132,8 @@ export class MigrationTool {
         automation: {
           auto_assign_ids: true,
           auto_update_dates: true,
-          auto_track_relationships: true
-        }
+          auto_track_relationships: true,
+        },
       };
 
       if (!dryRun) {
@@ -147,14 +144,13 @@ export class MigrationTool {
 
         const newConfigPath = path.join(configDir, 'config.yaml');
         fs.writeFileSync(newConfigPath, YAML.stringify(newConfig, { indent: 2 }));
-        
+
         console.log(chalk.green(`✓ Configuration migrated to ${newConfigPath}`));
       } else {
         console.log(chalk.blue(`[DRY RUN] Would migrate config to .ai-trackdown/config.yaml`));
       }
 
       this.stats.configMigrated = true;
-
     } catch (error) {
       const errorMsg = `Failed to migrate configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
       this.stats.errors.push(errorMsg);
@@ -171,7 +167,7 @@ export class MigrationTool {
       path.join(aiTrackdownDir, 'epics'),
       path.join(aiTrackdownDir, 'issues'),
       path.join(aiTrackdownDir, 'tasks'),
-      path.join(aiTrackdownDir, 'templates')
+      path.join(aiTrackdownDir, 'templates'),
     ];
 
     if (!dryRun) {
@@ -193,7 +189,7 @@ export class MigrationTool {
     const legacyDirs = [
       path.join(sourceDir, 'active'),
       path.join(sourceDir, 'completed'),
-      path.join(sourceDir, 'trackdown') // Handle existing trackdown folder
+      path.join(sourceDir, 'trackdown'), // Handle existing trackdown folder
     ];
 
     for (const legacyDir of legacyDirs) {
@@ -207,16 +203,16 @@ export class MigrationTool {
    * Process a legacy directory and migrate its files
    */
   private async processLegacyDirectory(
-    legacyDir: string, 
-    sourceDir: string, 
-    dryRun = false, 
+    legacyDir: string,
+    sourceDir: string,
+    dryRun = false,
     verbose = false
   ): Promise<void> {
-    const files = fs.readdirSync(legacyDir).filter(file => file.endsWith('.md'));
+    const files = fs.readdirSync(legacyDir).filter((file) => file.endsWith('.md'));
 
     for (const file of files) {
       const filePath = path.join(legacyDir, file);
-      
+
       try {
         await this.migrateFile(filePath, sourceDir, dryRun, verbose);
         this.stats.filesProcessed++;
@@ -234,18 +230,18 @@ export class MigrationTool {
    * Migrate a single file
    */
   private async migrateFile(
-    filePath: string, 
-    sourceDir: string, 
-    dryRun = false, 
+    filePath: string,
+    sourceDir: string,
+    dryRun = false,
     verbose = false
   ): Promise<void> {
     const content = fs.readFileSync(filePath, 'utf8');
     const filename = path.basename(filePath, '.md');
-    
+
     // Determine file type and destination
     const { type, frontmatter, targetPath } = this.analyzeAndPrepareFile(
-      filename, 
-      content, 
+      filename,
+      content,
       sourceDir
     );
 
@@ -258,25 +254,25 @@ export class MigrationTool {
 
       // Write migrated file with frontmatter
       let migratedContent: string;
-      
+
       switch (type) {
         case 'epic':
           migratedContent = this.frontmatterParser.serializeEpic(
-            frontmatter as EpicFrontmatter, 
+            frontmatter as EpicFrontmatter,
             this.extractContent(content)
           );
           this.stats.epicsMigrated++;
           break;
         case 'issue':
           migratedContent = this.frontmatterParser.serializeIssue(
-            frontmatter as IssueFrontmatter, 
+            frontmatter as IssueFrontmatter,
             this.extractContent(content)
           );
           this.stats.issuesMigrated++;
           break;
         case 'task':
           migratedContent = this.frontmatterParser.serializeTask(
-            frontmatter as TaskFrontmatter, 
+            frontmatter as TaskFrontmatter,
             this.extractContent(content)
           );
           this.stats.tasksMigrated++;
@@ -286,7 +282,7 @@ export class MigrationTool {
       }
 
       fs.writeFileSync(targetPath, migratedContent);
-      
+
       if (verbose) {
         console.log(chalk.green(`✓ Migrated ${type}: ${filePath} → ${targetPath}`));
       }
@@ -299,8 +295,8 @@ export class MigrationTool {
    * Analyze a file and prepare frontmatter
    */
   private analyzeAndPrepareFile(
-    filename: string, 
-    content: string, 
+    filename: string,
+    content: string,
     sourceDir: string
   ): {
     type: 'epic' | 'issue' | 'task';
@@ -308,18 +304,22 @@ export class MigrationTool {
     targetPath: string;
   } {
     const aiTrackdownDir = path.join(sourceDir, '.ai-trackdown');
-    
+
     // Try to determine type from filename patterns
     let type: 'epic' | 'issue' | 'task';
     let id: string;
-    
+
     if (filename.startsWith('EPIC-') || filename.includes('epic')) {
       type = 'epic';
       id = this.extractOrGenerateId(filename, 'EP');
     } else if (filename.startsWith('ISSUE-') || filename.includes('issue')) {
       type = 'issue';
       id = this.extractOrGenerateId(filename, 'ISS');
-    } else if (filename.startsWith('TASK-') || filename.includes('task') || filename.startsWith('TSK-')) {
+    } else if (
+      filename.startsWith('TASK-') ||
+      filename.includes('task') ||
+      filename.startsWith('TSK-')
+    ) {
       type = 'task';
       id = this.extractOrGenerateId(filename, 'TSK');
     } else {
@@ -339,7 +339,7 @@ export class MigrationTool {
       assignee: 'unassigned',
       labels: [],
       created_date: now,
-      updated_date: now
+      updated_date: now,
     };
 
     let frontmatter: EpicFrontmatter | IssueFrontmatter | TaskFrontmatter;
@@ -351,24 +351,25 @@ export class MigrationTool {
           epic_id: id,
           ...baseFrontmatter,
           story_points: 0,
-          completion_percentage: 0
+          completion_percentage: 0,
         } as EpicFrontmatter;
         targetPath = path.join(aiTrackdownDir, 'epics', `${id}.md`);
         break;
-        
-      case 'issue':
+
+      case 'issue': {
         // For issues, we need to assign to an epic (use first available or create default)
         const epicId = this.findOrCreateDefaultEpic(sourceDir);
         frontmatter = {
           issue_id: id,
           epic_id: epicId,
           ...baseFrontmatter,
-          story_points: 1
+          story_points: 1,
         } as IssueFrontmatter;
         targetPath = path.join(aiTrackdownDir, 'issues', `${id}.md`);
         break;
-        
-      case 'task':
+      }
+
+      case 'task': {
         // For tasks, we need epic and issue IDs
         const taskEpicId = this.findOrCreateDefaultEpic(sourceDir);
         const issueId = this.findOrCreateDefaultIssue(sourceDir, taskEpicId);
@@ -378,10 +379,11 @@ export class MigrationTool {
           epic_id: taskEpicId,
           ...baseFrontmatter,
           estimated_hours: 1,
-          actual_hours: 0
+          actual_hours: 0,
         } as TaskFrontmatter;
         targetPath = path.join(aiTrackdownDir, 'tasks', `${id}.md`);
         break;
+      }
     }
 
     return { type, frontmatter, targetPath };
@@ -395,7 +397,7 @@ export class MigrationTool {
     const patterns = [
       new RegExp(`${prefix}-(\\d{4})`),
       new RegExp(`(${prefix.toLowerCase()}|${prefix})-(\\d+)`, 'i'),
-      /(\d{4})/
+      /(\d{4})/,
     ];
 
     for (const pattern of patterns) {
@@ -430,7 +432,10 @@ export class MigrationTool {
     }
 
     // Look for first non-empty line
-    const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+    const lines = content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line);
     if (lines.length > 0) {
       return lines[0].replace(/^#+\s*/, '');
     }
@@ -453,7 +458,7 @@ export class MigrationTool {
   /**
    * Find or create default epic for migration
    */
-  private findOrCreateDefaultEpic(sourceDir: string): string {
+  private findOrCreateDefaultEpic(_sourceDir: string): string {
     // Return default epic ID - this will be created if needed
     return 'EP-0001';
   }
@@ -461,7 +466,7 @@ export class MigrationTool {
   /**
    * Find or create default issue for migration
    */
-  private findOrCreateDefaultIssue(sourceDir: string, epicId: string): string {
+  private findOrCreateDefaultIssue(_sourceDir: string, _epicId: string): string {
     // Return default issue ID - this will be created if needed
     return 'ISS-0001';
   }
@@ -472,14 +477,10 @@ export class MigrationTool {
   private async createBackup(sourceDir: string): Promise<void> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = path.join(sourceDir, `backup-${timestamp}`);
-    
+
     // Simple recursive copy
-    this.copyDirectory(sourceDir, backupDir, [
-      'node_modules',
-      '.git',
-      'backup-*'
-    ]);
-    
+    this.copyDirectory(sourceDir, backupDir, ['node_modules', '.git', 'backup-*']);
+
     console.log(chalk.green(`✓ Backup created at ${backupDir}`));
   }
 
@@ -492,18 +493,18 @@ export class MigrationTool {
     }
 
     const items = fs.readdirSync(src);
-    
+
     for (const item of items) {
       const srcPath = path.join(src, item);
       const destPath = path.join(dest, item);
-      
+
       // Skip excluded patterns
-      if (exclude.some(pattern => item.match(new RegExp(pattern)))) {
+      if (exclude.some((pattern) => item.match(new RegExp(pattern)))) {
         continue;
       }
-      
+
       const stat = fs.statSync(srcPath);
-      
+
       if (stat.isDirectory()) {
         this.copyDirectory(srcPath, destPath, exclude);
       } else {
@@ -516,14 +517,9 @@ export class MigrationTool {
    * Cleanup legacy files after successful migration
    */
   private async cleanupLegacyFiles(sourceDir: string, dryRun = false): Promise<void> {
-    const legacyFiles = [
-      path.join(sourceDir, '.trackdownrc.json')
-    ];
+    const legacyFiles = [path.join(sourceDir, '.trackdownrc.json')];
 
-    const legacyDirs = [
-      path.join(sourceDir, 'active'),
-      path.join(sourceDir, 'completed')
-    ];
+    const legacyDirs = [path.join(sourceDir, 'active'), path.join(sourceDir, 'completed')];
 
     if (!dryRun) {
       // Remove legacy config file
@@ -551,21 +547,21 @@ export class MigrationTool {
    * Display migration summary
    */
   private displaySummary(): void {
-    console.log('\n' + chalk.bold.green('Migration Summary:'));
+    console.log(`\n${chalk.bold.green('Migration Summary:')}`);
     console.log(chalk.green(`✓ Configuration migrated: ${this.stats.configMigrated}`));
     console.log(chalk.green(`✓ Files processed: ${this.stats.filesProcessed}`));
     console.log(chalk.green(`✓ Epics migrated: ${this.stats.epicsMigrated}`));
     console.log(chalk.green(`✓ Issues migrated: ${this.stats.issuesMigrated}`));
     console.log(chalk.green(`✓ Tasks migrated: ${this.stats.tasksMigrated}`));
-    
+
     if (this.stats.errors.length > 0) {
       console.log(chalk.red(`✗ Errors encountered: ${this.stats.errors.length}`));
-      this.stats.errors.forEach(error => {
+      this.stats.errors.forEach((error) => {
         console.log(chalk.red(`  - ${error}`));
       });
     }
 
-    console.log('\n' + chalk.bold.blue('Next Steps:'));
+    console.log(`\n${chalk.bold.blue('Next Steps:')}`);
     console.log('1. Review migrated files in .ai-trackdown/ directory');
     console.log('2. Update .ai-trackdown/config.yaml as needed');
     console.log('3. Test the new system with: aitrackdown status');
@@ -583,24 +579,28 @@ export function createMigrateCommand(): Command {
     .option('--source <dir>', 'Source directory to migrate from', process.cwd())
     .action(async (options) => {
       const migrationTool = new MigrationTool();
-      
+
       try {
         console.log(chalk.bold.blue('AI-Trackdown Migration Tool'));
         console.log(chalk.gray('Converting legacy structure to new ai-trackdown format\n'));
-        
-        const stats = await migrationTool.migrate(options.source, {
+
+        const _stats = await migrationTool.migrate(options.source, {
           dryRun: options.dryRun,
           verbose: options.verbose,
-          backup: options.backup
+          backup: options.backup,
         });
-        
+
         if (options.dryRun) {
-          console.log(chalk.yellow('\nDry run completed. Use without --dry-run to perform actual migration.'));
+          console.log(
+            chalk.yellow('\nDry run completed. Use without --dry-run to perform actual migration.')
+          );
         }
-        
+
         process.exit(0);
       } catch (error) {
-        console.error(chalk.red(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          chalk.red(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        );
         process.exit(1);
       }
     });

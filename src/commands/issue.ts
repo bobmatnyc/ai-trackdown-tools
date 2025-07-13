@@ -4,19 +4,19 @@
  */
 
 import { Command } from 'commander';
-import { createIssueCreateCommand } from './issue/create.js';
-import { createIssueListCommand } from './issue/list.js';
-import { createIssueShowCommand } from './issue/show.js';
-import { createIssueUpdateCommand } from './issue/update.js';
-import { createIssueDeleteCommand } from './issue/delete.js';
-import { createIssueCompleteCommand } from './issue/complete.js';
 import { createIssueAssignCommand } from './issue/assign.js';
 import { createIssueCloseCommand } from './issue/close.js';
+import { createIssueCompleteCommand } from './issue/complete.js';
+import { createIssueCreateCommand } from './issue/create.js';
+import { createIssueDeleteCommand } from './issue/delete.js';
+import { createIssueListCommand } from './issue/list.js';
 import { createIssueReopenCommand } from './issue/reopen.js';
+import { createIssueShowCommand } from './issue/show.js';
+import { createIssueUpdateCommand } from './issue/update.js';
 
 export function createIssueCommand(): Command {
   const cmd = new Command('issue');
-  
+
   cmd
     .description('Manage issues (mid-level work units within epics)')
     .alias('issues')

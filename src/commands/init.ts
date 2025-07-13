@@ -3,18 +3,17 @@
  * Initialize new ai-trackdown projects with YAML frontmatter architecture
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import { ConfigManager } from '../utils/config-manager.js';
-import { AITrackdownIdGenerator } from '../utils/id-generator.js';
-import { FrontmatterParser } from '../utils/frontmatter-parser.js';
-import { UnifiedPathResolver } from '../utils/unified-path-resolver.js';
-import { TemplateManager } from '../utils/template-manager.js';
 import type { ProjectConfig } from '../types/ai-trackdown.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as readline from 'readline';
+import { ConfigManager } from '../utils/config-manager.js';
+import { FrontmatterParser } from '../utils/frontmatter-parser.js';
+import { AITrackdownIdGenerator } from '../utils/id-generator.js';
+import { TemplateManager } from '../utils/template-manager.js';
+import { UnifiedPathResolver } from '../utils/unified-path-resolver.js';
 
 interface InitOptions {
   force?: boolean;
@@ -36,10 +35,17 @@ export function createInitCommand(): Command {
     .option('--project-name <name>', 'project name (alternative to positional argument)')
     .option('--type <type>', 'project type (software, research, business, general)', 'general')
     .option('--assignee <assignee>', 'default assignee for items')
-    .option('--tasks-directory <path>', 'root directory for all task types (default: tasks)', 'tasks')
+    .option(
+      '--tasks-directory <path>',
+      'root directory for all task types (default: tasks)',
+      'tasks'
+    )
     .option('--force', 'overwrite existing project')
     .option('--interactive', 'interactive setup mode')
-    .option('--skip-interactive', 'skip interactive prompts, use defaults or fail if required info missing')
+    .option(
+      '--skip-interactive',
+      'skip interactive prompts, use defaults or fail if required info missing'
+    )
     .addHelpText(
       'after',
       `
@@ -69,7 +75,7 @@ Directory Structure:
       try {
         // Determine project name from various sources
         let finalProjectName = projectName || options.projectName;
-        
+
         // Try to read from stdin if no project name provided
         if (!finalProjectName) {
           const stdinName = await readProjectNameFromStdin();
@@ -77,33 +83,40 @@ Directory Structure:
             finalProjectName = stdinName;
           }
         }
-        
+
         let config = {
           name: finalProjectName,
           type: options.type || 'general',
           assignee: options.assignee || process.env.USER || 'unassigned',
           tasksDirectory: options.tasksDirectory || process.env.CLI_TASKS_DIR || 'tasks',
-          force: options.force || false
+          force: options.force || false,
         };
 
         // Determine if we should run interactive mode
-        const shouldRunInteractive = options.interactive || 
+        const shouldRunInteractive =
+          options.interactive ||
           (!options.skipInteractive && !finalProjectName && !isNonInteractive());
-        
+
         // Interactive mode
         if (shouldRunInteractive) {
           if (isNonInteractive()) {
-            throw new Error('Interactive mode requested but running in non-interactive environment. Use --skip-interactive or provide --project-name.');
+            throw new Error(
+              'Interactive mode requested but running in non-interactive environment. Use --skip-interactive or provide --project-name.'
+            );
           }
           config = await runInteractiveSetup(config);
         } else if (options.skipInteractive && !config.name) {
-          throw new Error('Project name is required when using --skip-interactive. Use --project-name or provide as argument.');
+          throw new Error(
+            'Project name is required when using --skip-interactive. Use --project-name or provide as argument.'
+          );
         }
 
         // Validate project name
         const projectNameValue = config.name || 'ai-trackdown-project';
         if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(projectNameValue)) {
-          throw new Error('Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores');
+          throw new Error(
+            'Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores'
+          );
         }
 
         const projectPath = path.resolve(process.cwd(), projectNameValue);
@@ -128,11 +141,11 @@ Directory Structure:
           const projectConfig = configManager.createDefaultConfig(projectNameValue, {
             description: `AI-Trackdown ${config.type} project: ${projectNameValue}`,
             default_assignee: config.assignee,
-            tasks_directory: config.tasksDirectory
+            tasks_directory: config.tasksDirectory,
           });
 
           spinner.text = 'Creating project structure...';
-          
+
           // Initialize the project structure only (without default templates)
           configManager.createProjectStructure(projectConfig);
           configManager.saveConfig(projectConfig);
@@ -143,7 +156,7 @@ Directory Structure:
           const templateManager = new TemplateManager();
           const pathResolver = new UnifiedPathResolver(projectConfig, projectPath);
           const paths = pathResolver.getUnifiedPaths();
-          
+
           templateManager.deployTemplates(paths.templatesDir, config.force);
 
           spinner.text = 'Setting up ID generator...';
@@ -211,13 +224,14 @@ Tasks Directory: ${config.tasksDirectory}/
 7. Get help:
    aitrackdown --help
 `);
-
         } catch (error) {
           spinner.fail('Project initialization failed');
           throw error;
         }
       } catch (error) {
-        console.error(`❌ Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(
+          `❌ Failed to initialize project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
         process.exit(1);
       }
     });
@@ -241,21 +255,21 @@ async function readProjectNameFromStdin(): Promise<string | null> {
     if (!process.stdin.isTTY) {
       let input = '';
       let resolved = false;
-      
+
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
           resolve(null);
         }
       }, 100); // Short timeout for piped input
-      
+
       process.stdin.setEncoding('utf8');
-      
+
       // For piped input, we need to read immediately
       process.stdin.on('data', (chunk) => {
         input += chunk.toString();
       });
-      
+
       process.stdin.on('end', () => {
         if (!resolved) {
           resolved = true;
@@ -264,7 +278,7 @@ async function readProjectNameFromStdin(): Promise<string | null> {
           resolve(projectName || null);
         }
       });
-      
+
       // Handle case where stdin is not available or empty
       process.stdin.on('error', () => {
         if (!resolved) {
@@ -273,7 +287,7 @@ async function readProjectNameFromStdin(): Promise<string | null> {
           resolve(null);
         }
       });
-      
+
       // For certain environments, stdin might be immediately available
       setImmediate(() => {
         if (!resolved && process.stdin.readable) {
@@ -296,69 +310,75 @@ async function runInteractiveSetup(initialConfig: any) {
 
   // Check if we're in a non-interactive environment before attempting to prompt
   if (isNonInteractive()) {
-    throw new Error('Cannot run interactive setup in non-interactive environment. Use --skip-interactive or provide --project-name.');
+    throw new Error(
+      'Cannot run interactive setup in non-interactive environment. Use --skip-interactive or provide --project-name.'
+    );
   }
 
   try {
     const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'name',
-      message: 'Project name:',
-      default: initialConfig.name || 'my-trackdown-project',
-      validate: (input: string) => {
-        if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(input)) {
-          return 'Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores';
-        }
-        return true;
-      }
-    },
-    {
-      type: 'list',
-      name: 'type',
-      message: 'Project type:',
-      choices: [
-        { name: '💻 Software - Software development projects', value: 'software' },
-        { name: '🔬 Research - Research and analysis projects', value: 'research' },
-        { name: '📊 Business - Business process and planning', value: 'business' },
-        { name: '📁 General - General purpose projects', value: 'general' }
-      ],
-      default: initialConfig.type
-    },
-    {
-      type: 'input',
-      name: 'assignee',
-      message: 'Default assignee:',
-      default: initialConfig.assignee
-    },
-    {
-      type: 'input',
-      name: 'tasksDirectory',
-      message: 'Tasks root directory:',
-      default: initialConfig.tasksDirectory || 'tasks',
-      validate: (input: string) => {
-        if (!/^[a-zA-Z0-9][a-zA-Z0-9-_/]*$/.test(input)) {
-          return 'Tasks directory must start with alphanumeric character and contain only letters, numbers, hyphens, underscores, and slashes';
-        }
-        return true;
-      }
-    },
-    {
-      type: 'confirm',
-      name: 'force',
-      message: 'Overwrite existing project if it exists?',
-      default: initialConfig.force,
-      when: (answers) => fs.existsSync(path.resolve(process.cwd(), answers.name))
-    }
+      {
+        type: 'input',
+        name: 'name',
+        message: 'Project name:',
+        default: initialConfig.name || 'my-trackdown-project',
+        validate: (input: string) => {
+          if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(input)) {
+            return 'Project name must start with alphanumeric character and contain only letters, numbers, hyphens, and underscores';
+          }
+          return true;
+        },
+      },
+      {
+        type: 'list',
+        name: 'type',
+        message: 'Project type:',
+        choices: [
+          { name: '💻 Software - Software development projects', value: 'software' },
+          { name: '🔬 Research - Research and analysis projects', value: 'research' },
+          { name: '📊 Business - Business process and planning', value: 'business' },
+          { name: '📁 General - General purpose projects', value: 'general' },
+        ],
+        default: initialConfig.type,
+      },
+      {
+        type: 'input',
+        name: 'assignee',
+        message: 'Default assignee:',
+        default: initialConfig.assignee,
+      },
+      {
+        type: 'input',
+        name: 'tasksDirectory',
+        message: 'Tasks root directory:',
+        default: initialConfig.tasksDirectory || 'tasks',
+        validate: (input: string) => {
+          if (!/^[a-zA-Z0-9][a-zA-Z0-9-_/]*$/.test(input)) {
+            return 'Tasks directory must start with alphanumeric character and contain only letters, numbers, hyphens, underscores, and slashes';
+          }
+          return true;
+        },
+      },
+      {
+        type: 'confirm',
+        name: 'force',
+        message: 'Overwrite existing project if it exists?',
+        default: initialConfig.force,
+        when: (answers) => fs.existsSync(path.resolve(process.cwd(), answers.name)),
+      },
     ]);
 
     return { ...initialConfig, ...answers };
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('User force closed the prompt') || 
-          error.message.includes('prompt aborted') ||
-          error.message.includes('canceled')) {
-        throw new Error('Interactive setup was cancelled. Use --skip-interactive to bypass prompts.');
+      if (
+        error.message.includes('User force closed the prompt') ||
+        error.message.includes('prompt aborted') ||
+        error.message.includes('canceled')
+      ) {
+        throw new Error(
+          'Interactive setup was cancelled. Use --skip-interactive to bypass prompts.'
+        );
       }
       throw error;
     }
@@ -400,7 +420,7 @@ async function createExampleItems(
     related_issues: ['ISS-0001'],
     sync_status: 'local' as const,
     tags: ['setup', 'foundation'],
-    milestone: 'v1.0.0'
+    milestone: 'v1.0.0',
   };
 
   const epicContent = `# Epic: Project Setup and Initial Development
@@ -451,7 +471,7 @@ This is a foundational epic that will enable all future development work.`;
     related_tasks: ['TSK-0001', 'TSK-0002'],
     sync_status: 'local' as const,
     tags: ['setup', 'environment'],
-    dependencies: []
+    dependencies: [],
   };
 
   const issueContent = `# Issue: Development Environment Setup
@@ -501,7 +521,7 @@ Focus on creating a setup that is reliable and easy to follow for new team membe
     sync_status: 'local' as const,
     tags: ['tools', 'setup'],
     time_estimate: '4 hours',
-    dependencies: []
+    dependencies: [],
   };
 
   const task1Content = `# Task: Install and configure development tools
@@ -558,7 +578,7 @@ Document any platform-specific setup requirements.`;
     sync_status: 'local' as const,
     tags: ['documentation', 'setup'],
     time_estimate: '2 hours',
-    dependencies: ['TSK-0001']
+    dependencies: ['TSK-0001'],
   };
 
   const task2Content = `# Task: Create development setup documentation
@@ -593,7 +613,12 @@ Keep documentation updated as tools and requirements evolve.`;
   parser.writeTask(task2Path, task2Data, task2Content);
 }
 
-function createProjectReadme(projectPath: string, projectName: string, projectType: string, config: ProjectConfig): void {
+function createProjectReadme(
+  projectPath: string,
+  projectName: string,
+  projectType: string,
+  config: ProjectConfig
+): void {
   const tasksDir = config.tasks_directory || 'tasks';
   const readmeContent = `# ${projectName}
 

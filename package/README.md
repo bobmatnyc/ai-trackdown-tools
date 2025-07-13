@@ -1,8 +1,8 @@
-# AI Trackdown CLI v1.0.1
+# AI Trackdown CLI v1.1.2
 
 A professional CLI tool for AI-first project management with hierarchical Epic→Issue→Task workflows, comprehensive Pull Request management, token tracking, and YAML frontmatter support.
 
-## What's New in v1.0.1
+## What's New in v1.1.2
 
 🚀 **Anywhere-Submit Functionality**: Execute commands from anywhere with `--project-dir` for seamless multi-project workflows  
 🚀 **Enhanced Template System**: Bundled default templates with robust fallback mechanisms  
@@ -26,7 +26,7 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 ## Installation
 
 ```bash
-npm install -g ai-trackdown-tools
+npm install -g @bobmatnyc/ai-trackdown-tools
 ```
 
 ## Quick Start
@@ -263,7 +263,7 @@ aitrackdown migrate --from-csv tasks.csv
 - `status` - Show project overview with metrics (< 10ms with indexing)
 - `export` - Export project data in various formats
 
-## v3.0.0 Changelog
+## Recent Enhancements
 
 ### Major Enhancements
 

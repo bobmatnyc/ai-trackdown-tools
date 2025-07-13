@@ -1,7 +1,7 @@
-import { join } from 'node:path';
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ConfigManager } from './config.js';
-import { ProjectDetector, type ProjectMode, type ProjectContext } from './project-detector.js';
+import { type ProjectContext, ProjectDetector, type ProjectMode } from './project-detector.js';
 
 /**
  * PathResolver provides configurable directory path resolution
@@ -15,16 +15,21 @@ export class PathResolver {
   private projectContext?: ProjectContext;
   private modeOverride?: ProjectMode;
 
-  constructor(configManager: ConfigManager, cliRootDir?: string, projectName?: string, modeOverride?: ProjectMode) {
+  constructor(
+    configManager: ConfigManager,
+    cliRootDir?: string,
+    projectName?: string,
+    modeOverride?: ProjectMode
+  ) {
     this.configManager = configManager;
     this.cliRootDir = cliRootDir;
     this.modeOverride = modeOverride;
     this.projectDetector = new ProjectDetector(process.cwd(), configManager, modeOverride);
-    
+
     // Initialize project context
     try {
       this.projectContext = this.projectDetector.getProjectContext(projectName);
-    } catch (error) {
+    } catch (_error) {
       // Will be handled by individual methods if needed
     }
   }
@@ -215,9 +220,11 @@ export class PathResolver {
   /**
    * Get template-specific directories based on project template
    */
-  getTemplateDirectories(templateType: string): Array<{ path: string; type: 'directory' | 'file' }> {
+  getTemplateDirectories(
+    templateType: string
+  ): Array<{ path: string; type: 'directory' | 'file' }> {
     const rootDir = this.getRootDirectory();
-    
+
     const templates: Record<string, Array<{ path: string; type: 'directory' | 'file' }>> = {
       standard: [
         { path: join(rootDir, 'active'), type: 'directory' },
@@ -308,15 +315,15 @@ export class PathResolver {
    * Create new project directory structure
    */
   createProjectStructure(projectName?: string): void {
-    const projectPath = projectName 
+    const _projectPath = projectName
       ? this.projectDetector.createProject(projectName)
       : this.getProjectBasePath();
-    
+
     // Create all standard directories
     const directories = this.getStandardDirectories();
     for (const dir of directories) {
       if (!existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true });
+        require('node:fs').mkdirSync(dir, { recursive: true });
       }
     }
   }
@@ -341,7 +348,7 @@ Examples:
   aitrackdown --root-dir trackdown init    # Specify directory per command
       `);
     }
-    
+
     // Show project detection info
     this.projectDetector.showDetectionInfo();
   }

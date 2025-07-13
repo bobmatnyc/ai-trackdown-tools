@@ -3,24 +3,24 @@
  * Tests merge, close, batch, dependencies, sync, and archive commands
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import { mergePR, type MergeOptions, type MergeResult } from '../src/commands/pr/merge.js';
-import { closePR, type CloseOptions, type CloseResult } from '../src/commands/pr/close.js';
-import { performBatchOperation, type BatchOptions } from '../src/commands/pr/batch.js';
-import { PRStatusManager } from '../src/utils/pr-status-manager.js';
-import { PRFileManager } from '../src/utils/pr-file-manager.js';
-import { RelationshipManager } from '../src/utils/relationship-manager.js';
-import { ConfigManager } from '../src/utils/config-manager.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type BatchOptions, performBatchOperation } from '../src/commands/pr/batch.js';
+import { type CloseOptions, closePR } from '../src/commands/pr/close.js';
+import { type MergeOptions, mergePR } from '../src/commands/pr/merge.js';
 import type { PRData, PRStatus, TaskData } from '../src/types/ai-trackdown.js';
+import type { ConfigManager } from '../src/utils/config-manager.js';
+import type { PRFileManager } from '../src/utils/pr-file-manager.js';
+import type { PRStatusManager } from '../src/utils/pr-status-manager.js';
+import type { RelationshipManager } from '../src/utils/relationship-manager.js';
 
 // Mock file system operations
 vi.mock('fs');
 vi.mock('path');
 
 const mockFs = vi.mocked(fs);
-const mockPath = vi.mocked(path);
+const _mockPath = vi.mocked(path);
 
 // Mock data
 const mockPRData: PRData = {
@@ -44,10 +44,10 @@ const mockPRData: PRData = {
   reviewers: ['reviewer1'],
   approvals: ['reviewer1'],
   content: '# Test PR\n\nTest content',
-  file_path: '/test/prs/active/PR-001-test.md'
+  file_path: '/test/prs/active/PR-001-test.md',
 };
 
-const mockTaskData: TaskData = {
+const _mockTaskData: TaskData = {
   task_id: 'TASK-001',
   issue_id: 'ISSUE-001',
   epic_id: 'EPIC-001',
@@ -63,7 +63,7 @@ const mockTaskData: TaskData = {
   ai_context: [],
   sync_status: 'local',
   content: '# Test Task\n\nTest content',
-  file_path: '/test/tasks/TASK-001-test.md'
+  file_path: '/test/tasks/TASK-001-test.md',
 };
 
 describe('PR Merge Command', () => {
@@ -74,33 +74,33 @@ describe('PR Merge Command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockConfigManager = {
       getPRsDirectory: vi.fn().mockReturnValue('/test/prs'),
       getTasksDirectory: vi.fn().mockReturnValue('/test/tasks'),
-      getIssuesDirectory: vi.fn().mockReturnValue('/test/issues')
+      getIssuesDirectory: vi.fn().mockReturnValue('/test/issues'),
     } as any;
-    
+
     mockStatusManager = {
       loadPRData: vi.fn().mockResolvedValue(mockPRData),
       updatePRStatus: vi.fn().mockResolvedValue(undefined),
-      listPRs: vi.fn().mockResolvedValue([mockPRData])
+      listPRs: vi.fn().mockResolvedValue([mockPRData]),
     } as any;
-    
+
     mockFileManager = {
       movePRToStatusDirectory: vi.fn().mockResolvedValue({
         moved: true,
         oldPath: mockPRData.file_path,
         newPath: '/test/prs/merged/PR-001-test.md',
-        reason: 'Moved to merged directory'
-      })
+        reason: 'Moved to merged directory',
+      }),
     } as any;
-    
+
     mockRelationshipManager = {
       getLinkedTasks: vi.fn().mockResolvedValue(['TASK-001']),
-      getLinkedIssues: vi.fn().mockResolvedValue(['ISSUE-001'])
+      getLinkedIssues: vi.fn().mockResolvedValue(['ISSUE-001']),
     } as any;
-    
+
     mockFs.existsSync.mockReturnValue(true);
     mockFs.readdirSync.mockReturnValue(['TASK-001-test.md']);
     mockFs.readFileSync.mockReturnValue('task content');
@@ -115,7 +115,7 @@ describe('PR Merge Command', () => {
       requireApproval: true,
       runPreMergeChecks: true,
       autoArchive: true,
-      updateMilestone: false
+      updateMilestone: false,
     };
 
     const result = await mergePR(
@@ -146,7 +146,7 @@ describe('PR Merge Command', () => {
       requireApproval: false,
       runPreMergeChecks: false,
       autoArchive: false,
-      updateMilestone: false
+      updateMilestone: false,
     };
 
     const result = await mergePR(
@@ -174,7 +174,7 @@ describe('PR Merge Command', () => {
       requireApproval: false,
       runPreMergeChecks: false,
       autoArchive: false,
-      updateMilestone: false
+      updateMilestone: false,
     };
 
     const result = await mergePR(
@@ -202,7 +202,7 @@ describe('PR Merge Command', () => {
         requireApproval: false,
         runPreMergeChecks: false,
         autoArchive: false,
-        updateMilestone: false
+        updateMilestone: false,
       };
 
       const result = await mergePR(
@@ -228,7 +228,7 @@ describe('PR Merge Command', () => {
       requireApproval: false,
       runPreMergeChecks: false,
       autoArchive: false,
-      updateMilestone: false
+      updateMilestone: false,
     };
 
     const result = await mergePR(
@@ -255,32 +255,32 @@ describe('PR Close Command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockConfigManager = {
       getPRsDirectory: vi.fn().mockReturnValue('/test/prs'),
       getTasksDirectory: vi.fn().mockReturnValue('/test/tasks'),
-      getIssuesDirectory: vi.fn().mockReturnValue('/test/issues')
+      getIssuesDirectory: vi.fn().mockReturnValue('/test/issues'),
     } as any;
-    
+
     mockStatusManager = {
       loadPRData: vi.fn().mockResolvedValue(mockPRData),
-      updatePRStatus: vi.fn().mockResolvedValue(undefined)
+      updatePRStatus: vi.fn().mockResolvedValue(undefined),
     } as any;
-    
+
     mockFileManager = {
       movePRToStatusDirectory: vi.fn().mockResolvedValue({
         moved: true,
         oldPath: mockPRData.file_path,
         newPath: '/test/prs/closed/PR-001-test.md',
-        reason: 'Moved to closed directory'
-      })
+        reason: 'Moved to closed directory',
+      }),
     } as any;
-    
+
     mockRelationshipManager = {
       getLinkedTasks: vi.fn().mockResolvedValue(['TASK-001']),
-      getLinkedIssues: vi.fn().mockResolvedValue(['ISSUE-001'])
+      getLinkedIssues: vi.fn().mockResolvedValue(['ISSUE-001']),
     } as any;
-    
+
     mockFs.existsSync.mockReturnValue(true);
     mockFs.readdirSync.mockReturnValue(['TASK-001-test.md']);
     mockFs.readFileSync.mockReturnValue('task content');
@@ -295,7 +295,7 @@ describe('PR Close Command', () => {
       deleteSourceBranch: false,
       archiveFiles: true,
       notifyReviewers: false,
-      addToReport: false
+      addToReport: false,
     };
 
     const result = await closePR(
@@ -328,7 +328,7 @@ describe('PR Close Command', () => {
       deleteSourceBranch: false,
       archiveFiles: false,
       notifyReviewers: false,
-      addToReport: false
+      addToReport: false,
     };
 
     const result = await closePR(
@@ -347,9 +347,9 @@ describe('PR Close Command', () => {
   });
 
   it('should support different close reasons', async () => {
-    const reasons: Array<'cancelled' | 'superseded' | 'rejected' | 'duplicate' | 'stale' | 'other'> = [
-      'cancelled', 'superseded', 'rejected', 'duplicate', 'stale', 'other'
-    ];
+    const reasons: Array<
+      'cancelled' | 'superseded' | 'rejected' | 'duplicate' | 'stale' | 'other'
+    > = ['cancelled', 'superseded', 'rejected', 'duplicate', 'stale', 'other'];
 
     for (const reason of reasons) {
       const options: CloseOptions = {
@@ -359,7 +359,7 @@ describe('PR Close Command', () => {
         deleteSourceBranch: false,
         archiveFiles: false,
         notifyReviewers: false,
-        addToReport: false
+        addToReport: false,
       };
 
       const result = await closePR(
@@ -389,7 +389,7 @@ describe('PR Close Command', () => {
       deleteSourceBranch: false,
       archiveFiles: false,
       notifyReviewers: false,
-      addToReport: false
+      addToReport: false,
     };
 
     const result = await closePR(
@@ -416,40 +416,40 @@ describe('PR Batch Operations', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockConfigManager = {
-      getPRsDirectory: vi.fn().mockReturnValue('/test/prs')
+      getPRsDirectory: vi.fn().mockReturnValue('/test/prs'),
     } as any;
-    
+
     mockStatusManager = {
       listPRs: vi.fn().mockResolvedValue([
         { ...mockPRData, pr_id: 'PR-001', pr_status: 'approved' },
         { ...mockPRData, pr_id: 'PR-002', pr_status: 'open' },
-        { ...mockPRData, pr_id: 'PR-003', pr_status: 'merged' }
+        { ...mockPRData, pr_id: 'PR-003', pr_status: 'merged' },
       ]),
       loadPRData: vi.fn().mockImplementation((prId: string) => {
         const prs = {
           'PR-001': { ...mockPRData, pr_id: 'PR-001', pr_status: 'approved' },
           'PR-002': { ...mockPRData, pr_id: 'PR-002', pr_status: 'open' },
-          'PR-003': { ...mockPRData, pr_id: 'PR-003', pr_status: 'merged' }
+          'PR-003': { ...mockPRData, pr_id: 'PR-003', pr_status: 'merged' },
         };
         return Promise.resolve(prs[prId as keyof typeof prs] || null);
       }),
-      updatePRStatus: vi.fn().mockResolvedValue(undefined)
+      updatePRStatus: vi.fn().mockResolvedValue(undefined),
     } as any;
-    
+
     mockFileManager = {
       movePRToStatusDirectory: vi.fn().mockResolvedValue({
         moved: true,
         oldPath: '/test/old',
         newPath: '/test/new',
-        reason: 'Moved'
-      })
+        reason: 'Moved',
+      }),
     } as any;
-    
+
     mockRelationshipManager = {
       getLinkedTasks: vi.fn().mockResolvedValue([]),
-      getLinkedIssues: vi.fn().mockResolvedValue([])
+      getLinkedIssues: vi.fn().mockResolvedValue([]),
     } as any;
   });
 
@@ -457,13 +457,13 @@ describe('PR Batch Operations', () => {
     const options: BatchOptions = {
       operation: 'merge',
       filter: {
-        status: ['approved', 'open']
+        status: ['approved', 'open'],
       },
       dryRun: false,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(
@@ -484,13 +484,13 @@ describe('PR Batch Operations', () => {
     const options: BatchOptions = {
       operation: 'close',
       filter: {
-        status: ['open', 'draft']
+        status: ['open', 'draft'],
       },
       dryRun: false,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(
@@ -509,13 +509,13 @@ describe('PR Batch Operations', () => {
     const options: BatchOptions = {
       operation: 'approve',
       filter: {
-        status: ['open', 'review']
+        status: ['open', 'review'],
       },
       dryRun: false,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(
@@ -534,13 +534,13 @@ describe('PR Batch Operations', () => {
     const options: BatchOptions = {
       operation: 'merge',
       filter: {
-        status: ['merged']
+        status: ['merged'],
       },
       dryRun: false,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(
@@ -558,13 +558,13 @@ describe('PR Batch Operations', () => {
     const options: BatchOptions = {
       operation: 'merge',
       filter: {
-        status: ['approved']
+        status: ['approved'],
       },
       dryRun: true,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(
@@ -585,13 +585,13 @@ describe('PR Batch Operations', () => {
       filter: {
         status: ['open'],
         assignee: 'test-user',
-        createdAfter: '2025-01-01'
+        createdAfter: '2025-01-01',
       },
       dryRun: false,
       maxConcurrency: 5,
       continueOnError: true,
       createReport: false,
-      autoApprove: false
+      autoApprove: false,
     };
 
     const result = await performBatchOperation(

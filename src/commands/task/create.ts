@@ -3,15 +3,15 @@
  * Creates new tasks using YAML frontmatter system
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fs from 'fs';
+import type { ItemStatus, Priority, TaskFrontmatter } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
-import { IdGenerator } from '../../utils/simple-id-generator.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
-import type { TaskFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { IdGenerator } from '../../utils/simple-id-generator.js';
 
 interface CreateOptions {
   title?: string;
@@ -30,7 +30,7 @@ interface CreateOptions {
 
 export function createTaskCreateCommand(): Command {
   const cmd = new Command('create');
-  
+
   cmd
     .description('Create a new task within an issue')
     .argument('[title]', 'task title (optional if using --title flag)')
@@ -39,7 +39,11 @@ export function createTaskCreateCommand(): Command {
     .option('-d, --description <text>', 'task description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
-    .option('-s, --status <status>', 'initial status (planning|active|completed|archived)', 'planning')
+    .option(
+      '-s, --status <status>',
+      'initial status (planning|active|completed|archived)',
+      'planning'
+    )
     .option('-t, --template <name>', 'template to use', 'default')
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
     .option('--time-estimate <duration>', 'estimated time (e.g., 2h, 30m, 1d)')
@@ -51,11 +55,17 @@ export function createTaskCreateCommand(): Command {
         // Support both positional argument and --title flag
         const title = titleArg || options.title;
         if (!title) {
-          throw new Error('Task title is required. Provide it as a positional argument or use --title flag.');
+          throw new Error(
+            'Task title is required. Provide it as a positional argument or use --title flag.'
+          );
         }
         await createTask(title, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -68,36 +78,38 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
   const config = configManager.getConfig();
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
-  
+
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
-  
+
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+
   // Validate that the issue exists
   const issueHierarchy = relationshipManager.getIssueHierarchy(options.issue);
   if (!issueHierarchy) {
     throw new Error(`Issue not found: ${options.issue}`);
   }
-  
+
   const issue = issueHierarchy.issue;
   const epicId = issue.epic_id;
-  
+
   // Generate task ID
   const taskId = idGenerator.generateTaskId(options.issue, title);
-  
+
   // Get template
   const template = configManager.getTemplateWithFallback('task', options.template || 'default');
   if (!template) {
     throw new Error(`Task template '${options.template || 'default'}' not found`);
   }
-  
+
   // Parse tags and dependencies
-  const tags = options.tags ? options.tags.split(',').map(tag => tag.trim()) : [];
-  const dependencies = options.dependencies ? options.dependencies.split(',').map(dep => dep.trim()) : [];
-  
+  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  const dependencies = options.dependencies
+    ? options.dependencies.split(',').map((dep) => dep.trim())
+    : [];
+
   // Create task frontmatter
   const now = new Date().toISOString();
   const taskFrontmatter: TaskFrontmatter = {
@@ -122,18 +134,18 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
     time_estimate: options.timeEstimate,
     time_spent: undefined,
     blocked_by: [],
-    blocks: []
+    blocks: [],
   };
-  
+
   // Generate content from template
   const content = template.content_template
     .replace(/\{\{title\}\}/g, title)
     .replace(/\{\{description\}\}/g, taskFrontmatter.description);
-  
+
   // Create filename
   const filename = `${taskId}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${config.naming_conventions.file_extension}`;
   const filePath = path.join(paths.tasksDir, filename);
-  
+
   if (options.dryRun) {
     console.log(Formatter.info('Dry run - Task would be created with:'));
     console.log(Formatter.debug(`File: ${filePath}`));
@@ -155,22 +167,22 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
     }
     return;
   }
-  
+
   // Check if file already exists
   if (fs.existsSync(filePath)) {
     throw new Error(`Task file already exists: ${filePath}`);
   }
-  
+
   // Write the task file
   parser.writeTask(filePath, taskFrontmatter, content);
-  
+
   // Update the issue's related tasks
   const updatedRelatedTasks = [...(issue.related_tasks || []), taskId];
   parser.updateFile(issue.file_path, { related_tasks: updatedRelatedTasks });
-  
+
   // Refresh cache
   relationshipManager.rebuildCache();
-  
+
   console.log(Formatter.success(`Task created successfully!`));
   console.log(Formatter.info(`Task ID: ${taskId}`));
   console.log(Formatter.info(`Issue ID: ${options.issue}`));
@@ -180,19 +192,19 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
   console.log(Formatter.info(`Status: ${taskFrontmatter.status}`));
   console.log(Formatter.info(`Priority: ${taskFrontmatter.priority}`));
   console.log(Formatter.info(`Assignee: ${taskFrontmatter.assignee}`));
-  
+
   if (options.timeEstimate) {
     console.log(Formatter.info(`Time Estimate: ${options.timeEstimate}`));
   }
-  
+
   if (tags.length > 0) {
     console.log(Formatter.info(`Tags: ${tags.join(', ')}`));
   }
-  
+
   if (dependencies.length > 0) {
     console.log(Formatter.info(`Dependencies: ${dependencies.join(', ')}`));
   }
-  
+
   console.log('');
   console.log(Formatter.success(`Task added to issue "${issue.title}"`));
 }

@@ -3,13 +3,17 @@
  * Comprehensive tests for the high-performance index file system
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import { TrackdownIndexManager } from '../src/utils/trackdown-index-manager.js';
-import { ConfigManager } from '../src/utils/config-manager.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type {
+  EpicFrontmatter,
+  IssueFrontmatter,
+  ProjectConfig,
+  TaskFrontmatter,
+} from '../src/types/ai-trackdown.js';
 import { FrontmatterParser } from '../src/utils/frontmatter-parser.js';
-import type { ProjectConfig, EpicFrontmatter, IssueFrontmatter, TaskFrontmatter } from '../src/types/ai-trackdown.js';
+import { TrackdownIndexManager } from '../src/utils/trackdown-index-manager.js';
 
 describe('TrackdownIndexManager', () => {
   let testDir: string;
@@ -33,22 +37,22 @@ describe('TrackdownIndexManager', () => {
         issues_dir: 'issues',
         tasks_dir: 'tasks',
         templates_dir: 'templates',
-        prs_dir: 'prs'
+        prs_dir: 'prs',
       },
       naming_conventions: {
         epic_prefix: 'EP',
         issue_prefix: 'ISS',
         task_prefix: 'TSK',
         pr_prefix: 'PR',
-        file_extension: '.md'
+        file_extension: '.md',
       },
       default_assignee: 'test-user',
       ai_context_templates: [],
       automation: {
         auto_update_timestamps: true,
         auto_calculate_tokens: false,
-        auto_sync_status: true
-      }
+        auto_sync_status: true,
+      },
     };
 
     // Initialize index manager and parser
@@ -73,7 +77,7 @@ describe('TrackdownIndexManager', () => {
   describe('Index Creation and Loading', () => {
     it('should create a new index when none exists', async () => {
       const index = await indexManager.rebuildIndex();
-      
+
       expect(index.version).toBe('1.0.0');
       expect(index.projectPath).toBe(testDir);
       expect(index.epics).toEqual({});
@@ -85,7 +89,7 @@ describe('TrackdownIndexManager', () => {
     it('should save and load index correctly', async () => {
       const originalIndex = await indexManager.rebuildIndex();
       const loadedIndex = await indexManager.loadIndex();
-      
+
       expect(loadedIndex.version).toBe(originalIndex.version);
       expect(loadedIndex.projectPath).toBe(originalIndex.projectPath);
       expect(loadedIndex.lastUpdated).toBe(originalIndex.lastUpdated);
@@ -94,7 +98,7 @@ describe('TrackdownIndexManager', () => {
     it('should validate index structure correctly', async () => {
       await indexManager.rebuildIndex();
       const isValid = await indexManager.validateIndex();
-      
+
       expect(isValid).toBe(true);
     });
   });
@@ -109,7 +113,7 @@ describe('TrackdownIndexManager', () => {
 
     it('should index epic files correctly', async () => {
       const index = await indexManager.rebuildIndex();
-      
+
       expect(Object.keys(index.epics)).toHaveLength(1);
       const epic = index.epics['EP-0001'];
       expect(epic).toBeDefined();
@@ -121,7 +125,7 @@ describe('TrackdownIndexManager', () => {
 
     it('should index issue files correctly', async () => {
       const index = await indexManager.rebuildIndex();
-      
+
       expect(Object.keys(index.issues)).toHaveLength(1);
       const issue = index.issues['ISS-0001'];
       expect(issue).toBeDefined();
@@ -132,7 +136,7 @@ describe('TrackdownIndexManager', () => {
 
     it('should index task files correctly', async () => {
       const index = await indexManager.rebuildIndex();
-      
+
       expect(Object.keys(index.tasks)).toHaveLength(1);
       const task = index.tasks['TSK-0001'];
       expect(task).toBeDefined();
@@ -144,10 +148,10 @@ describe('TrackdownIndexManager', () => {
 
     it('should build relationships correctly', async () => {
       const index = await indexManager.rebuildIndex();
-      
+
       const epic = index.epics['EP-0001'];
       const issue = index.issues['ISS-0001'];
-      
+
       expect(epic.issueIds).toContain('ISS-0001');
       expect(issue.taskIds).toContain('TSK-0001');
     });
@@ -183,7 +187,7 @@ describe('TrackdownIndexManager', () => {
     it('should handle item creation correctly', async () => {
       await createSecondTestEpic();
       await indexManager.updateItem('epic', 'EP-0002');
-      
+
       const index = await indexManager.loadIndex();
       expect(Object.keys(index.epics)).toHaveLength(2);
       expect(index.epics['EP-0002']).toBeDefined();
@@ -195,8 +199,17 @@ describe('TrackdownIndexManager', () => {
       // Create multiple test files for performance testing
       for (let i = 1; i <= 10; i++) {
         await createTestEpic(`EP-${i.toString().padStart(4, '0')}`, `Test Epic ${i}`);
-        await createTestIssue(`ISS-${i.toString().padStart(4, '0')}`, `Test Issue ${i}`, `EP-${i.toString().padStart(4, '0')}`);
-        await createTestTask(`TSK-${i.toString().padStart(4, '0')}`, `Test Task ${i}`, `ISS-${i.toString().padStart(4, '0')}`, `EP-${i.toString().padStart(4, '0')}`);
+        await createTestIssue(
+          `ISS-${i.toString().padStart(4, '0')}`,
+          `Test Issue ${i}`,
+          `EP-${i.toString().padStart(4, '0')}`
+        );
+        await createTestTask(
+          `TSK-${i.toString().padStart(4, '0')}`,
+          `Test Task ${i}`,
+          `ISS-${i.toString().padStart(4, '0')}`,
+          `EP-${i.toString().padStart(4, '0')}`
+        );
       }
     });
 
@@ -211,7 +224,7 @@ describe('TrackdownIndexManager', () => {
 
     it('should load index quickly from cache', async () => {
       await indexManager.rebuildIndex();
-      
+
       const startTime = Date.now();
       await indexManager.loadIndex();
       await indexManager.loadIndex(); // Second call should be cached
@@ -245,13 +258,15 @@ describe('TrackdownIndexManager', () => {
     it('should filter items by status correctly', async () => {
       const activeItems = await indexManager.getItemsByStatus('active');
       expect(activeItems).toHaveLength(2);
-      expect(activeItems.map(item => item.id)).toEqual(expect.arrayContaining(['EP-0001', 'ISS-0001']));
+      expect(activeItems.map((item) => item.id)).toEqual(
+        expect.arrayContaining(['EP-0001', 'ISS-0001'])
+      );
     });
 
     it('should get items by type correctly', async () => {
       const epics = await indexManager.getItemsByType('epic');
       const issues = await indexManager.getItemsByType('issue');
-      
+
       expect(epics).toHaveLength(2);
       expect(issues).toHaveLength(2);
     });
@@ -259,15 +274,15 @@ describe('TrackdownIndexManager', () => {
     it('should find items by ID correctly', async () => {
       const epic = await indexManager.getItemById('epic', 'EP-0001');
       expect(epic).toBeDefined();
-      expect(epic!.title).toBe('Active Epic');
-      
+      expect(epic?.title).toBe('Active Epic');
+
       const nonExistent = await indexManager.getItemById('epic', 'EP-9999');
       expect(nonExistent).toBeNull();
     });
 
     it('should generate project overview correctly', async () => {
       const overview = await indexManager.getProjectOverview();
-      
+
       expect(overview.totalItems).toBe(4);
       expect(overview.byType.epic).toBe(2);
       expect(overview.byType.issue).toBe(2);
@@ -293,11 +308,11 @@ describe('TrackdownIndexManager', () => {
     it('should handle missing files gracefully', async () => {
       await createTestEpic();
       await indexManager.rebuildIndex();
-      
+
       // Delete the file but try to update index
       const epicPath = path.join(testDir, 'tasks', 'epics', 'EP-0001-test-epic.md');
       fs.unlinkSync(epicPath);
-      
+
       // Should remove from index automatically
       await indexManager.updateItem('epic', 'EP-0001');
       const index = await indexManager.loadIndex();
@@ -307,7 +322,7 @@ describe('TrackdownIndexManager', () => {
     it('should validate index health correctly', async () => {
       const stats = await indexManager.getIndexStats();
       expect(stats.healthy).toBe(true);
-      
+
       // Create invalid index state (empty index should rebuild)
       indexManager.clearCache();
       await indexManager.rebuildIndex();
@@ -317,7 +332,12 @@ describe('TrackdownIndexManager', () => {
   });
 
   // Helper functions
-  async function createTestEpic(id: string = 'EP-0001', title: string = 'Test Epic', status: string = 'planning', priority: string = 'medium'): Promise<void> {
+  async function createTestEpic(
+    id: string = 'EP-0001',
+    title: string = 'Test Epic',
+    status: string = 'planning',
+    priority: string = 'medium'
+  ): Promise<void> {
     const epicFrontmatter: EpicFrontmatter = {
       epic_id: id,
       title,
@@ -332,7 +352,7 @@ describe('TrackdownIndexManager', () => {
       ai_context: [],
       sync_status: 'local',
       related_issues: [],
-      completion_percentage: 0
+      completion_percentage: 0,
     };
 
     const content = `# Epic: ${title}
@@ -357,7 +377,13 @@ Test epic for the index system.
     await createTestEpic('EP-0002', 'Second Test Epic');
   }
 
-  async function createTestIssue(id: string = 'ISS-0001', title: string = 'Test Issue', epicId: string = 'EP-0001', status: string = 'planning', priority: string = 'medium'): Promise<void> {
+  async function createTestIssue(
+    id: string = 'ISS-0001',
+    title: string = 'Test Issue',
+    epicId: string = 'EP-0001',
+    status: string = 'planning',
+    priority: string = 'medium'
+  ): Promise<void> {
     const issueFrontmatter: IssueFrontmatter = {
       issue_id: id,
       epic_id: epicId,
@@ -373,7 +399,7 @@ Test epic for the index system.
       ai_context: [],
       sync_status: 'local',
       related_tasks: [],
-      completion_percentage: 0
+      completion_percentage: 0,
     };
 
     const content = `# Issue: ${title}
@@ -394,7 +420,12 @@ Test issue for the index system.
     frontmatterParser.writeIssue(filePath, issueFrontmatter, content);
   }
 
-  async function createTestTask(id: string = 'TSK-0001', title: string = 'Test Task', issueId: string = 'ISS-0001', epicId: string = 'EP-0001'): Promise<void> {
+  async function createTestTask(
+    id: string = 'TSK-0001',
+    title: string = 'Test Task',
+    issueId: string = 'ISS-0001',
+    epicId: string = 'EP-0001'
+  ): Promise<void> {
     const taskFrontmatter: TaskFrontmatter = {
       task_id: id,
       issue_id: issueId,
@@ -410,7 +441,7 @@ Test issue for the index system.
       actual_tokens: 0,
       ai_context: [],
       sync_status: 'local',
-      time_estimate: '2h'
+      time_estimate: '2h',
     };
 
     const content = `# Task: ${title}

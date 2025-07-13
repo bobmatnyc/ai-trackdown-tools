@@ -11,16 +11,14 @@ import { createProjectSwitchCommand } from './project/switch.js';
 
 export function createProjectCommand(): Command {
   const cmd = new Command('project');
-  
-  cmd
-    .description('Manage projects and project context')
-    .alias('proj');
-  
+
+  cmd.description('Manage projects and project context').alias('proj');
+
   // Add subcommands
   cmd.addCommand(createProjectCreateCommand());
   cmd.addCommand(createProjectListCommand());
   cmd.addCommand(createProjectShowCommand());
   cmd.addCommand(createProjectSwitchCommand());
-  
+
   return cmd;
 }

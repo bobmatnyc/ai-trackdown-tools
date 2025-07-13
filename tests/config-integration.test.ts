@@ -3,13 +3,13 @@
  * ATT-004: Fix Task Directory Structure - Single Root Directory Implementation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { ConfigManager } from '../src/utils/config-manager.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProjectConfig } from '../src/types/ai-trackdown.js';
+import { ConfigManager } from '../src/utils/config-manager.js';
 
 describe('ConfigManager Integration with Unified Paths', () => {
   let tempDir: string;
@@ -29,7 +29,7 @@ describe('ConfigManager Integration with Unified Paths', () => {
   describe('createDefaultConfig', () => {
     it('should create config with default tasks_directory', () => {
       const config = configManager.createDefaultConfig('test-project');
-      
+
       expect(config.tasks_directory).toBe('tasks');
       expect(config.structure.epics_dir).toBe('epics');
       expect(config.structure.issues_dir).toBe('issues');
@@ -40,15 +40,15 @@ describe('ConfigManager Integration with Unified Paths', () => {
 
     it('should allow custom tasks_directory', () => {
       const config = configManager.createDefaultConfig('test-project', {
-        tasks_directory: 'work'
+        tasks_directory: 'work',
       });
-      
+
       expect(config.tasks_directory).toBe('work');
     });
 
     it('should include PR configurations', () => {
       const config = configManager.createDefaultConfig('test-project');
-      
+
       expect(config.structure.prs_dir).toBe('prs');
       expect(config.naming_conventions.pr_prefix).toBe('PR');
     });
@@ -58,9 +58,9 @@ describe('ConfigManager Integration with Unified Paths', () => {
     it('should return unified paths structure', () => {
       const config = configManager.createDefaultConfig('test-project');
       configManager.initializeProject('test-project', config);
-      
+
       const paths = configManager.getAbsolutePaths();
-      
+
       expect(paths.tasksRoot).toBe(join(tempDir, 'tasks'));
       expect(paths.epicsDir).toBe(join(tempDir, 'tasks', 'epics'));
       expect(paths.issuesDir).toBe(join(tempDir, 'tasks', 'issues'));
@@ -72,21 +72,21 @@ describe('ConfigManager Integration with Unified Paths', () => {
     it('should respect CLI tasks directory override', () => {
       const config = configManager.createDefaultConfig('test-project');
       configManager.initializeProject('test-project', config);
-      
+
       const paths = configManager.getAbsolutePaths('cli-override');
-      
+
       expect(paths.tasksRoot).toBe(join(tempDir, 'cli-override'));
       expect(paths.epicsDir).toBe(join(tempDir, 'cli-override', 'epics'));
     });
 
     it('should handle custom tasks_directory from config', () => {
       const config = configManager.createDefaultConfig('test-project', {
-        tasks_directory: 'work'
+        tasks_directory: 'work',
       });
       configManager.initializeProject('test-project', config);
-      
+
       const paths = configManager.getAbsolutePaths();
-      
+
       expect(paths.tasksRoot).toBe(join(tempDir, 'work'));
       expect(paths.epicsDir).toBe(join(tempDir, 'work', 'epics'));
     });
@@ -96,7 +96,7 @@ describe('ConfigManager Integration with Unified Paths', () => {
     it('should create unified directory structure', () => {
       const config = configManager.createDefaultConfig('test-project');
       configManager.initializeProject('test-project', config);
-      
+
       // Verify unified structure was created
       expect(existsSync(join(tempDir, '.ai-trackdown'))).toBe(true);
       expect(existsSync(join(tempDir, 'tasks'))).toBe(true);
@@ -109,10 +109,10 @@ describe('ConfigManager Integration with Unified Paths', () => {
 
     it('should create custom tasks directory structure', () => {
       const config = configManager.createDefaultConfig('test-project', {
-        tasks_directory: 'work'
+        tasks_directory: 'work',
       });
       configManager.initializeProject('test-project', config);
-      
+
       // Verify custom structure was created
       expect(existsSync(join(tempDir, 'work'))).toBe(true);
       expect(existsSync(join(tempDir, 'work', 'epics'))).toBe(true);
@@ -125,7 +125,7 @@ describe('ConfigManager Integration with Unified Paths', () => {
     it('should not create legacy separate root directories', () => {
       const config = configManager.createDefaultConfig('test-project');
       configManager.initializeProject('test-project', config);
-      
+
       // Verify legacy structure was NOT created at root
       expect(existsSync(join(tempDir, 'epics'))).toBe(false);
       expect(existsSync(join(tempDir, 'issues'))).toBe(false);
@@ -137,7 +137,7 @@ describe('ConfigManager Integration with Unified Paths', () => {
     it('should find templates in unified structure', () => {
       const config = configManager.createDefaultConfig('test-project');
       configManager.initializeProject('test-project', config);
-      
+
       // Templates should be accessible from unified location
       const template = configManager.getTemplate('epic', 'default');
       expect(template).toBeTruthy();
@@ -148,21 +148,21 @@ describe('ConfigManager Integration with Unified Paths', () => {
   describe('backward compatibility', () => {
     it('should maintain compatibility with existing configurations', () => {
       // Create a config without tasks_directory (old format)
-      const oldConfig: ProjectConfig = {
+      const _oldConfig: ProjectConfig = {
         name: 'test-project',
         version: '1.0.0',
         structure: {
           epics_dir: 'epics',
           issues_dir: 'issues',
           tasks_dir: 'tasks',
-          templates_dir: 'templates'
+          templates_dir: 'templates',
         },
         naming_conventions: {
           epic_prefix: 'EP',
           issue_prefix: 'ISS',
           task_prefix: 'TSK',
-          file_extension: '.md'
-        }
+          file_extension: '.md',
+        },
       };
 
       // Create config file manually
@@ -185,7 +185,7 @@ naming_conventions:
       );
 
       const paths = configManager.getAbsolutePaths();
-      
+
       // Should default to 'tasks' when tasks_directory not specified
       expect(paths.tasksRoot).toBe(join(tempDir, 'tasks'));
     });

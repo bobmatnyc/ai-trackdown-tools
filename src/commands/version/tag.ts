@@ -1,8 +1,8 @@
+import { execSync } from 'node:child_process';
 import { Command } from 'commander';
-import { execSync } from 'child_process';
-import { VersionManager } from '../../utils/version.js';
-import { GitManager } from '../../utils/git.js';
 import { Formatter } from '../../utils/formatter.js';
+import { GitManager } from '../../utils/git.js';
+import { VersionManager } from '../../utils/version.js';
 
 export function createTagCommand(): Command {
   const command = new Command('tag');

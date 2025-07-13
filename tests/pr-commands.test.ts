@@ -3,21 +3,21 @@
  * Tests the PR command functionality and integration
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createPRApproveCommand } from '../src/commands/pr/approve.js';
 import { createPRCreateCommand } from '../src/commands/pr/create.js';
 import { createPRListCommand } from '../src/commands/pr/list.js';
-import { createPRShowCommand } from '../src/commands/pr/show.js';
 import { createPRReviewCommand } from '../src/commands/pr/review.js';
-import { createPRApproveCommand } from '../src/commands/pr/approve.js';
+import { createPRShowCommand } from '../src/commands/pr/show.js';
 import { createPRUpdateCommand } from '../src/commands/pr/update.js';
 import { createPRCommand } from '../src/commands/pr.js';
-import { PRStatusManager } from '../src/utils/pr-status-manager.js';
-import { PRFileManager } from '../src/utils/pr-file-manager.js';
-import { ConfigManager } from '../src/utils/config-manager.js';
 import type { PRFrontmatter, PRStatus } from '../src/types/ai-trackdown.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { ConfigManager } from '../src/utils/config-manager.js';
+import { PRFileManager } from '../src/utils/pr-file-manager.js';
+import { PRStatusManager } from '../src/utils/pr-status-manager.js';
 
 describe('PR Commands', () => {
   let testDir: string;
@@ -39,12 +39,12 @@ describe('PR Commands', () => {
   describe('PR Command Registration', () => {
     it('should create main PR command with subcommands', () => {
       const prCommand = createPRCommand();
-      
+
       expect(prCommand.name()).toBe('pr');
       expect(prCommand.alias()).toBe('prs');
       expect(prCommand.description()).toContain('pull request tracking');
-      
-      const subcommands = prCommand.commands.map(cmd => cmd.name());
+
+      const subcommands = prCommand.commands.map((cmd) => cmd.name());
       expect(subcommands).toContain('create');
       expect(subcommands).toContain('list');
       expect(subcommands).toContain('show');
@@ -55,11 +55,11 @@ describe('PR Commands', () => {
 
     it('should create PR create command with required options', () => {
       const createCommand = createPRCreateCommand();
-      
+
       expect(createCommand.name()).toBe('create');
       expect(createCommand.description()).toContain('Create a new PR');
-      
-      const options = createCommand.options.map(opt => opt.long);
+
+      const options = createCommand.options.map((opt) => opt.long);
       expect(options).toContain('--issue');
       expect(options).toContain('--description');
       expect(options).toContain('--assignee');
@@ -73,11 +73,11 @@ describe('PR Commands', () => {
 
     it('should create PR list command with filter options', () => {
       const listCommand = createPRListCommand();
-      
+
       expect(listCommand.name()).toBe('list');
       expect(listCommand.description()).toContain('List PRs');
-      
-      const options = listCommand.options.map(opt => opt.long);
+
+      const options = listCommand.options.map((opt) => opt.long);
       expect(options).toContain('--status');
       expect(options).toContain('--pr-status');
       expect(options).toContain('--priority');
@@ -85,17 +85,17 @@ describe('PR Commands', () => {
       expect(options).toContain('--issue');
       expect(options).toContain('--epic');
       expect(options).toContain('--reviewer');
-      expect(options).toContain('--branch');
+      expect(options).toContain('--branch-name');
       expect(options).toContain('--format');
     });
 
     it('should create PR show command with display options', () => {
       const showCommand = createPRShowCommand();
-      
+
       expect(showCommand.name()).toBe('show');
       expect(showCommand.description()).toContain('Show detailed information');
-      
-      const options = showCommand.options.map(opt => opt.long);
+
+      const options = showCommand.options.map((opt) => opt.long);
       expect(options).toContain('--format');
       expect(options).toContain('--show-content');
       expect(options).toContain('--show-relationships');
@@ -106,7 +106,7 @@ describe('PR Commands', () => {
   describe('PR Status Validation', () => {
     it('should validate PR status enum values', () => {
       const validStatuses: PRStatus[] = ['draft', 'open', 'review', 'approved', 'merged', 'closed'];
-      
+
       for (const status of validStatuses) {
         expect(typeof status).toBe('string');
         expect(['draft', 'open', 'review', 'approved', 'merged', 'closed']).toContain(status);
@@ -141,7 +141,7 @@ describe('PR Commands', () => {
         blocked_by: [],
         blocks: [],
         related_prs: [],
-        template_used: 'default'
+        template_used: 'default',
       };
 
       // Test required fields
@@ -181,7 +181,7 @@ describe('PR Commands', () => {
         estimated_tokens: 0,
         actual_tokens: 0,
         ai_context: [],
-        sync_status: 'local' as const
+        sync_status: 'local' as const,
       };
 
       expect(prData.issue_id).toBe('ISS-0001');
@@ -193,7 +193,7 @@ describe('PR Commands', () => {
   describe('PR CLI Integration', () => {
     it('should integrate with main CLI structure', () => {
       const prCommand = createPRCommand();
-      
+
       // Test that command can be executed (basic smoke test)
       expect(() => prCommand.configureHelp()).not.toThrow();
       expect(prCommand.commands.length).toBeGreaterThan(0);
@@ -208,18 +208,18 @@ describe('PR Commands', () => {
         version: '1.0.0',
         structure: {
           epics_dir: 'epics',
-          issues_dir: 'issues', 
+          issues_dir: 'issues',
           tasks_dir: 'tasks',
           templates_dir: 'templates',
-          prs_dir: 'prs' // This should be supported
+          prs_dir: 'prs', // This should be supported
         },
         naming_conventions: {
           epic_prefix: 'EP',
           issue_prefix: 'ISS',
           task_prefix: 'TSK',
           pr_prefix: 'PR', // This should be supported
-          file_extension: '.md'
-        }
+          file_extension: '.md',
+        },
       };
 
       expect(config.structure.prs_dir).toBe('prs');
@@ -248,7 +248,7 @@ describe('PR Commands', () => {
         ['review', 'approved'],
         ['approved', 'merged'],
         ['open', 'closed'],
-        ['review', 'closed']
+        ['review', 'closed'],
       ];
 
       for (const [from, to] of validTransitions) {
@@ -285,11 +285,11 @@ describe('PR Commands', () => {
   describe('Phase 2: PR Review Commands', () => {
     it('should create PR review command with all options', () => {
       const reviewCommand = createPRReviewCommand();
-      
+
       expect(reviewCommand.name()).toBe('review');
       expect(reviewCommand.description()).toContain('Create or update a PR review');
-      
-      const options = reviewCommand.options.map(opt => opt.long);
+
+      const options = reviewCommand.options.map((opt) => opt.long);
       expect(options).toContain('--comments');
       expect(options).toContain('--approve');
       expect(options).toContain('--request-changes');
@@ -303,11 +303,11 @@ describe('PR Commands', () => {
 
     it('should create PR approve command with merge options', () => {
       const approveCommand = createPRApproveCommand();
-      
+
       expect(approveCommand.name()).toBe('approve');
       expect(approveCommand.description()).toContain('Approve a PR');
-      
-      const options = approveCommand.options.map(opt => opt.long);
+
+      const options = approveCommand.options.map((opt) => opt.long);
       expect(options).toContain('--comments');
       expect(options).toContain('--auto-merge');
       expect(options).toContain('--merge-strategy');
@@ -318,11 +318,11 @@ describe('PR Commands', () => {
 
     it('should create PR update command with comprehensive options', () => {
       const updateCommand = createPRUpdateCommand();
-      
+
       expect(updateCommand.name()).toBe('update');
       expect(updateCommand.description()).toContain('Update PR status');
-      
-      const options = updateCommand.options.map(opt => opt.long);
+
+      const options = updateCommand.options.map((opt) => opt.long);
       expect(options).toContain('--status');
       expect(options).toContain('--priority');
       expect(options).toContain('--assignee');
@@ -365,7 +365,7 @@ describe('PR Commands', () => {
 
     it('should get correct status directories', () => {
       const basePRsDir = '/test/prs';
-      
+
       expect(statusManager.getStatusDirectory('draft', basePRsDir)).toBe('/test/prs/draft');
       expect(statusManager.getStatusDirectory('open', basePRsDir)).toBe('/test/prs/active');
       expect(statusManager.getStatusDirectory('review', basePRsDir)).toBe('/test/prs/active');
@@ -380,7 +380,7 @@ describe('PR Commands', () => {
         pr_status: 'review' as PRStatus,
         reviewers: ['reviewer1', 'reviewer2'],
         approvals: ['reviewer1'],
-        blocked_by: []
+        blocked_by: [],
       } as any;
 
       // Test approval validation
@@ -397,7 +397,9 @@ describe('PR Commands', () => {
     it('should get next recommended status', () => {
       expect(statusManager.getNextRecommendedStatus({ pr_status: 'draft' } as any)).toBe('open');
       expect(statusManager.getNextRecommendedStatus({ pr_status: 'open' } as any)).toBe('review');
-      expect(statusManager.getNextRecommendedStatus({ pr_status: 'approved' } as any)).toBe('merged');
+      expect(statusManager.getNextRecommendedStatus({ pr_status: 'approved' } as any)).toBe(
+        'merged'
+      );
       expect(statusManager.getNextRecommendedStatus({ pr_status: 'merged' } as any)).toBe(null);
     });
 
@@ -406,18 +408,18 @@ describe('PR Commands', () => {
       const fullyApprovedPR = {
         pr_status: 'review' as PRStatus,
         reviewers: ['reviewer1', 'reviewer2'],
-        approvals: ['reviewer1', 'reviewer2']
+        approvals: ['reviewer1', 'reviewer2'],
       } as any;
-      
+
       expect(statusManager.getAutoStatusTransition(fullyApprovedPR)).toBe('approved');
 
       // PR without enough approvals
       const partiallyApprovedPR = {
         pr_status: 'review' as PRStatus,
         reviewers: ['reviewer1', 'reviewer2'],
-        approvals: ['reviewer1']
+        approvals: ['reviewer1'],
       } as any;
-      
+
       expect(statusManager.getAutoStatusTransition(partiallyApprovedPR)).toBe(null);
     });
 
@@ -425,15 +427,13 @@ describe('PR Commands', () => {
       const mockPR = {
         pr_id: 'PR-0001',
         approvals: ['reviewer1'],
-        reviewers: ['reviewer1', 'reviewer2']
+        reviewers: ['reviewer1', 'reviewer2'],
       } as any;
 
-      const report = statusManager.generateStatusReport(
-        mockPR,
-        'review',
-        'approved',
-        { triggered_by: 'test', file_moved: true }
-      );
+      const report = statusManager.generateStatusReport(mockPR, 'review', 'approved', {
+        triggered_by: 'test',
+        file_moved: true,
+      });
 
       expect(report.pr_id).toBe('PR-0001');
       expect(report.from_status).toBe('review');
@@ -472,11 +472,21 @@ describe('PR Commands', () => {
 
     it('should get correct PR directories for each status', () => {
       expect(fileManager.getPRDirectory('draft', testPRsDir)).toBe(path.join(testPRsDir, 'draft'));
-      expect(fileManager.getPRDirectory('open', testPRsDir)).toBe(path.join(testPRsDir, 'active', 'open'));
-      expect(fileManager.getPRDirectory('review', testPRsDir)).toBe(path.join(testPRsDir, 'active', 'review'));
-      expect(fileManager.getPRDirectory('approved', testPRsDir)).toBe(path.join(testPRsDir, 'active', 'approved'));
-      expect(fileManager.getPRDirectory('merged', testPRsDir)).toBe(path.join(testPRsDir, 'merged'));
-      expect(fileManager.getPRDirectory('closed', testPRsDir)).toBe(path.join(testPRsDir, 'closed'));
+      expect(fileManager.getPRDirectory('open', testPRsDir)).toBe(
+        path.join(testPRsDir, 'active', 'open')
+      );
+      expect(fileManager.getPRDirectory('review', testPRsDir)).toBe(
+        path.join(testPRsDir, 'active', 'review')
+      );
+      expect(fileManager.getPRDirectory('approved', testPRsDir)).toBe(
+        path.join(testPRsDir, 'active', 'approved')
+      );
+      expect(fileManager.getPRDirectory('merged', testPRsDir)).toBe(
+        path.join(testPRsDir, 'merged')
+      );
+      expect(fileManager.getPRDirectory('closed', testPRsDir)).toBe(
+        path.join(testPRsDir, 'closed')
+      );
     });
 
     it('should create review files correctly', async () => {
@@ -493,7 +503,7 @@ describe('PR Commands', () => {
       expect(fs.existsSync(reviewPath)).toBe(true);
       expect(path.dirname(reviewPath)).toBe(path.join(testPRsDir, 'reviews'));
       expect(path.basename(reviewPath)).toMatch(/^PR-0001-approve-reviewer1-\d+\.md$/);
-      
+
       const content = fs.readFileSync(reviewPath, 'utf8');
       expect(content).toBe('Test review content');
     });
@@ -542,34 +552,34 @@ describe('PR Commands', () => {
       const prFiles = fileManager.findPRFiles(testPRsDir);
 
       expect(prFiles.length).toBe(3);
-      expect(prFiles.some(file => file.includes('PR-0001.md'))).toBe(true);
-      expect(prFiles.some(file => file.includes('PR-0002.md'))).toBe(true);
-      expect(prFiles.some(file => file.includes('PR-0003.md'))).toBe(true);
-      expect(prFiles.some(file => file.includes('not-a-pr.md'))).toBe(false);
+      expect(prFiles.some((file) => file.includes('PR-0001.md'))).toBe(true);
+      expect(prFiles.some((file) => file.includes('PR-0002.md'))).toBe(true);
+      expect(prFiles.some((file) => file.includes('PR-0003.md'))).toBe(true);
+      expect(prFiles.some((file) => file.includes('not-a-pr.md'))).toBe(false);
     });
   });
 
   describe('Phase 2: PR Review System Integration', () => {
     it('should support review types', () => {
       const reviewTypes = ['approve', 'request_changes', 'comment'];
-      
-      reviewTypes.forEach(type => {
+
+      reviewTypes.forEach((type) => {
         expect(['approve', 'request_changes', 'comment']).toContain(type);
       });
     });
 
     it('should handle review state management', () => {
       const reviewStates = ['pending', 'submitted', 'dismissed'];
-      
-      reviewStates.forEach(state => {
+
+      reviewStates.forEach((state) => {
         expect(['pending', 'submitted', 'dismissed']).toContain(state);
       });
     });
 
     it('should support merge strategies', () => {
       const mergeStrategies = ['merge', 'squash', 'rebase'];
-      
-      mergeStrategies.forEach(strategy => {
+
+      mergeStrategies.forEach((strategy) => {
         expect(['merge', 'squash', 'rebase']).toContain(strategy);
       });
     });
@@ -588,15 +598,15 @@ describe('PR Commands', () => {
     it('should validate reviewer management', () => {
       // Test reviewer addition/removal logic
       const initialReviewers = ['reviewer1', 'reviewer2'];
-      
+
       // Add reviewer
       const addReviewer = (reviewers: string[], newReviewer: string) => {
         return reviewers.includes(newReviewer) ? reviewers : [...reviewers, newReviewer];
       };
-      
+
       // Remove reviewer
       const removeReviewer = (reviewers: string[], targetReviewer: string) => {
-        return reviewers.filter(r => r !== targetReviewer);
+        return reviewers.filter((r) => r !== targetReviewer);
       };
 
       const withNewReviewer = addReviewer(initialReviewers, 'reviewer3');
@@ -611,7 +621,7 @@ describe('PR Commands', () => {
     it('should handle approval tracking', () => {
       const mockPR = {
         reviewers: ['reviewer1', 'reviewer2', 'reviewer3'],
-        approvals: ['reviewer1', 'reviewer2']
+        approvals: ['reviewer1', 'reviewer2'],
       };
 
       const isFullyApproved = mockPR.approvals.length >= mockPR.reviewers.length;
@@ -625,7 +635,7 @@ describe('PR Commands', () => {
       // Test that approve and request_changes are mutually exclusive
       const conflictingOptions = {
         approve: true,
-        requestChanges: true
+        requestChanges: true,
       };
 
       const hasConflict = conflictingOptions.approve && conflictingOptions.requestChanges;

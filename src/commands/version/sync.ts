@@ -1,6 +1,6 @@
 import { Command } from 'commander';
-import { VersionManager } from '../../utils/version.js';
 import { Formatter } from '../../utils/formatter.js';
+import { VersionManager } from '../../utils/version.js';
 
 export function createSyncCommand(): Command {
   const command = new Command('sync');

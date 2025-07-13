@@ -3,15 +3,15 @@
  * Handles .ai-trackdown/config.yaml configuration system
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as YAML from 'yaml';
+import type { ItemTemplate, ProjectConfig } from '../types/ai-trackdown.js';
 import { UnifiedPathResolver } from './unified-path-resolver.js';
-import type { ProjectConfig, ItemTemplate } from '../types/ai-trackdown.js';
 
 const DEFAULT_CONFIG_DIR = '.ai-trackdown';
 const DEFAULT_CONFIG_FILE = 'config.yaml';
-const DEFAULT_TEMPLATES_DIR = 'templates';
+const _DEFAULT_TEMPLATES_DIR = 'templates';
 
 export class ConfigManager {
   private configPath: string;
@@ -31,15 +31,17 @@ export class ConfigManager {
     }
 
     if (!fs.existsSync(this.configPath)) {
-      throw new Error(`AI-Trackdown configuration not found at ${this.configPath}. Run 'aitrackdown init' to create a new project.`);
+      throw new Error(
+        `AI-Trackdown configuration not found at ${this.configPath}. Run 'aitrackdown init' to create a new project.`
+      );
     }
 
     try {
       const configContent = fs.readFileSync(this.configPath, 'utf8');
       const rawConfig = YAML.parse(configContent) as any;
-      
+
       // Handle both old format (project.name) and new format (name)
-      if (rawConfig.project && rawConfig.project.name && !rawConfig.name) {
+      if (rawConfig.project?.name && !rawConfig.name) {
         // Convert old format to new format
         this.config = {
           name: rawConfig.project.name,
@@ -51,34 +53,36 @@ export class ConfigManager {
             issues_dir: 'issues',
             tasks_dir: 'tasks',
             templates_dir: 'templates',
-            prs_dir: 'prs'
+            prs_dir: 'prs',
           },
           naming_conventions: rawConfig.naming_conventions || {
             epic_prefix: 'EP',
             issue_prefix: 'ISS',
             task_prefix: 'TSK',
             pr_prefix: 'PR',
-            file_extension: '.md'
+            file_extension: '.md',
           },
           default_assignee: rawConfig.default_assignee || 'unassigned',
           ai_context_templates: rawConfig.ai_context_templates || [],
           automation: rawConfig.automation || {
             auto_update_timestamps: true,
             auto_calculate_tokens: false,
-            auto_sync_status: true
-          }
+            auto_sync_status: true,
+          },
         };
       } else {
         this.config = rawConfig as ProjectConfig;
       }
-      
+
       // Validate and normalize config
       this.validateConfig(this.config);
       this.normalizeConfig(this.config);
-      
+
       return this.config;
     } catch (error) {
-      throw new Error(`Failed to load AI-Trackdown configuration: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to load AI-Trackdown configuration: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -87,7 +91,7 @@ export class ConfigManager {
    */
   public saveConfig(config: ProjectConfig): void {
     this.validateConfig(config);
-    
+
     const configDir = path.dirname(this.configPath);
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
@@ -96,7 +100,7 @@ export class ConfigManager {
     const yamlContent = YAML.stringify(config, {
       indent: 2,
       lineWidth: 120,
-      minContentWidth: 20
+      minContentWidth: 20,
     });
 
     fs.writeFileSync(this.configPath, yamlContent, 'utf8');
@@ -106,7 +110,10 @@ export class ConfigManager {
   /**
    * Create default configuration
    */
-  public createDefaultConfig(projectName: string, options: Partial<ProjectConfig> = {}): ProjectConfig {
+  public createDefaultConfig(
+    projectName: string,
+    options: Partial<ProjectConfig> = {}
+  ): ProjectConfig {
     const defaultConfig: ProjectConfig = {
       name: projectName,
       description: options.description || `AI-Trackdown project: ${projectName}`,
@@ -118,28 +125,28 @@ export class ConfigManager {
         issues_dir: 'issues',
         tasks_dir: 'tasks',
         templates_dir: 'templates',
-        prs_dir: 'prs' // NEW: PR directory
+        prs_dir: 'prs', // NEW: PR directory
       },
       naming_conventions: {
         epic_prefix: 'EP',
         issue_prefix: 'ISS',
         task_prefix: 'TSK',
         pr_prefix: 'PR', // NEW: PR prefix
-        file_extension: '.md'
+        file_extension: '.md',
       },
       default_assignee: options.default_assignee || 'unassigned',
       ai_context_templates: [
         'context/requirements',
         'context/constraints',
         'context/assumptions',
-        'context/dependencies'
+        'context/dependencies',
       ],
       automation: {
         auto_update_timestamps: true,
         auto_calculate_tokens: false,
-        auto_sync_status: true
+        auto_sync_status: true,
       },
-      ...options
+      ...options,
     };
 
     return defaultConfig;
@@ -148,33 +155,39 @@ export class ConfigManager {
   /**
    * Initialize new project with default structure
    */
-  public initializeProject(projectName: string, options: Partial<ProjectConfig> = {}): ProjectConfig {
+  public initializeProject(
+    projectName: string,
+    options: Partial<ProjectConfig> = {}
+  ): ProjectConfig {
     const config = this.createDefaultConfig(projectName, options);
-    
+
     // Create directory structure
     this.createProjectStructure(config);
-    
+
     // Create default templates
     this.createDefaultTemplates(config);
-    
+
     // Save configuration
     this.saveConfig(config);
-    
+
     return config;
   }
 
   /**
    * Initialize new project with structure only (no template creation)
    */
-  public initializeProjectStructure(projectName: string, options: Partial<ProjectConfig> = {}): ProjectConfig {
+  public initializeProjectStructure(
+    projectName: string,
+    options: Partial<ProjectConfig> = {}
+  ): ProjectConfig {
     const config = this.createDefaultConfig(projectName, options);
-    
+
     // Create directory structure only
     this.createProjectStructure(config);
-    
+
     // Save configuration
     this.saveConfig(config);
-    
+
     return config;
   }
 
@@ -184,7 +197,7 @@ export class ConfigManager {
   public updateConfig(updates: Partial<ProjectConfig>): ProjectConfig {
     const currentConfig = this.loadConfig();
     const updatedConfig = this.deepMerge(currentConfig, updates);
-    
+
     this.saveConfig(updatedConfig);
     return updatedConfig;
   }
@@ -194,20 +207,20 @@ export class ConfigManager {
    */
   public getConfig(): ProjectConfig {
     const config = this.loadConfig();
-    
+
     // Apply environment variable overrides
     if (process.env.ATD_DEFAULT_ASSIGNEE) {
       config.default_assignee = process.env.ATD_DEFAULT_ASSIGNEE;
     }
-    
+
     if (process.env.ATD_AUTO_TIMESTAMPS === 'false') {
       config.automation!.auto_update_timestamps = false;
     }
-    
+
     if (process.env.ATD_AUTO_CALCULATE_TOKENS === 'true') {
       config.automation!.auto_calculate_tokens = true;
     }
-    
+
     return config;
   }
 
@@ -226,12 +239,12 @@ export class ConfigManager {
   } {
     const config = this.getConfig();
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot, cliTasksDir);
     const unifiedPaths = pathResolver.getUnifiedPaths();
-    
+
     return {
       projectRoot: unifiedPaths.projectRoot,
       configDir: unifiedPaths.configDir,
@@ -240,7 +253,7 @@ export class ConfigManager {
       issuesDir: unifiedPaths.issuesDir,
       tasksDir: unifiedPaths.tasksDir,
       prsDir: unifiedPaths.prsDir,
-      templatesDir: unifiedPaths.templatesDir
+      templatesDir: unifiedPaths.templatesDir,
     };
   }
 
@@ -258,7 +271,7 @@ export class ConfigManager {
    */
   public findProjectRoot(startDir?: string): string {
     let currentDir = startDir || process.cwd();
-    
+
     while (currentDir !== path.dirname(currentDir)) {
       const configPath = path.join(currentDir, DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE);
       if (fs.existsSync(configPath)) {
@@ -266,7 +279,7 @@ export class ConfigManager {
       }
       currentDir = path.dirname(currentDir);
     }
-    
+
     // If not found, return the starting directory
     return startDir || process.cwd();
   }
@@ -276,7 +289,7 @@ export class ConfigManager {
    */
   private validateConfig(config: ProjectConfig): void {
     const required = ['name', 'version', 'structure', 'naming_conventions'];
-    
+
     for (const field of required) {
       if (!config[field as keyof ProjectConfig]) {
         throw new Error(`Configuration missing required field: ${field}`);
@@ -309,7 +322,7 @@ export class ConfigManager {
       config.automation = {
         auto_update_timestamps: true,
         auto_calculate_tokens: false,
-        auto_sync_status: true
+        auto_sync_status: true,
       };
     }
 
@@ -326,7 +339,7 @@ export class ConfigManager {
 
     // Ensure file extension starts with dot
     if (!config.naming_conventions.file_extension.startsWith('.')) {
-      config.naming_conventions.file_extension = '.' + config.naming_conventions.file_extension;
+      config.naming_conventions.file_extension = `.${config.naming_conventions.file_extension}`;
     }
   }
 
@@ -335,7 +348,7 @@ export class ConfigManager {
    */
   public createProjectStructure(config: ProjectConfig): void {
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
@@ -353,7 +366,7 @@ export class ConfigManager {
    */
   private createDefaultTemplates(config: ProjectConfig): void {
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
@@ -376,7 +389,7 @@ export class ConfigManager {
           estimated_tokens: 0,
           actual_tokens: 0,
           ai_context: config.ai_context_templates || [],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Epic: {{title}}
 
@@ -398,7 +411,7 @@ export class ConfigManager {
 {{/related_issues}}
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'issue',
@@ -415,7 +428,7 @@ Add any additional notes here.`
           estimated_tokens: 0,
           actual_tokens: 0,
           ai_context: config.ai_context_templates || [],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Issue: {{title}}
 
@@ -432,7 +445,7 @@ Add any additional notes here.`
 - [ ] Criteria 2
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'task',
@@ -449,7 +462,7 @@ Add any additional notes here.`
           estimated_tokens: 0,
           actual_tokens: 0,
           ai_context: config.ai_context_templates || [],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Task: {{title}}
 
@@ -466,7 +479,7 @@ Add any additional notes here.`
 - [ ] Criteria 2
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'pr',
@@ -483,7 +496,7 @@ Add any additional notes here.`
           estimated_tokens: 0,
           actual_tokens: 0,
           ai_context: config.ai_context_templates || [],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# PR: {{title}}
 
@@ -512,8 +525,8 @@ Add any additional notes here.`
 - Target: {{target_branch}}
 
 ## Notes
-Add any additional notes here.`
-      }
+Add any additional notes here.`,
+      },
     ];
 
     for (const template of templates) {
@@ -521,7 +534,7 @@ Add any additional notes here.`
       if (!fs.existsSync(templatePath)) {
         const templateContent = YAML.stringify(template, {
           indent: 2,
-          lineWidth: 120
+          lineWidth: 120,
         });
         fs.writeFileSync(templatePath, templateContent, 'utf8');
       }
@@ -533,7 +546,7 @@ Add any additional notes here.`
    */
   private deepMerge(target: any, source: any): any {
     const result = { ...target };
-    
+
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         result[key] = this.deepMerge(result[key] || {}, source[key]);
@@ -541,34 +554,39 @@ Add any additional notes here.`
         result[key] = source[key];
       }
     }
-    
+
     return result;
   }
 
   /**
    * Get template by type and name
    */
-  public getTemplate(type: 'epic' | 'issue' | 'task' | 'pr', name: string = 'default'): ItemTemplate | null {
+  public getTemplate(
+    type: 'epic' | 'issue' | 'task' | 'pr',
+    name: string = 'default'
+  ): ItemTemplate | null {
     const config = this.getConfig();
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;
-    
+
     const templatePath = path.join(templatesDir, `${type}-${name}.yaml`);
-    
+
     if (!fs.existsSync(templatePath)) {
       return null;
     }
-    
+
     try {
       const templateContent = fs.readFileSync(templatePath, 'utf8');
       return YAML.parse(templateContent) as ItemTemplate;
     } catch (error) {
-      console.warn(`Failed to load template ${templatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.warn(
+        `Failed to load template ${templatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       return null;
     }
   }
@@ -576,22 +594,25 @@ Add any additional notes here.`
   /**
    * Get template by type and name with fallback to bundled templates
    */
-  public getTemplateWithFallback(type: 'epic' | 'issue' | 'task' | 'pr', name: string = 'default'): ItemTemplate | null {
+  public getTemplateWithFallback(
+    type: 'epic' | 'issue' | 'task' | 'pr',
+    name: string = 'default'
+  ): ItemTemplate | null {
     const config = this.getConfig();
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;
-    
+
     // Try to load from project templates first
     const projectTemplate = this.getTemplate(type, name);
     if (projectTemplate) {
       return projectTemplate;
     }
-    
+
     // Fallback to bundled templates using TemplateManager
     const TemplateManager = require('./template-manager.js').TemplateManager;
     const templateManager = new TemplateManager();
@@ -604,20 +625,20 @@ Add any additional notes here.`
   public listTemplates(): { type: string; name: string; description: string }[] {
     const config = this.getConfig();
     const projectRoot = path.dirname(path.dirname(this.configPath));
-    
+
     // Import UnifiedPathResolver dynamically to avoid circular dependencies
     // UnifiedPathResolver already imported at the top
     const pathResolver = new UnifiedPathResolver(config, projectRoot);
     const paths = pathResolver.getUnifiedPaths();
     const templatesDir = paths.templatesDir;
-    
+
     if (!fs.existsSync(templatesDir)) {
       return [];
     }
-    
+
     const templates: { type: string; name: string; description: string }[] = [];
-    const files = fs.readdirSync(templatesDir).filter(file => file.endsWith('.yaml'));
-    
+    const files = fs.readdirSync(templatesDir).filter((file) => file.endsWith('.yaml'));
+
     for (const file of files) {
       try {
         const templateContent = fs.readFileSync(path.join(templatesDir, file), 'utf8');
@@ -625,13 +646,15 @@ Add any additional notes here.`
         templates.push({
           type: template.type,
           name: template.name,
-          description: template.description
+          description: template.description,
         });
       } catch (error) {
-        console.warn(`Failed to parse template ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.warn(
+          `Failed to parse template ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
-    
+
     return templates;
   }
 }

@@ -3,8 +3,8 @@
  * Integration helpers for using Git metadata extractor with existing commands
  */
 
-import { GitMetadataExtractor, extractGitMetadata } from './git-metadata-extractor.js';
 import type { ProjectFrontmatter } from '../types/ai-trackdown.js';
+import { extractGitMetadata, GitMetadataExtractor } from './git-metadata-extractor.js';
 
 /**
  * Enhanced project creation with automatic Git metadata population
@@ -57,9 +57,12 @@ export async function createProjectWithGitIntegration(
     default_branch: metadata.is_git_repo ? metadata.default_branch : baseProject.default_branch,
 
     // Optional auto-detected fields
-    languages: autoDetectLanguages && metadata.languages ? metadata.languages : baseProject.languages,
-    framework: autoDetectFramework && metadata.framework ? metadata.framework : baseProject.framework,
-    team_members: autoDetectTeam && metadata.team_members ? metadata.team_members : baseProject.team_members,
+    languages:
+      autoDetectLanguages && metadata.languages ? metadata.languages : baseProject.languages,
+    framework:
+      autoDetectFramework && metadata.framework ? metadata.framework : baseProject.framework,
+    team_members:
+      autoDetectTeam && metadata.team_members ? metadata.team_members : baseProject.team_members,
     license: autoDetectLicense && metadata.license ? metadata.license : baseProject.license,
 
     // Other optional fields
@@ -128,7 +131,7 @@ export async function validateProjectWithGit(
 }> {
   const warnings: string[] = [];
   const suggestions: string[] = [];
-  
+
   const metadata = await extractGitMetadata(projectPath);
 
   // Check for Git repository
@@ -163,15 +166,17 @@ export async function validateProjectWithGit(
 
   // Check for project metadata consistency
   if (metadata.framework && project.framework && metadata.framework !== project.framework) {
-    warnings.push(`Framework mismatch: detected "${metadata.framework}" but project specifies "${project.framework}"`);
+    warnings.push(
+      `Framework mismatch: detected "${metadata.framework}" but project specifies "${project.framework}"`
+    );
   }
 
   // Check for language consistency
   if (metadata.languages && project.languages) {
     const detectedLangs = new Set(metadata.languages);
     const projectLangs = new Set(project.languages);
-    const missing = Array.from(detectedLangs).filter(lang => !projectLangs.has(lang));
-    
+    const missing = Array.from(detectedLangs).filter((lang) => !projectLangs.has(lang));
+
     if (missing.length > 0) {
       suggestions.push(`Consider adding detected languages: ${missing.join(', ')}`);
     }
@@ -205,7 +210,7 @@ export async function updateProjectFromGit(
   } = options;
 
   const metadata = await extractGitMetadata(projectPath);
-  
+
   if (!metadata.is_git_repo) {
     return existingProject;
   }
@@ -272,7 +277,7 @@ export async function getProjectInsights(projectPath: string): Promise<{
     return {
       health: 'critical',
       metrics: { codeQuality: 0, activityLevel: 0, teamCollaboration: 0, documentationLevel: 0 },
-      recommendations: ['Initialize Git repository', 'Add project documentation', 'Set up CI/CD']
+      recommendations: ['Initialize Git repository', 'Add project documentation', 'Set up CI/CD'],
     };
   }
 
@@ -344,7 +349,9 @@ export async function getProjectInsights(projectPath: string): Promise<{
 /**
  * Format Git metadata for display
  */
-export function formatGitMetadata(metadata: Awaited<ReturnType<typeof extractGitMetadata>>): string {
+export function formatGitMetadata(
+  metadata: Awaited<ReturnType<typeof extractGitMetadata>>
+): string {
   const sections: string[] = [];
 
   if (!metadata.is_git_repo) {
@@ -354,7 +361,7 @@ export function formatGitMetadata(metadata: Awaited<ReturnType<typeof extractGit
   // Basic info
   sections.push(`Branch: ${metadata.current_branch || 'unknown'}`);
   sections.push(`Commits: ${metadata.commit_count}`);
-  
+
   if (metadata.has_uncommitted_changes) {
     sections.push('Status: Uncommitted changes');
   }
@@ -381,7 +388,9 @@ export function formatGitMetadata(metadata: Awaited<ReturnType<typeof extractGit
 
   // Team
   if (metadata.team_members && metadata.team_members.length > 0) {
-    sections.push(`Team: ${metadata.team_members.slice(0, 3).join(', ')}${metadata.team_members.length > 3 ? '...' : ''}`);
+    sections.push(
+      `Team: ${metadata.team_members.slice(0, 3).join(', ')}${metadata.team_members.length > 3 ? '...' : ''}`
+    );
   }
 
   return sections.join('\n');

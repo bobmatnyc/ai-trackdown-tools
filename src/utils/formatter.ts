@@ -1,8 +1,7 @@
-import chalk from 'chalk';
 import boxen from 'boxen';
 import figlet from 'figlet';
-import type { LogLevel, TrackdownItem, StatusFilter } from '../types/index.js';
-import { colors, ColorTheme } from './colors.js';
+import type { LogLevel, TrackdownItem } from '../types/index.js';
+import { ColorTheme, colors } from './colors.js';
 
 export class Formatter {
   static success(message: string): string {
@@ -80,11 +79,11 @@ export class Formatter {
   static formatItem(item: TrackdownItem, format: 'compact' | 'detailed' = 'detailed'): string {
     const statusBadge = ColorTheme.badge(
       item.status.toUpperCase(),
-      this.getStatusVariant(item.status)
+      Formatter.getStatusVariant(item.status)
     );
     const priorityBadge = ColorTheme.badge(
       item.priority.toUpperCase(),
-      this.getPriorityVariant(item.priority)
+      Formatter.getPriorityVariant(item.priority)
     );
 
     if (format === 'compact') {
@@ -115,13 +114,13 @@ export class Formatter {
   // Enhanced list formatting with statistics
   static formatList(items: TrackdownItem[], showStats = true): string {
     if (items.length === 0) {
-      return this.box('No items found', 'info');
+      return Formatter.box('No items found', 'info');
     }
 
     const formatted = items
       .map((item, index) => {
         const prefix = colors.muted(`${(index + 1).toString().padStart(2, ' ')}. `);
-        return `${prefix}${this.formatItem(item, 'compact')}`;
+        return `${prefix}${Formatter.formatItem(item, 'compact')}`;
       })
       .join('\n');
 
@@ -129,15 +128,15 @@ export class Formatter {
       return formatted;
     }
 
-    const stats = this.generateStats(items);
+    const stats = Formatter.generateStats(items);
     return `${formatted}\n\n${stats}`;
   }
 
   // Generate item statistics
   static generateStats(items: TrackdownItem[]): string {
     const total = items.length;
-    const byStatus = this.groupBy(items, 'status');
-    const byPriority = this.groupBy(items, 'priority');
+    const byStatus = Formatter.groupBy(items, 'status');
+    const byPriority = Formatter.groupBy(items, 'priority');
 
     const statusSection = Object.entries(byStatus)
       .map(([status, count]) => {
@@ -165,11 +164,11 @@ export class Formatter {
   // Enhanced table formatting
   static formatTable(items: TrackdownItem[]): string {
     if (items.length === 0) {
-      return this.box('No items found', 'info');
+      return Formatter.box('No items found', 'info');
     }
 
     const headers = ['ID', 'Title', 'Status', 'Priority', 'Assignee', 'Tags'];
-    const maxWidths = this.calculateColumnWidths(items, headers);
+    const maxWidths = Formatter.calculateColumnWidths(items, headers);
 
     const headerRow = headers
       .map((header, i) => colors.highlight(header.padEnd(maxWidths[i])))
@@ -180,7 +179,7 @@ export class Formatter {
     const rows = items.map((item) => {
       const cells = [
         item.id,
-        item.title.length > 30 ? item.title.substring(0, 27) + '...' : item.title,
+        item.title.length > 30 ? `${item.title.substring(0, 27)}...` : item.title,
         item.status,
         item.priority,
         item.assignee || 'unassigned',
@@ -209,14 +208,14 @@ export class Formatter {
       case 'json':
         return JSON.stringify(items, null, 2);
       case 'csv':
-        return this.formatCSV(items);
+        return Formatter.formatCSV(items);
       case 'yaml':
         // Would need yaml package import
-        return this.formatYAML(items);
+        return Formatter.formatYAML(items);
       case 'markdown':
-        return this.formatMarkdown(items);
+        return Formatter.formatMarkdown(items);
       default:
-        return this.formatTable(items);
+        return Formatter.formatTable(items);
     }
   }
 
@@ -251,16 +250,16 @@ export class Formatter {
 
     switch (level) {
       case 'debug':
-        console.log(`${timestamp} ${this.debug(message)}${contextStr}`);
+        console.log(`${timestamp} ${Formatter.debug(message)}${contextStr}`);
         break;
       case 'info':
-        console.log(`${timestamp} ${this.info(message)}${contextStr}`);
+        console.log(`${timestamp} ${Formatter.info(message)}${contextStr}`);
         break;
       case 'warn':
-        console.warn(`${timestamp} ${this.warning(message)}${contextStr}`);
+        console.warn(`${timestamp} ${Formatter.warning(message)}${contextStr}`);
         break;
       case 'error':
-        console.error(`${timestamp} ${this.error(message)}${contextStr}`);
+        console.error(`${timestamp} ${Formatter.error(message)}${contextStr}`);
         break;
     }
   }
@@ -306,7 +305,7 @@ export class Formatter {
   private static calculateColumnWidths(items: TrackdownItem[], headers: string[]): number[] {
     const rows = items.map((item) => [
       item.id,
-      item.title.length > 30 ? item.title.substring(0, 27) + '...' : item.title,
+      item.title.length > 30 ? `${item.title.substring(0, 27)}...` : item.title,
       item.status,
       item.priority,
       item.assignee || 'unassigned',

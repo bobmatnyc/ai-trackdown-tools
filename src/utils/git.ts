@@ -56,7 +56,7 @@ export class GitManager {
    * Create a git tag
    */
   static createTag(version: string, message?: string): void {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       throw new Error('Not in a git repository');
     }
 
@@ -67,7 +67,7 @@ export class GitManager {
       // Check if tag already exists
       execSync(`git tag -l ${tagName}`, { stdio: 'ignore' });
       throw new Error(`Tag ${tagName} already exists`);
-    } catch (error) {
+    } catch (_error) {
       // Tag doesn't exist, which is what we want
     }
 
@@ -82,7 +82,7 @@ export class GitManager {
    * Push tags to remote
    */
   static pushTags(): void {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       throw new Error('Not in a git repository');
     }
 
@@ -97,7 +97,7 @@ export class GitManager {
    * Get list of existing tags
    */
   static getTags(): string[] {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       return [];
     }
 
@@ -116,7 +116,7 @@ export class GitManager {
    * Get the last tag
    */
   static getLastTag(): string | null {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       return null;
     }
 
@@ -132,7 +132,7 @@ export class GitManager {
    * Commit changes with a message
    */
   static commit(message: string, files?: string[]): void {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       throw new Error('Not in a git repository');
     }
 
@@ -155,7 +155,7 @@ export class GitManager {
    * Get commits since a specific tag or commit
    */
   static getCommitsSince(since: string): string[] {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       return [];
     }
 
@@ -174,7 +174,7 @@ export class GitManager {
    * Check if a tag exists
    */
   static tagExists(tag: string): boolean {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       return false;
     }
 
@@ -190,7 +190,7 @@ export class GitManager {
    * Get repository URL
    */
   static getRepositoryUrl(): string | null {
-    if (!this.isGitRepository()) {
+    if (!GitManager.isGitRepository()) {
       return null;
     }
 

@@ -49,7 +49,16 @@
     "pull-request",
     "pr-management",
     "github-independent",
-    "agent-collaboration"
+    "agent-collaboration",
+    "task-management",
+    "epic",
+    "issue-tracking",
+    "workflow",
+    "productivity",
+    "development-tools",
+    "yaml-frontmatter",
+    "token-tracking",
+    "ai-workflows"
   ],
   "author": "bobmatnyc",
   "license": "ISC",

@@ -3,35 +3,32 @@
  * Complete test coverage for all PR functionality including edge cases and performance
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { performance } from 'perf_hooks';
-
-// Import all PR commands
-import { createPRCommand } from '../src/commands/pr.js';
-import { createPRCreateCommand } from '../src/commands/pr/create.js';
-import { createPRListCommand } from '../src/commands/pr/list.js';
-import { createPRShowCommand } from '../src/commands/pr/show.js';
-import { createPRUpdateCommand } from '../src/commands/pr/update.js';
-import { createPRReviewCommand } from '../src/commands/pr/review.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { performance } from 'node:perf_hooks';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPRApproveCommand } from '../src/commands/pr/approve.js';
-import { createPRMergeCommand } from '../src/commands/pr/merge.js';
-import { createPRCloseCommand } from '../src/commands/pr/close.js';
-import { createPRSyncCommand } from '../src/commands/pr/sync.js';
 import { createPRArchiveCommand } from '../src/commands/pr/archive.js';
 import { createPRBatchCommand } from '../src/commands/pr/batch.js';
+import { createPRCloseCommand } from '../src/commands/pr/close.js';
+import { createPRCreateCommand } from '../src/commands/pr/create.js';
 import { createPRDependenciesCommand } from '../src/commands/pr/dependencies.js';
-
+import { createPRListCommand } from '../src/commands/pr/list.js';
+import { createPRMergeCommand } from '../src/commands/pr/merge.js';
+import { createPRReviewCommand } from '../src/commands/pr/review.js';
+import { createPRShowCommand } from '../src/commands/pr/show.js';
+import { createPRSyncCommand } from '../src/commands/pr/sync.js';
+import { createPRUpdateCommand } from '../src/commands/pr/update.js';
+// Import all PR commands
+import { createPRCommand } from '../src/commands/pr.js';
+// Import types
+import type { PRFrontmatter, PRStatus } from '../src/types/ai-trackdown.js';
+import { ConfigManager } from '../src/utils/config-manager.js';
+import { PRFileManager } from '../src/utils/pr-file-manager.js';
 // Import utilities
 import { PRStatusManager } from '../src/utils/pr-status-manager.js';
-import { PRFileManager } from '../src/utils/pr-file-manager.js';
 import { RelationshipManager } from '../src/utils/relationship-manager.js';
-import { ConfigManager } from '../src/utils/config-manager.js';
-
-// Import types
-import type { PRFrontmatter, PRStatus, PRData, TaskData, IssueData } from '../src/types/ai-trackdown.js';
 
 describe('Phase 4: Comprehensive PR Command Tests', () => {
   let testDir: string;
@@ -68,13 +65,13 @@ describe('Phase 4: Comprehensive PR Command Tests', () => {
         prs_dir: 'prs',
         tasks_dir: 'tasks',
         issues_dir: 'issues',
-        templates_dir: 'templates'
+        templates_dir: 'templates',
       },
       naming_conventions: {
         pr_prefix: 'PR',
         task_prefix: 'TASK',
-        issue_prefix: 'ISSUE'
-      }
+        issue_prefix: 'ISSUE',
+      },
     };
     fs.writeFileSync(path.join(testDir, 'ai-trackdown.json'), JSON.stringify(configData, null, 2));
 
@@ -93,7 +90,11 @@ describe('Phase 4: Comprehensive PR Command Tests', () => {
   });
 
   // Helper function to create test PR file
-  const createTestPR = (prId: string, status: PRStatus = 'open', additionalData: Partial<PRFrontmatter> = {}): string => {
+  const createTestPR = (
+    prId: string,
+    status: PRStatus = 'open',
+    additionalData: Partial<PRFrontmatter> = {}
+  ): string => {
     const prData: PRFrontmatter = {
       pr_id: prId,
       issue_id: 'ISSUE-001',
@@ -120,7 +121,7 @@ describe('Phase 4: Comprehensive PR Command Tests', () => {
       blocks: [],
       related_prs: [],
       template_used: 'default',
-      ...additionalData
+      ...additionalData,
     };
 
     const content = `---
@@ -158,17 +159,27 @@ ${prData.description}
   describe('Command Registration and Structure', () => {
     it('should register all PR commands correctly', () => {
       const prCommand = createPRCommand();
-      
+
       expect(prCommand.name()).toBe('pr');
       expect(prCommand.alias()).toBe('prs');
-      
-      const subcommands = prCommand.commands.map(cmd => cmd.name());
+
+      const subcommands = prCommand.commands.map((cmd) => cmd.name());
       const expectedCommands = [
-        'create', 'list', 'show', 'update', 'review', 'approve', 
-        'merge', 'close', 'sync', 'archive', 'batch', 'dependencies'
+        'create',
+        'list',
+        'show',
+        'update',
+        'review',
+        'approve',
+        'merge',
+        'close',
+        'sync',
+        'archive',
+        'batch',
+        'dependencies',
       ];
-      
-      expectedCommands.forEach(cmd => {
+
+      expectedCommands.forEach((cmd) => {
         expect(subcommands).toContain(cmd);
       });
     });
@@ -186,7 +197,7 @@ ${prData.description}
         { fn: createPRSyncCommand, name: 'sync' },
         { fn: createPRArchiveCommand, name: 'archive' },
         { fn: createPRBatchCommand, name: 'batch' },
-        { fn: createPRDependenciesCommand, name: 'dependencies' }
+        { fn: createPRDependenciesCommand, name: 'dependencies' },
       ];
 
       commands.forEach(({ fn, name }) => {
@@ -201,31 +212,31 @@ ${prData.description}
   describe('PR Lifecycle Management', () => {
     it('should handle complete PR lifecycle correctly', async () => {
       const prId = 'PR-001';
-      
+
       // Create PR in draft status
       const draftPath = createTestPR(prId, 'draft');
       expect(fs.existsSync(draftPath)).toBe(true);
-      
+
       // Load PR data
       const prData = await statusManager.loadPRData(prId);
       expect(prData).toBeTruthy();
       expect(prData?.pr_status).toBe('draft');
-      
+
       // Update to open status
       await statusManager.updatePRStatus(prId, 'open');
       const openPR = await statusManager.loadPRData(prId);
       expect(openPR?.pr_status).toBe('open');
-      
+
       // Update to review status
       await statusManager.updatePRStatus(prId, 'review');
       const reviewPR = await statusManager.loadPRData(prId);
       expect(reviewPR?.pr_status).toBe('review');
-      
+
       // Update to approved status
       await statusManager.updatePRStatus(prId, 'approved');
       const approvedPR = await statusManager.loadPRData(prId);
       expect(approvedPR?.pr_status).toBe('approved');
-      
+
       // Update to merged status
       await statusManager.updatePRStatus(prId, 'merged');
       const mergedPR = await statusManager.loadPRData(prId);
@@ -241,7 +252,7 @@ ${prData.description}
         ['open', 'closed'],
         ['review', 'closed'],
         ['closed', 'open'],
-        ['draft', 'closed']
+        ['draft', 'closed'],
       ];
 
       validTransitions.forEach(([from, to]) => {
@@ -253,7 +264,7 @@ ${prData.description}
         ['merged', 'review'],
         ['merged', 'approved'],
         ['draft', 'approved'],
-        ['draft', 'merged']
+        ['draft', 'merged'],
       ];
 
       invalidTransitions.forEach(([from, to]) => {
@@ -266,7 +277,7 @@ ${prData.description}
     it('should maintain proper directory structure', () => {
       const prsDir = path.join(testDir, 'prs');
       fileManager.initializePRDirectories(prsDir);
-      
+
       const validation = fileManager.validatePRDirectoryStructure(prsDir);
       expect(validation.valid).toBe(true);
       expect(validation.errors).toHaveLength(0);
@@ -275,7 +286,7 @@ ${prData.description}
     it('should move PR files correctly on status change', async () => {
       const prId = 'PR-002';
       const originalPath = createTestPR(prId, 'draft');
-      
+
       // Move from draft to open
       const moveResult = await fileManager.movePRToStatusDirectory(prId, 'open', 'draft');
       expect(moveResult.moved).toBe(true);
@@ -285,21 +296,21 @@ ${prData.description}
 
     it('should handle large numbers of PR files efficiently', async () => {
       const startTime = performance.now();
-      
+
       // Create 100 test PRs
       for (let i = 1; i <= 100; i++) {
         const prId = `PR-${i.toString().padStart(3, '0')}`;
         createTestPR(prId, 'open');
       }
-      
+
       const creationTime = performance.now() - startTime;
       expect(creationTime).toBeLessThan(1000); // Should create 100 PRs in under 1 second
-      
+
       // List all PRs
       const listStartTime = performance.now();
       const prs = await statusManager.listPRs();
       const listTime = performance.now() - listStartTime;
-      
+
       expect(prs).toHaveLength(100);
       expect(listTime).toBeLessThan(200); // Should list 100 PRs in under 200ms
     });
@@ -309,7 +320,7 @@ ${prData.description}
     it('should create review files correctly', async () => {
       const prId = 'PR-003';
       createTestPR(prId, 'review');
-      
+
       const reviewPath = await fileManager.createReviewFile(
         prId,
         'reviewer1',
@@ -317,10 +328,10 @@ ${prData.description}
         'This PR looks good. LGTM!',
         path.join(testDir, 'prs')
       );
-      
+
       expect(fs.existsSync(reviewPath)).toBe(true);
       expect(path.dirname(reviewPath)).toBe(path.join(testDir, 'prs', 'reviews'));
-      
+
       const reviewContent = fs.readFileSync(reviewPath, 'utf8');
       expect(reviewContent).toContain('This PR looks good. LGTM!');
     });
@@ -328,16 +339,16 @@ ${prData.description}
     it('should track approvals correctly', async () => {
       const prId = 'PR-004';
       createTestPR(prId, 'review', { reviewers: ['reviewer1', 'reviewer2', 'reviewer3'] });
-      
+
       const prData = await statusManager.loadPRData(prId);
       expect(prData?.approvals).toHaveLength(0);
-      
+
       // Add approvals
       if (prData) {
         prData.approvals = ['reviewer1', 'reviewer2'];
         await statusManager.updatePRData(prId, prData);
       }
-      
+
       const updatedPR = await statusManager.loadPRData(prId);
       expect(updatedPR?.approvals).toHaveLength(2);
       expect(updatedPR?.approvals).toContain('reviewer1');
@@ -348,9 +359,9 @@ ${prData.description}
       const reviewOptions = {
         approve: true,
         requestChanges: true,
-        comment: 'Test comment'
+        comment: 'Test comment',
       };
-      
+
       const hasConflict = reviewOptions.approve && reviewOptions.requestChanges;
       expect(hasConflict).toBe(true);
     });
@@ -366,11 +377,11 @@ ${prData.description}
         createTestPR(prId, status as PRStatus);
         prIds.push(prId);
       }
-      
+
       const startTime = performance.now();
       const prs = await statusManager.listPRs({ status: ['approved'] });
       const batchTime = performance.now() - startTime;
-      
+
       expect(prs.length).toBeGreaterThan(0);
       expect(batchTime).toBeLessThan(100); // Should filter PRs in under 100ms
     });
@@ -383,7 +394,7 @@ ${prData.description}
         createTestPR(prId, 'approved');
         approvedPRs.push(prId);
       }
-      
+
       // Simulate batch merge
       const results = [];
       for (const prId of approvedPRs) {
@@ -392,16 +403,16 @@ ${prData.description}
           results.push({ prId, success: true });
         }
       }
-      
+
       expect(results).toHaveLength(5);
-      expect(results.every(r => r.success)).toBe(true);
+      expect(results.every((r) => r.success)).toBe(true);
     });
   });
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle invalid PR IDs gracefully', async () => {
       const invalidPRs = ['PR-999', 'INVALID-001', 'pr-001', 'PR-1'];
-      
+
       for (const prId of invalidPRs) {
         const prData = await statusManager.loadPRData(prId);
         expect(prData).toBeFalsy();
@@ -410,8 +421,8 @@ ${prData.description}
 
     it('should handle missing files gracefully', async () => {
       const prId = 'PR-005';
-      const prPath = path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`);
-      
+      const _prPath = path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`);
+
       // Try to load non-existent PR
       const prData = await statusManager.loadPRData(prId);
       expect(prData).toBeFalsy();
@@ -426,10 +437,10 @@ invalid: yaml: content: [unclosed
 # Test PR
 
 This PR has corrupted frontmatter.`;
-      
+
       const filePath = path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`);
       fs.writeFileSync(filePath, corruptedContent);
-      
+
       // Should handle corrupted frontmatter gracefully
       expect(async () => {
         await statusManager.loadPRData(prId);
@@ -439,10 +450,10 @@ This PR has corrupted frontmatter.`;
     it('should handle file system permission errors', () => {
       const restrictedDir = path.join(testDir, 'restricted');
       fs.mkdirSync(restrictedDir);
-      
+
       try {
         fs.chmodSync(restrictedDir, 0o000); // Remove all permissions
-        
+
         expect(() => {
           fs.writeFileSync(path.join(restrictedDir, 'test.md'), 'test');
         }).toThrow();
@@ -454,8 +465,8 @@ This PR has corrupted frontmatter.`;
     it('should handle disk space issues', () => {
       // Simulate disk space check
       const availableSpace = 1000000; // 1MB
-      const requiredSpace = 500000;   // 500KB
-      
+      const requiredSpace = 500000; // 500KB
+
       expect(availableSpace).toBeGreaterThan(requiredSpace);
     });
   });
@@ -464,12 +475,12 @@ This PR has corrupted frontmatter.`;
     it('should complete operations within time limits', async () => {
       const prId = 'PR-007';
       createTestPR(prId, 'open');
-      
+
       // Test PR loading performance
       const startTime = performance.now();
       const prData = await statusManager.loadPRData(prId);
       const loadTime = performance.now() - startTime;
-      
+
       expect(prData).toBeTruthy();
       expect(loadTime).toBeLessThan(50); // Should load PR in under 50ms
     });
@@ -481,20 +492,20 @@ This PR has corrupted frontmatter.`;
         createTestPR(prId, 'open');
         prIds.push(prId);
       }
-      
+
       // Load all PRs concurrently
       const startTime = performance.now();
-      const promises = prIds.map(prId => statusManager.loadPRData(prId));
+      const promises = prIds.map((prId) => statusManager.loadPRData(prId));
       const results = await Promise.all(promises);
       const concurrentTime = performance.now() - startTime;
-      
-      expect(results.every(r => r !== null)).toBe(true);
+
+      expect(results.every((r) => r !== null)).toBe(true);
       expect(concurrentTime).toBeLessThan(500); // Should load 20 PRs concurrently in under 500ms
     });
 
     it('should use memory efficiently for large datasets', async () => {
       const initialMemory = process.memoryUsage().heapUsed;
-      
+
       // Create large dataset
       const prIds = [];
       for (let i = 1; i <= 100; i++) {
@@ -502,14 +513,14 @@ This PR has corrupted frontmatter.`;
         createTestPR(prId, 'open');
         prIds.push(prId);
       }
-      
+
       // Load all PRs
       const prs = await statusManager.listPRs();
       expect(prs).toHaveLength(100);
-      
+
       const finalMemory = process.memoryUsage().heapUsed;
       const memoryUsed = finalMemory - initialMemory;
-      
+
       // Should use less than 50MB for 100 PRs
       expect(memoryUsed).toBeLessThan(50 * 1024 * 1024);
     });
@@ -519,7 +530,7 @@ This PR has corrupted frontmatter.`;
     it('should link PRs to tasks correctly', async () => {
       const prId = 'PR-008';
       const taskId = 'TASK-001';
-      
+
       // Create linked task
       const taskData = {
         task_id: taskId,
@@ -535,9 +546,9 @@ This PR has corrupted frontmatter.`;
         estimated_tokens: 50,
         actual_tokens: 0,
         ai_context: [],
-        sync_status: 'local'
+        sync_status: 'local',
       };
-      
+
       const taskContent = `---
 ${Object.entries(taskData)
   .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
@@ -547,27 +558,27 @@ ${Object.entries(taskData)
 # Test Task
 
 This task is linked to ${prId}.`;
-      
+
       fs.writeFileSync(path.join(testDir, 'tasks', `${taskId}-test.md`), taskContent);
-      
+
       // Create PR with task link
       createTestPR(prId, 'open');
-      
+
       const linkedTasks = await relationshipManager.getLinkedTasks(prId);
       expect(linkedTasks).toBeDefined();
     });
 
     it('should maintain relationship consistency', async () => {
       const prId = 'PR-009';
-      const taskId = 'TASK-002';
-      const issueId = 'ISSUE-002';
-      
+      const _taskId = 'TASK-002';
+      const _issueId = 'ISSUE-002';
+
       // Test bidirectional relationships
       const prData = await statusManager.loadPRData(prId);
       if (prData) {
         // Check that PR references task and issue
         expect(prData.issue_id).toBeTruthy();
-        
+
         // Check that task references PR (if implemented)
         const linkedTasks = await relationshipManager.getLinkedTasks(prId);
         expect(linkedTasks).toBeDefined();
@@ -602,16 +613,16 @@ This task is linked to ${prId}.`;
         blocked_by: [],
         blocks: [],
         related_prs: [],
-        template_used: 'default'
+        template_used: 'default',
       };
-      
+
       // Validate required fields
       expect(validPRData.pr_id).toBeTruthy();
       expect(validPRData.title).toBeTruthy();
       expect(validPRData.pr_status).toBeTruthy();
       expect(validPRData.issue_id).toBeTruthy();
       expect(validPRData.epic_id).toBeTruthy();
-      
+
       // Validate data types
       expect(typeof validPRData.pr_id).toBe('string');
       expect(typeof validPRData.title).toBe('string');
@@ -623,18 +634,18 @@ This task is linked to ${prId}.`;
     it('should maintain file consistency across operations', async () => {
       const prId = 'PR-011';
       const originalPath = createTestPR(prId, 'open');
-      
+
       // Load PR data
       const prData1 = await statusManager.loadPRData(prId);
       expect(prData1).toBeTruthy();
-      
+
       // Update PR status
       await statusManager.updatePRStatus(prId, 'review');
-      
+
       // Verify file was moved correctly
       const prData2 = await statusManager.loadPRData(prId);
       expect(prData2?.pr_status).toBe('review');
-      
+
       // Verify old file is gone
       expect(fs.existsSync(originalPath)).toBe(false);
     });
@@ -646,12 +657,12 @@ This task is linked to ${prId}.`;
       createTestPR('PR-012', 'open');
       createTestPR('PR-013', 'review');
       createTestPR('PR-014', 'approved');
-      
+
       const prs = await statusManager.listPRs();
       expect(prs.length).toBeGreaterThanOrEqual(3);
-      
+
       // Test that PR data includes all necessary fields for formatting
-      prs.forEach(pr => {
+      prs.forEach((pr) => {
         expect(pr.pr_id).toBeTruthy();
         expect(pr.title).toBeTruthy();
         expect(pr.pr_status).toBeTruthy();
@@ -677,9 +688,9 @@ This task is linked to ${prId}.`;
       // Test with minimal configuration
       const minimalConfig = {
         name: 'test',
-        version: '1.0.0'
+        version: '1.0.0',
       };
-      
+
       expect(minimalConfig.name).toBe('test');
       expect(minimalConfig.version).toBe('1.0.0');
     });
@@ -705,10 +716,10 @@ describe('Phase 4: Stress and Load Testing', () => {
 
   it('should handle 1000 PRs without performance degradation', async () => {
     const startTime = performance.now();
-    
+
     // Create directory structure
     fs.mkdirSync(path.join(testDir, 'prs', 'active', 'open'), { recursive: true });
-    
+
     // Create 1000 PRs
     for (let i = 1; i <= 1000; i++) {
       const prId = `PR-${i.toString().padStart(4, '0')}`;
@@ -721,25 +732,25 @@ pr_status: open
 # Test PR ${i}
 
 This is a test PR for stress testing.`;
-      
+
       fs.writeFileSync(path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`), content);
     }
-    
+
     const creationTime = performance.now() - startTime;
     expect(creationTime).toBeLessThan(5000); // Should create 1000 PRs in under 5 seconds
-    
+
     // List all files
     const listStartTime = performance.now();
     const files = fs.readdirSync(path.join(testDir, 'prs', 'active', 'open'));
     const listTime = performance.now() - listStartTime;
-    
+
     expect(files).toHaveLength(1000);
     expect(listTime).toBeLessThan(100); // Should list 1000 files in under 100ms
   });
 
   it('should handle concurrent file operations', async () => {
     fs.mkdirSync(path.join(testDir, 'prs', 'active', 'open'), { recursive: true });
-    
+
     // Create multiple files concurrently
     const promises = [];
     for (let i = 1; i <= 100; i++) {
@@ -753,41 +764,44 @@ pr_status: open
 ---
 
 # Concurrent PR ${i}`;
-          
+
           fs.writeFileSync(path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`), content);
           resolve();
         }, Math.random() * 100);
       });
       promises.push(promise);
     }
-    
+
     const startTime = performance.now();
     await Promise.all(promises);
     const concurrentTime = performance.now() - startTime;
-    
+
     expect(concurrentTime).toBeLessThan(1000); // Should complete in under 1 second
-    
+
     const files = fs.readdirSync(path.join(testDir, 'prs', 'active', 'open'));
     expect(files).toHaveLength(100);
   });
 
   it('should handle large file sizes efficiently', async () => {
     fs.mkdirSync(path.join(testDir, 'prs', 'active', 'open'), { recursive: true });
-    
+
     // Create a large PR file (1MB)
-    const largeContent = '# Large PR\n\n' + 'This is a large PR file.\n'.repeat(20000);
+    const largeContent = `# Large PR\n\n${'This is a large PR file.\n'.repeat(20000)}`;
     const prId = 'PR-LARGE';
-    
+
     const writeStartTime = performance.now();
     fs.writeFileSync(path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`), largeContent);
     const writeTime = performance.now() - writeStartTime;
-    
+
     expect(writeTime).toBeLessThan(100); // Should write large file in under 100ms
-    
+
     const readStartTime = performance.now();
-    const readContent = fs.readFileSync(path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`), 'utf8');
+    const readContent = fs.readFileSync(
+      path.join(testDir, 'prs', 'active', 'open', `${prId}-test.md`),
+      'utf8'
+    );
     const readTime = performance.now() - readStartTime;
-    
+
     expect(readTime).toBeLessThan(50); // Should read large file in under 50ms
     expect(readContent).toEqual(largeContent);
   });

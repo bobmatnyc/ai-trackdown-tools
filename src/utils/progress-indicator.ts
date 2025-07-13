@@ -3,8 +3,8 @@
  * Provides progress indicators for long-running operations
  */
 
-import ora, { Ora } from 'ora';
 import chalk from 'chalk';
+import ora, { type Ora } from 'ora';
 
 export interface ProgressOptions {
   text?: string;
@@ -33,7 +33,7 @@ export class ProgressIndicator {
       color: 'cyan',
       hideCursor: true,
       interval: 80,
-      ...options
+      ...options,
     };
   }
 
@@ -51,7 +51,7 @@ export class ProgressIndicator {
       spinner: this.options.spinner,
       color: this.options.color as any,
       hideCursor: this.options.hideCursor,
-      interval: this.options.interval
+      interval: this.options.interval,
     }).start();
   }
 
@@ -68,13 +68,13 @@ export class ProgressIndicator {
    * Update spinner with step progress
    */
   updateStep(stepName: string, text?: string): void {
-    const stepIndex = this.steps.findIndex(s => s.name === stepName);
+    const stepIndex = this.steps.findIndex((s) => s.name === stepName);
     if (stepIndex >= 0) {
       this.currentStep = stepIndex;
       const step = this.steps[stepIndex];
       const progressText = text || step.text;
       const percentage = this.calculateProgress();
-      
+
       if (this.spinner) {
         this.spinner.text = `${progressText} ${chalk.gray(`(${percentage}%)`)}`;
       }
@@ -99,7 +99,7 @@ export class ProgressIndicator {
       const step = this.steps[this.currentStep];
       const stepText = text || step.text;
       const percentage = this.calculateProgress();
-      
+
       if (this.spinner) {
         this.spinner.text = `${stepText} ${chalk.gray(`(${percentage}%)`)}`;
       }
@@ -111,7 +111,7 @@ export class ProgressIndicator {
    */
   completeStep(stepName?: string, text?: string): void {
     if (stepName) {
-      const stepIndex = this.steps.findIndex(s => s.name === stepName);
+      const stepIndex = this.steps.findIndex((s) => s.name === stepName);
       if (stepIndex >= 0) {
         this.currentStep = stepIndex;
       }
@@ -119,7 +119,7 @@ export class ProgressIndicator {
 
     const step = this.steps[this.currentStep];
     const completedText = text || `${step.text} ✓`;
-    
+
     if (this.spinner) {
       this.spinner.succeed(completedText);
     }
@@ -139,7 +139,7 @@ export class ProgressIndicator {
     if (this.spinner) {
       const duration = this.formatDuration(Date.now() - this.startTime);
       const successText = text || this.spinner.text;
-      this.spinner.succeed(`${successText} ${chalk.gray(`(${duration})`)}` );
+      this.spinner.succeed(`${successText} ${chalk.gray(`(${duration})`)}`);
       this.spinner = null;
     }
   }
@@ -185,7 +185,7 @@ export class ProgressIndicator {
     const percentage = Math.round((current / total) * 100);
     const filled = Math.round((current / total) * width);
     const empty = width - filled;
-    
+
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
     return `${chalk.cyan(bar)} ${percentage}% (${current}/${total})`;
   }
@@ -199,11 +199,11 @@ export class ProgressIndicator {
     total: number,
     current?: string
   ): void {
-    const progressBar = this.createProgressBar(total, processed);
+    const progressBar = ProgressIndicator.createProgressBar(total, processed);
     const currentText = current ? ` - ${current}` : '';
-    
+
     process.stdout.write(`\r${operation}: ${progressBar}${currentText}`);
-    
+
     if (processed >= total) {
       process.stdout.write('\n');
     }
@@ -214,17 +214,17 @@ export class ProgressIndicator {
    */
   private calculateProgress(): number {
     if (this.steps.length === 0) return 0;
-    
+
     let completedWeight = 0;
     for (let i = 0; i < this.currentStep; i++) {
       completedWeight += this.steps[i].weight || 1;
     }
-    
+
     // Add partial progress for current step (assume 50% completion)
     if (this.currentStep < this.steps.length) {
       completedWeight += (this.steps[this.currentStep].weight || 1) * 0.5;
     }
-    
+
     return Math.round((completedWeight / this.totalWeight) * 100);
   }
 
@@ -275,7 +275,7 @@ export async function withSteppedProgress<T>(
 ): Promise<T> {
   const progress = new ProgressIndicator();
   progress.setSteps(steps);
-  
+
   if (steps.length > 0) {
     progress.start(steps[0].text);
   }
@@ -284,7 +284,7 @@ export async function withSteppedProgress<T>(
     const result = await operation((stepName, text) => {
       progress.updateStep(stepName, text);
     });
-    
+
     progress.succeed('Operation completed successfully');
     return result;
   } catch (error) {
@@ -302,20 +302,25 @@ export async function withBatchProgress<T, R>(
   operationName = 'Processing'
 ): Promise<R[]> {
   const results: R[] = [];
-  
+
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     ProgressIndicator.showBatchProgress(operationName, i, items.length, `item ${i + 1}`);
-    
+
     try {
       const result = await operation(item, i);
       results.push(result);
     } catch (error) {
-      ProgressIndicator.showBatchProgress(operationName, i + 1, items.length, `failed on item ${i + 1}`);
+      ProgressIndicator.showBatchProgress(
+        operationName,
+        i + 1,
+        items.length,
+        `failed on item ${i + 1}`
+      );
       throw error;
     }
   }
-  
+
   ProgressIndicator.showBatchProgress(operationName, items.length, items.length);
   return results;
 }

@@ -3,16 +3,15 @@
  * Creates new epics using YAML frontmatter system with project context support
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fs from 'fs';
-import { ConfigManager } from '../../utils/config-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
-import { IdGenerator } from '../../utils/simple-id-generator.js';
-import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
-import { ProjectContextManager } from '../../utils/project-context-manager.js';
 import type { EpicFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
 import { Formatter } from '../../utils/formatter.js';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { ProjectContextManager } from '../../utils/project-context-manager.js';
+import { IdGenerator } from '../../utils/simple-id-generator.js';
+import { TrackdownIndexManager } from '../../utils/trackdown-index-manager.js';
 
 interface CreateOptions {
   title?: string;
@@ -30,7 +29,7 @@ interface CreateOptions {
 
 export function createEpicCreateCommand(): Command {
   const cmd = new Command('create');
-  
+
   cmd
     .description('Create a new epic')
     .argument('[title]', 'epic title (optional if using --title flag)')
@@ -38,7 +37,11 @@ export function createEpicCreateCommand(): Command {
     .option('-d, --description <text>', 'epic description')
     .option('-a, --assignee <username>', 'assignee username')
     .option('-p, --priority <level>', 'priority level (low|medium|high|critical)', 'medium')
-    .option('-s, --status <status>', 'initial status (planning|active|completed|archived)', 'planning')
+    .option(
+      '-s, --status <status>',
+      'initial status (planning|active|completed|archived)',
+      'planning'
+    )
     .option('-t, --template <name>', 'template to use', 'default')
     .option('-e, --estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
@@ -50,11 +53,17 @@ export function createEpicCreateCommand(): Command {
         // Support both positional argument and --title flag
         const title = titleArg || options.title;
         if (!title) {
-          throw new Error('Epic title is required. Provide it as a positional argument or use --title flag.');
+          throw new Error(
+            'Epic title is required. Provide it as a positional argument or use --title flag.'
+          );
         }
         await createEpic(title, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to create epic: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to create epic: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -65,35 +74,35 @@ export function createEpicCreateCommand(): Command {
 async function createEpic(title: string, options: CreateOptions): Promise<void> {
   // Initialize project context manager
   const contextManager = new ProjectContextManager();
-  
+
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
-  
+
   // Initialize project context
   const projectContext = await contextManager.initializeContext(options.project);
-  
+
   // Ensure project structure exists
   await contextManager.ensureProjectStructure();
-  
+
   // Get managers and paths from context
   const configManager = projectContext.configManager;
   const config = configManager.getConfig();
   const paths = projectContext.paths;
   const parser = new FrontmatterParser();
   const idGenerator = new IdGenerator();
-  
+
   // Generate epic ID
   const epicId = idGenerator.generateEpicId(title);
-  
+
   // Get template with fallback to bundled templates
   const template = configManager.getTemplateWithFallback('epic', options.template || 'default');
   if (!template) {
     throw new Error(`Epic template '${options.template || 'default'}' not found`);
   }
-  
+
   // Parse tags
-  const tags = options.tags ? options.tags.split(',').map(tag => tag.trim()) : [];
-  
+  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+
   // Create epic frontmatter with project context
   const now = new Date().toISOString();
   const epicFrontmatter: EpicFrontmatter = {
@@ -114,18 +123,18 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
     tags: tags.length > 0 ? tags : undefined,
     milestone: options.milestone,
     dependencies: [],
-    completion_percentage: 0
+    completion_percentage: 0,
   };
-  
+
   // Generate content from template
   const content = template.content_template
     .replace(/\{\{title\}\}/g, title)
     .replace(/\{\{description\}\}/g, epicFrontmatter.description);
-  
+
   // Create filename
   const filename = `${epicId}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${config.naming_conventions.file_extension}`;
   const filePath = path.join(paths.epicsDir, filename);
-  
+
   if (options.dryRun) {
     console.log(Formatter.info('Dry run - Epic would be created with:'));
     console.log(Formatter.debug(`File: ${filePath}`));
@@ -145,23 +154,27 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
     }
     return;
   }
-  
+
   // Check if file already exists
   if (fs.existsSync(filePath)) {
     throw new Error(`Epic file already exists: ${filePath}`);
   }
-  
+
   // Write the epic file
   parser.writeEpic(filePath, epicFrontmatter, content);
-  
+
   // Update the index for better performance
   try {
     const indexManager = new TrackdownIndexManager(config, paths.projectRoot, cliTasksDir);
     await indexManager.updateItem('epic', epicId);
   } catch (error) {
-    console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+    console.warn(
+      Formatter.warning(
+        `Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    );
   }
-  
+
   console.log(Formatter.success(`Epic created successfully!`));
   console.log(Formatter.info(`Epic ID: ${epicId}`));
   console.log(Formatter.info(`File: ${filePath}`));
@@ -169,15 +182,15 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
   console.log(Formatter.info(`Status: ${epicFrontmatter.status}`));
   console.log(Formatter.info(`Priority: ${epicFrontmatter.priority}`));
   console.log(Formatter.info(`Assignee: ${epicFrontmatter.assignee}`));
-  
+
   if (epicFrontmatter.project_id) {
     console.log(Formatter.info(`Project: ${epicFrontmatter.project_id}`));
   }
-  
+
   if (tags.length > 0) {
     console.log(Formatter.info(`Tags: ${tags.join(', ')}`));
   }
-  
+
   if (options.milestone) {
     console.log(Formatter.info(`Milestone: ${options.milestone}`));
   }

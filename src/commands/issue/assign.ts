@@ -5,9 +5,9 @@
 
 import { Command } from 'commander';
 import { ConfigManager } from '../../utils/config-manager.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { Formatter } from '../../utils/formatter.js';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
 
 interface AssignOptions {
   dryRun?: boolean;
@@ -15,7 +15,7 @@ interface AssignOptions {
 
 export function createIssueAssignCommand(): Command {
   const cmd = new Command('assign');
-  
+
   cmd
     .description('Assign an issue to a user')
     .argument('<issue-id>', 'issue ID to assign')
@@ -25,7 +25,11 @@ export function createIssueAssignCommand(): Command {
       try {
         await assignIssue(issueId, assignee, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to assign issue: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to assign issue: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -33,7 +37,11 @@ export function createIssueAssignCommand(): Command {
   return cmd;
 }
 
-async function assignIssue(issueId: string, assignee: string, options: AssignOptions): Promise<void> {
+async function assignIssue(
+  issueId: string,
+  assignee: string,
+  options: AssignOptions
+): Promise<void> {
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
 
@@ -41,18 +49,19 @@ async function assignIssue(issueId: string, assignee: string, options: AssignOpt
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
 
   // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   const parser = new FrontmatterParser();
-  
+
   // Get issue hierarchy
   const hierarchy = relationshipManager.getIssueHierarchy(issueId);
   if (!hierarchy) {
     throw new Error(`Issue not found: ${issueId}`);
   }
-  
+
   const issue = hierarchy.issue;
   const currentAssignee = issue.assignee;
-  
+
   if (options.dryRun) {
     console.log(Formatter.info('Dry run - Issue would be assigned:'));
     console.log(Formatter.debug(`Issue ID: ${issueId}`));
@@ -61,21 +70,21 @@ async function assignIssue(issueId: string, assignee: string, options: AssignOpt
     console.log(Formatter.debug(`New Assignee: ${assignee}`));
     return;
   }
-  
+
   if (currentAssignee === assignee) {
     console.log(Formatter.warning(`Issue ${issueId} is already assigned to ${assignee}`));
     return;
   }
-  
+
   // Update the issue
-  const updatedIssue = parser.updateFile(issue.file_path, {
+  const _updatedIssue = parser.updateFile(issue.file_path, {
     assignee,
-    updated_date: new Date().toISOString()
+    updated_date: new Date().toISOString(),
   });
-  
+
   // Refresh cache
   relationshipManager.rebuildCache();
-  
+
   console.log(Formatter.success(`Issue assigned successfully!`));
   console.log(Formatter.info(`Issue ID: ${issueId}`));
   console.log(Formatter.info(`Title: ${issue.title}`));

@@ -3,9 +3,9 @@
  * Tests the fixed status command and universal ticketing interface
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execSync } from 'child_process';
-import * as path from 'path';
+import { execSync } from 'node:child_process';
+import * as path from 'node:path';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const CLI_PATH = path.join(__dirname, '..', 'dist', 'index.js');
 
@@ -18,7 +18,7 @@ describe('Status Command Fix (ISS-0025)', () => {
   it('should show accurate counts in status command', () => {
     // Test status command with summary
     const statusOutput = execSync(`node ${CLI_PATH} status --summary`, { encoding: 'utf8' });
-    
+
     // Should contain non-zero counts
     expect(statusOutput).toContain('Total Items: 35');
     expect(statusOutput).toContain('Active: 32');
@@ -49,7 +49,7 @@ describe('Status Command Fix (ISS-0025)', () => {
 
   it('should provide accurate project health metrics', () => {
     const statusOutput = execSync(`node ${CLI_PATH} status --summary`, { encoding: 'utf8' });
-    
+
     // Should contain valid metrics
     expect(statusOutput).toMatch(/Completion Rate: \d+%/);
     expect(statusOutput).toMatch(/Priority Distribution/);
@@ -66,18 +66,20 @@ describe('Universal Ticketing Interface (ISS-0026)', () => {
 
   it('should provide accurate counts via health command', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health --counts-only`, { encoding: 'utf8' });
-    
+
     // Should contain accurate counts
     expect(healthOutput).toMatch(/📋 Epics: \d+/);
     expect(healthOutput).toMatch(/🐛 Issues: \d+/);
     expect(healthOutput).toMatch(/✅ Tasks: \d+/);
     expect(healthOutput).toMatch(/🔢 Total: \d+/);
-    expect(healthOutput).toContain('These counts match the individual epic/issue/task list commands');
+    expect(healthOutput).toContain(
+      'These counts match the individual epic/issue/task list commands'
+    );
   });
 
   it('should provide comprehensive health monitoring', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health`, { encoding: 'utf8' });
-    
+
     // Should contain all health sections
     expect(healthOutput).toContain('Universal Ticketing Interface - Health Monitoring');
     expect(healthOutput).toContain('Ticket Counts');
@@ -89,10 +91,10 @@ describe('Universal Ticketing Interface (ISS-0026)', () => {
 
   it('should support JSON output format', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health --json`, { encoding: 'utf8' });
-    
+
     // Should be valid JSON
     expect(() => JSON.parse(healthOutput)).not.toThrow();
-    
+
     const data = JSON.parse(healthOutput);
     expect(data).toHaveProperty('counts');
     expect(data).toHaveProperty('healthMetrics');
@@ -102,8 +104,11 @@ describe('Universal Ticketing Interface (ISS-0026)', () => {
   });
 
   it('should provide detailed metrics when requested', () => {
-    const healthOutput = execSync(`node ${CLI_PATH} health --epic-details --issue-details --task-details`, { encoding: 'utf8' });
-    
+    const healthOutput = execSync(
+      `node ${CLI_PATH} health --epic-details --issue-details --task-details`,
+      { encoding: 'utf8' }
+    );
+
     // Should contain detailed sections
     expect(healthOutput).toContain('Epic Details');
     expect(healthOutput).toContain('Issue Details');
@@ -115,7 +120,7 @@ describe('Universal Ticketing Interface (ISS-0026)', () => {
 
   it('should support metrics-only output', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health --metrics-only`, { encoding: 'utf8' });
-    
+
     // Should contain only metrics, not full health report
     expect(healthOutput).toContain('Universal Ticketing Interface - Health Monitoring');
     expect(healthOutput).not.toContain('Project Health Report');
@@ -123,7 +128,7 @@ describe('Universal Ticketing Interface (ISS-0026)', () => {
 
   it('should provide real-time monitoring capabilities', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health --refresh`, { encoding: 'utf8' });
-    
+
     // Should show refresh message
     expect(healthOutput).toContain('Refreshing ticket data...');
     expect(healthOutput).toContain('Data refreshed successfully');
@@ -152,12 +157,12 @@ describe('Count Consistency Verification', () => {
     expect(statusTotal).toBe(expectedTotal);
     expect(healthTotal).toBe(expectedTotal);
     expect(expectedTotal).toBeGreaterThan(0);
-    
+
     // Individual counts should also match
     const healthEpicCount = parseInt(healthOutput.match(/📋 Epics: (\d+)/)?.[1] || '0');
     const healthIssueCount = parseInt(healthOutput.match(/🐛 Issues: (\d+)/)?.[1] || '0');
     const healthTaskCount = parseInt(healthOutput.match(/✅ Tasks: (\d+)/)?.[1] || '0');
-    
+
     expect(healthEpicCount).toBe(epicCount);
     expect(healthIssueCount).toBe(issueCount);
     expect(healthTaskCount).toBe(taskCount);
@@ -167,14 +172,14 @@ describe('Count Consistency Verification', () => {
 describe('Health Alerts and Recommendations', () => {
   it('should provide health alerts when applicable', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health`, { encoding: 'utf8' });
-    
+
     // Should contain health evaluation
     expect(healthOutput).toMatch(/(Health Alerts|health indicators are within normal ranges)/);
   });
 
   it('should provide actionable recommendations', () => {
     const healthOutput = execSync(`node ${CLI_PATH} health`, { encoding: 'utf8' });
-    
+
     // Should contain recommendations section
     expect(healthOutput).toContain('Health Recommendations');
     expect(healthOutput).toMatch(/(Consider|Review|Focus)/);
@@ -193,8 +198,10 @@ describe('Error Handling and Edge Cases', () => {
   });
 
   it('should handle status command with filters', () => {
-    const statusOutput = execSync(`node ${CLI_PATH} status --status todo --priority high`, { encoding: 'utf8' });
-    
+    const statusOutput = execSync(`node ${CLI_PATH} status --status todo --priority high`, {
+      encoding: 'utf8',
+    });
+
     // Should apply filters and still show valid output
     expect(statusOutput).toContain('Active Filters');
     expect(statusOutput).toContain('Status: todo');

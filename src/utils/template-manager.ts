@@ -3,11 +3,11 @@
  * Handles bundled template deployment and management
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as YAML from 'yaml';
-import type { ItemTemplate, ProjectConfig } from '../types/ai-trackdown.js';
+import type { ItemTemplate } from '../types/ai-trackdown.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,25 +17,26 @@ const __dirname = path.dirname(__filename);
  */
 export class TemplateManager {
   private bundledTemplatesDir: string;
-  
+
   constructor() {
     // Path to bundled templates in the package
     // Try multiple possible locations for bundled templates
     const possiblePaths = [
-      path.join(__dirname, '../../templates'),      // Development: src/utils -> templates
-      path.join(__dirname, '../templates'),        // Compiled: dist/utils -> dist/templates
-      path.join(__dirname, 'templates'),           // Compiled: dist -> dist/templates
-      path.resolve(__dirname, '..', 'templates'),  // Alternative dist structure
+      path.join(__dirname, '../../templates'), // Development: src/utils -> templates
+      path.join(__dirname, '../templates'), // Compiled: dist/utils -> dist/templates
+      path.join(__dirname, 'templates'), // Compiled: dist -> dist/templates
+      path.resolve(__dirname, '..', 'templates'), // Alternative dist structure
     ];
-    
+
     // Find the first path that exists
-    this.bundledTemplatesDir = possiblePaths.find(dir => {
-      try {
-        return fs.existsSync(dir);
-      } catch {
-        return false;
-      }
-    }) || path.join(__dirname, '../../templates'); // fallback to original
+    this.bundledTemplatesDir =
+      possiblePaths.find((dir) => {
+        try {
+          return fs.existsSync(dir);
+        } catch {
+          return false;
+        }
+      }) || path.join(__dirname, '../../templates'); // fallback to original
   }
 
   /**
@@ -59,13 +60,16 @@ export class TemplateManager {
     if (!this.hasBundledTemplates()) {
       return [];
     }
-    
+
     try {
-      return fs.readdirSync(this.bundledTemplatesDir)
-        .filter(file => file.endsWith('.yaml'))
+      return fs
+        .readdirSync(this.bundledTemplatesDir)
+        .filter((file) => file.endsWith('.yaml'))
         .sort();
     } catch (error) {
-      console.warn(`Failed to list bundled templates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.warn(
+        `Failed to list bundled templates: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       return [];
     }
   }
@@ -104,7 +108,9 @@ export class TemplateManager {
         console.log(`✅ Deployed ${templateFile}`);
         deployedCount++;
       } catch (error) {
-        console.error(`❌ Failed to deploy ${templateFile}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(
+          `❌ Failed to deploy ${templateFile}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -138,9 +144,9 @@ export class TemplateManager {
             'context/requirements',
             'context/constraints',
             'context/assumptions',
-            'context/dependencies'
+            'context/dependencies',
           ],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Epic: {{title}}
 
@@ -162,7 +168,7 @@ export class TemplateManager {
 {{/related_issues}}
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'issue',
@@ -182,9 +188,9 @@ Add any additional notes here.`
             'context/requirements',
             'context/constraints',
             'context/assumptions',
-            'context/dependencies'
+            'context/dependencies',
           ],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Issue: {{title}}
 
@@ -201,7 +207,7 @@ Add any additional notes here.`
 - [ ] Criteria 2
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'task',
@@ -221,9 +227,9 @@ Add any additional notes here.`
             'context/requirements',
             'context/constraints',
             'context/assumptions',
-            'context/dependencies'
+            'context/dependencies',
           ],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# Task: {{title}}
 
@@ -240,7 +246,7 @@ Add any additional notes here.`
 - [ ] Criteria 2
 
 ## Notes
-Add any additional notes here.`
+Add any additional notes here.`,
       },
       {
         type: 'pr',
@@ -260,9 +266,9 @@ Add any additional notes here.`
             'context/requirements',
             'context/constraints',
             'context/assumptions',
-            'context/dependencies'
+            'context/dependencies',
           ],
-          sync_status: 'local'
+          sync_status: 'local',
         },
         content_template: `# PR: {{title}}
 
@@ -291,15 +297,15 @@ Add any additional notes here.`
 - Target: {{target_branch}}
 
 ## Notes
-Add any additional notes here.`
-      }
+Add any additional notes here.`,
+      },
     ];
 
     let deployedCount = 0;
 
     for (const template of defaultTemplates) {
       const templatePath = path.join(projectTemplatesDir, `${template.type}-${template.name}.yaml`);
-      
+
       try {
         // Check if file exists and force flag
         if (fs.existsSync(templatePath) && !force) {
@@ -309,14 +315,16 @@ Add any additional notes here.`
 
         const templateContent = YAML.stringify(template, {
           indent: 2,
-          lineWidth: 120
+          lineWidth: 120,
         });
 
         fs.writeFileSync(templatePath, templateContent, 'utf8');
         console.log(`✅ Created ${template.type}-${template.name}.yaml`);
         deployedCount++;
       } catch (error) {
-        console.error(`❌ Failed to create ${template.type}-${template.name}.yaml: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(
+          `❌ Failed to create ${template.type}-${template.name}.yaml: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -326,9 +334,13 @@ Add any additional notes here.`
   /**
    * Get template by type and name, with fallback to bundled templates
    */
-  public getTemplate(projectTemplatesDir: string, type: 'epic' | 'issue' | 'task' | 'pr', name: string = 'default'): ItemTemplate | null {
+  public getTemplate(
+    projectTemplatesDir: string,
+    type: 'epic' | 'issue' | 'task' | 'pr',
+    name: string = 'default'
+  ): ItemTemplate | null {
     const templateFileName = `${type}-${name}.yaml`;
-    
+
     // First, try to load from project templates directory
     const projectTemplatePath = path.join(projectTemplatesDir, templateFileName);
     if (fs.existsSync(projectTemplatePath)) {
@@ -336,7 +348,9 @@ Add any additional notes here.`
         const templateContent = fs.readFileSync(projectTemplatePath, 'utf8');
         return YAML.parse(templateContent) as ItemTemplate;
       } catch (error) {
-        console.warn(`Failed to load project template ${projectTemplatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.warn(
+          `Failed to load project template ${projectTemplatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -348,7 +362,9 @@ Add any additional notes here.`
           const templateContent = fs.readFileSync(bundledTemplatePath, 'utf8');
           return YAML.parse(templateContent) as ItemTemplate;
         } catch (error) {
-          console.warn(`Failed to load bundled template ${bundledTemplatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.warn(
+            `Failed to load bundled template ${bundledTemplatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
         }
       }
     }
@@ -363,9 +379,15 @@ Add any additional notes here.`
     try {
       const content = fs.readFileSync(templatePath, 'utf8');
       const template = YAML.parse(content) as ItemTemplate;
-      
+
       // Check required fields
-      const requiredFields = ['type', 'name', 'description', 'frontmatter_template', 'content_template'];
+      const requiredFields = [
+        'type',
+        'name',
+        'description',
+        'frontmatter_template',
+        'content_template',
+      ];
       for (const field of requiredFields) {
         if (!template[field as keyof ItemTemplate]) {
           console.error(`Template ${templatePath} missing required field: ${field}`);
@@ -382,7 +404,9 @@ Add any additional notes here.`
 
       return true;
     } catch (error) {
-      console.error(`Failed to validate template ${templatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(
+        `Failed to validate template ${templatePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       return false;
     }
   }

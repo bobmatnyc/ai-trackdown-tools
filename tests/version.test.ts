@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { VersionManager } from '../src/utils/version.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ChangelogManager } from '../src/utils/changelog.js';
+import { VersionManager } from '../src/utils/version.js';
 
 describe('Version Management System', () => {
   const testDir = path.join(process.cwd(), 'test-temp');

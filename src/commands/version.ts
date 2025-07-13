@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { createShowCommand } from './version/show.js';
 import { createBumpCommand } from './version/bump.js';
 import { createChangelogCommand } from './version/changelog.js';
-import { createTagCommand } from './version/tag.js';
-import { createSyncCommand } from './version/sync.js';
 import { createReleaseCommand } from './version/release.js';
+import { createShowCommand } from './version/show.js';
+import { createSyncCommand } from './version/sync.js';
+import { createTagCommand } from './version/tag.js';
 
 export function createVersionCommand(): Command {
   const command = new Command('version');

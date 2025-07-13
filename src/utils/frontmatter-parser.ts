@@ -3,22 +3,22 @@
  * Handles parsing and serialization of Epic, Issue, and Task files
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as YAML from 'yaml';
 import type {
-  EpicFrontmatter,
-  IssueFrontmatter,
-  TaskFrontmatter,
-  PRFrontmatter,
-  EpicData,
-  IssueData,
-  TaskData,
-  PRData,
   AnyFrontmatter,
   AnyItemData,
+  EpicData,
+  EpicFrontmatter,
+  IssueData,
+  IssueFrontmatter,
+  PRData,
+  PRFrontmatter,
+  TaskData,
+  TaskFrontmatter,
+  ValidationError,
   ValidationResult,
-  ValidationError
 } from '../types/ai-trackdown.js';
 
 // Frontmatter delimiter patterns
@@ -31,19 +31,19 @@ export class FrontmatterParser {
    */
   public parseEpic(filePath: string): EpicData {
     const { frontmatter, content } = this.parseFile(filePath);
-    
+
     // Validate that this is an epic
     if (!frontmatter.epic_id) {
       throw new Error(`File ${filePath} is missing epic_id field`);
     }
-    
+
     const epicFrontmatter = frontmatter as EpicFrontmatter;
     this.validateEpicFrontmatter(epicFrontmatter);
-    
+
     return {
       ...epicFrontmatter,
       content,
-      file_path: filePath
+      file_path: filePath,
     };
   }
 
@@ -52,19 +52,19 @@ export class FrontmatterParser {
    */
   public parseIssue(filePath: string): IssueData {
     const { frontmatter, content } = this.parseFile(filePath);
-    
+
     // Validate that this is an issue
     if (!frontmatter.issue_id || !frontmatter.epic_id) {
       throw new Error(`File ${filePath} is missing required issue_id or epic_id field`);
     }
-    
+
     const issueFrontmatter = frontmatter as IssueFrontmatter;
     this.validateIssueFrontmatter(issueFrontmatter);
-    
+
     return {
       ...issueFrontmatter,
       content,
-      file_path: filePath
+      file_path: filePath,
     };
   }
 
@@ -73,19 +73,19 @@ export class FrontmatterParser {
    */
   public parseTask(filePath: string): TaskData {
     const { frontmatter, content } = this.parseFile(filePath);
-    
+
     // Validate that this is a task
     if (!frontmatter.task_id || !frontmatter.issue_id || !frontmatter.epic_id) {
       throw new Error(`File ${filePath} is missing required task_id, issue_id, or epic_id field`);
     }
-    
+
     const taskFrontmatter = frontmatter as TaskFrontmatter;
     this.validateTaskFrontmatter(taskFrontmatter);
-    
+
     return {
       ...taskFrontmatter,
       content,
-      file_path: filePath
+      file_path: filePath,
     };
   }
 
@@ -94,19 +94,19 @@ export class FrontmatterParser {
    */
   public parsePR(filePath: string): PRData {
     const { frontmatter, content } = this.parseFile(filePath);
-    
+
     // Validate that this is a PR
     if (!frontmatter.pr_id || !frontmatter.issue_id || !frontmatter.epic_id) {
       throw new Error(`File ${filePath} is missing required pr_id, issue_id, or epic_id field`);
     }
-    
+
     const prFrontmatter = frontmatter as PRFrontmatter;
     this.validatePRFrontmatter(prFrontmatter);
-    
+
     return {
       ...prFrontmatter,
       content,
-      file_path: filePath
+      file_path: filePath,
     };
   }
 
@@ -115,14 +115,34 @@ export class FrontmatterParser {
    */
   public parseAnyItem(filePath: string): AnyItemData {
     const { frontmatter } = this.parseFile(filePath);
-    
-    if (frontmatter.epic_id && !frontmatter.issue_id && !frontmatter.task_id && !frontmatter.pr_id) {
+
+    if (
+      frontmatter.epic_id &&
+      !frontmatter.issue_id &&
+      !frontmatter.task_id &&
+      !frontmatter.pr_id
+    ) {
       return this.parseEpic(filePath);
-    } else if (frontmatter.issue_id && frontmatter.epic_id && !frontmatter.task_id && !frontmatter.pr_id) {
+    } else if (
+      frontmatter.issue_id &&
+      frontmatter.epic_id &&
+      !frontmatter.task_id &&
+      !frontmatter.pr_id
+    ) {
       return this.parseIssue(filePath);
-    } else if (frontmatter.task_id && frontmatter.issue_id && frontmatter.epic_id && !frontmatter.pr_id) {
+    } else if (
+      frontmatter.task_id &&
+      frontmatter.issue_id &&
+      frontmatter.epic_id &&
+      !frontmatter.pr_id
+    ) {
       return this.parseTask(filePath);
-    } else if (frontmatter.pr_id && frontmatter.issue_id && frontmatter.epic_id && !frontmatter.task_id) {
+    } else if (
+      frontmatter.pr_id &&
+      frontmatter.issue_id &&
+      frontmatter.epic_id &&
+      !frontmatter.task_id
+    ) {
       return this.parsePR(filePath);
     } else {
       throw new Error(`File ${filePath} does not match any ai-trackdown item type`);
@@ -202,12 +222,12 @@ export class FrontmatterParser {
    */
   public updateFile(filePath: string, updates: Partial<AnyFrontmatter>): AnyItemData {
     const existing = this.parseAnyItem(filePath);
-    
+
     // Merge updates with existing data
     const updated = {
       ...existing,
       ...updates,
-      updated_date: new Date().toISOString()
+      updated_date: new Date().toISOString(),
     };
 
     // Write back to file
@@ -236,13 +256,13 @@ export class FrontmatterParser {
         errors.push({
           field: 'file',
           message: `File does not exist: ${filePath}`,
-          severity: 'error'
+          severity: 'error',
         });
         return { valid: false, errors, warnings };
       }
 
       const data = this.parseAnyItem(filePath);
-      
+
       // Validate required fields based on type
       if ('epic_id' in data && !('issue_id' in data)) {
         return this.validateEpicData(data as EpicData);
@@ -253,12 +273,11 @@ export class FrontmatterParser {
       } else if ('pr_id' in data) {
         return this.validatePRData(data as PRData);
       }
-
     } catch (error) {
       errors.push({
         field: 'parse',
         message: `Failed to parse file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error'
+        severity: 'error',
       });
     }
 
@@ -286,10 +305,12 @@ export class FrontmatterParser {
       const frontmatter = YAML.parse(yamlContent) as AnyFrontmatter;
       return {
         frontmatter,
-        content: markdownContent.trim()
+        content: markdownContent.trim(),
       };
     } catch (error) {
-      throw new Error(`Failed to parse YAML frontmatter in ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to parse YAML frontmatter in ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -300,7 +321,7 @@ export class FrontmatterParser {
     const yamlString = YAML.stringify(frontmatter, {
       indent: 2,
       lineWidth: 120,
-      minContentWidth: 20
+      minContentWidth: 20,
     });
 
     return `${FRONTMATTER_DELIMITER}\n${yamlString}${FRONTMATTER_DELIMITER}\n\n${content}\n`;
@@ -311,13 +332,13 @@ export class FrontmatterParser {
    */
   private cleanFrontmatter(data: AnyFrontmatter): AnyFrontmatter {
     const cleaned: Record<string, any> = {};
-    
+
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined && value !== null) {
         cleaned[key] = value;
       }
     }
-    
+
     return cleaned as AnyFrontmatter;
   }
 
@@ -346,7 +367,15 @@ export class FrontmatterParser {
    * Private: Validate Issue frontmatter
    */
   private validateIssueFrontmatter(data: IssueFrontmatter): void {
-    const required = ['issue_id', 'epic_id', 'title', 'status', 'priority', 'assignee', 'created_date'];
+    const required = [
+      'issue_id',
+      'epic_id',
+      'title',
+      'status',
+      'priority',
+      'assignee',
+      'created_date',
+    ];
     for (const field of required) {
       if (!data[field as keyof IssueFrontmatter]) {
         throw new Error(`Issue missing required field: ${field}`);
@@ -358,7 +387,16 @@ export class FrontmatterParser {
    * Private: Validate Task frontmatter
    */
   private validateTaskFrontmatter(data: TaskFrontmatter): void {
-    const required = ['task_id', 'issue_id', 'epic_id', 'title', 'status', 'priority', 'assignee', 'created_date'];
+    const required = [
+      'task_id',
+      'issue_id',
+      'epic_id',
+      'title',
+      'status',
+      'priority',
+      'assignee',
+      'created_date',
+    ];
     for (const field of required) {
       if (!data[field as keyof TaskFrontmatter]) {
         throw new Error(`Task missing required field: ${field}`);
@@ -370,7 +408,17 @@ export class FrontmatterParser {
    * Private: Validate PR frontmatter
    */
   private validatePRFrontmatter(data: PRFrontmatter): void {
-    const required = ['pr_id', 'issue_id', 'epic_id', 'title', 'status', 'pr_status', 'priority', 'assignee', 'created_date'];
+    const required = [
+      'pr_id',
+      'issue_id',
+      'epic_id',
+      'title',
+      'status',
+      'pr_status',
+      'priority',
+      'assignee',
+      'created_date',
+    ];
     for (const field of required) {
       if (!data[field as keyof PRFrontmatter]) {
         throw new Error(`PR missing required field: ${field}`);
@@ -386,13 +434,20 @@ export class FrontmatterParser {
     const warnings: ValidationError[] = [];
 
     // Required field validation
-    if (!data.epic_id) errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
-    if (!data.title) errors.push({ field: 'title', message: 'Title is required', severity: 'error' });
-    if (!data.status) errors.push({ field: 'status', message: 'Status is required', severity: 'error' });
+    if (!data.epic_id)
+      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
+    if (!data.title)
+      errors.push({ field: 'title', message: 'Title is required', severity: 'error' });
+    if (!data.status)
+      errors.push({ field: 'status', message: 'Status is required', severity: 'error' });
 
     // Format validation
     if (data.epic_id && !/^EP-\d{4}$/.test(data.epic_id)) {
-      warnings.push({ field: 'epic_id', message: 'Epic ID should follow format EP-XXXX', severity: 'warning' });
+      warnings.push({
+        field: 'epic_id',
+        message: 'Epic ID should follow format EP-XXXX',
+        severity: 'warning',
+      });
     }
 
     return { valid: errors.length === 0, errors, warnings };
@@ -406,13 +461,20 @@ export class FrontmatterParser {
     const warnings: ValidationError[] = [];
 
     // Required field validation
-    if (!data.issue_id) errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id) errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
-    if (!data.title) errors.push({ field: 'title', message: 'Title is required', severity: 'error' });
+    if (!data.issue_id)
+      errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
+    if (!data.epic_id)
+      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
+    if (!data.title)
+      errors.push({ field: 'title', message: 'Title is required', severity: 'error' });
 
     // Format validation
     if (data.issue_id && !/^ISS-\d{4}$/.test(data.issue_id)) {
-      warnings.push({ field: 'issue_id', message: 'Issue ID should follow format ISS-XXXX', severity: 'warning' });
+      warnings.push({
+        field: 'issue_id',
+        message: 'Issue ID should follow format ISS-XXXX',
+        severity: 'warning',
+      });
     }
 
     return { valid: errors.length === 0, errors, warnings };
@@ -426,13 +488,20 @@ export class FrontmatterParser {
     const warnings: ValidationError[] = [];
 
     // Required field validation
-    if (!data.task_id) errors.push({ field: 'task_id', message: 'Task ID is required', severity: 'error' });
-    if (!data.issue_id) errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id) errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
+    if (!data.task_id)
+      errors.push({ field: 'task_id', message: 'Task ID is required', severity: 'error' });
+    if (!data.issue_id)
+      errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
+    if (!data.epic_id)
+      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
 
     // Format validation
     if (data.task_id && !/^TSK-\d{4}$/.test(data.task_id)) {
-      warnings.push({ field: 'task_id', message: 'Task ID should follow format TSK-XXXX', severity: 'warning' });
+      warnings.push({
+        field: 'task_id',
+        message: 'Task ID should follow format TSK-XXXX',
+        severity: 'warning',
+      });
     }
 
     return { valid: errors.length === 0, errors, warnings };
@@ -446,20 +515,32 @@ export class FrontmatterParser {
     const warnings: ValidationError[] = [];
 
     // Required field validation
-    if (!data.pr_id) errors.push({ field: 'pr_id', message: 'PR ID is required', severity: 'error' });
-    if (!data.issue_id) errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
-    if (!data.epic_id) errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
-    if (!data.pr_status) errors.push({ field: 'pr_status', message: 'PR status is required', severity: 'error' });
+    if (!data.pr_id)
+      errors.push({ field: 'pr_id', message: 'PR ID is required', severity: 'error' });
+    if (!data.issue_id)
+      errors.push({ field: 'issue_id', message: 'Issue ID is required', severity: 'error' });
+    if (!data.epic_id)
+      errors.push({ field: 'epic_id', message: 'Epic ID is required', severity: 'error' });
+    if (!data.pr_status)
+      errors.push({ field: 'pr_status', message: 'PR status is required', severity: 'error' });
 
     // Format validation
     if (data.pr_id && !/^PR-\d{4}$/.test(data.pr_id)) {
-      warnings.push({ field: 'pr_id', message: 'PR ID should follow format PR-XXXX', severity: 'warning' });
+      warnings.push({
+        field: 'pr_id',
+        message: 'PR ID should follow format PR-XXXX',
+        severity: 'warning',
+      });
     }
 
     // PR-specific validation
     const validPRStatuses = ['draft', 'open', 'review', 'approved', 'merged', 'closed'];
     if (data.pr_status && !validPRStatuses.includes(data.pr_status)) {
-      errors.push({ field: 'pr_status', message: `Invalid PR status: ${data.pr_status}`, severity: 'error' });
+      errors.push({
+        field: 'pr_status',
+        message: `Invalid PR status: ${data.pr_status}`,
+        severity: 'error',
+      });
     }
 
     return { valid: errors.length === 0, errors, warnings };
@@ -468,21 +549,25 @@ export class FrontmatterParser {
   /**
    * Bulk operations for directory processing
    */
-  public parseDirectory(dirPath: string, itemType: 'epic' | 'issue' | 'task' | 'pr'): AnyItemData[] {
+  public parseDirectory(
+    dirPath: string,
+    itemType: 'epic' | 'issue' | 'task' | 'pr'
+  ): AnyItemData[] {
     if (!fs.existsSync(dirPath)) {
       return [];
     }
 
-    const files = fs.readdirSync(dirPath)
-      .filter(file => file.endsWith('.md'))
-      .map(file => path.join(dirPath, file));
+    const files = fs
+      .readdirSync(dirPath)
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => path.join(dirPath, file));
 
     const results: AnyItemData[] = [];
-    
+
     for (const filePath of files) {
       try {
         let data: AnyItemData;
-        
+
         switch (itemType) {
           case 'epic':
             data = this.parseEpic(filePath);
@@ -499,10 +584,12 @@ export class FrontmatterParser {
           default:
             continue;
         }
-        
+
         results.push(data);
       } catch (error) {
-        console.warn(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.warn(
+          `Failed to parse ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 

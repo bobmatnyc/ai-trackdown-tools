@@ -3,22 +3,20 @@
  * Manages Epic → Issue → Task relationships and dependencies
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import type {
-  EpicData,
-  IssueData,
-  TaskData,
-  PRData,
-  EpicHierarchy,
-  IssueHierarchy,
-  PRHierarchy,
   AnyItemData,
+  EpicData,
+  EpicHierarchy,
+  IssueData,
+  IssueHierarchy,
+  PRData,
+  PRHierarchy,
   ProjectConfig,
   SearchFilters,
   SearchResult,
+  TaskData,
+  ValidationError,
   ValidationResult,
-  ValidationError
 } from '../types/ai-trackdown.js';
 import { FrontmatterParser } from './frontmatter-parser.js';
 import { UnifiedPathResolver } from './unified-path-resolver.js';
@@ -28,13 +26,13 @@ export class RelationshipManager {
   private config: ProjectConfig;
   private projectRoot: string;
   private cliTasksDir?: string;
-  
+
   // In-memory caches for performance
   private epicCache: Map<string, EpicData> = new Map();
   private issueCache: Map<string, IssueData> = new Map();
   private taskCache: Map<string, TaskData> = new Map();
   private prCache: Map<string, PRData> = new Map();
-  
+
   private lastCacheUpdate: number = 0;
   private cacheExpiry: number = 300000; // 5 minutes
 
@@ -50,29 +48,29 @@ export class RelationshipManager {
    */
   public getEpicHierarchy(epicId: string): EpicHierarchy | null {
     this.refreshCacheIfNeeded();
-    
+
     const epic = this.epicCache.get(epicId);
     if (!epic) {
       return null;
     }
 
     const issues = Array.from(this.issueCache.values())
-      .filter(issue => issue.epic_id === epicId)
+      .filter((issue) => issue.epic_id === epicId)
       .sort((a, b) => a.created_date.localeCompare(b.created_date));
 
     const tasks = Array.from(this.taskCache.values())
-      .filter(task => task.epic_id === epicId)
+      .filter((task) => task.epic_id === epicId)
       .sort((a, b) => a.created_date.localeCompare(b.created_date));
 
     const prs = Array.from(this.prCache.values())
-      .filter(pr => pr.epic_id === epicId)
+      .filter((pr) => pr.epic_id === epicId)
       .sort((a, b) => a.created_date.localeCompare(b.created_date));
 
     return {
       epic,
       issues,
       tasks,
-      prs
+      prs,
     };
   }
 
@@ -81,18 +79,18 @@ export class RelationshipManager {
    */
   public getIssueHierarchy(issueId: string): IssueHierarchy | null {
     this.refreshCacheIfNeeded();
-    
+
     const issue = this.issueCache.get(issueId);
     if (!issue) {
       return null;
     }
 
     const tasks = Array.from(this.taskCache.values())
-      .filter(task => task.issue_id === issueId)
+      .filter((task) => task.issue_id === issueId)
       .sort((a, b) => a.created_date.localeCompare(b.created_date));
 
     const prs = Array.from(this.prCache.values())
-      .filter(pr => pr.issue_id === issueId)
+      .filter((pr) => pr.issue_id === issueId)
       .sort((a, b) => a.created_date.localeCompare(b.created_date));
 
     const epic = this.epicCache.get(issue.epic_id);
@@ -101,7 +99,7 @@ export class RelationshipManager {
       issue,
       tasks,
       prs,
-      epic
+      epic,
     };
   }
 
@@ -110,7 +108,7 @@ export class RelationshipManager {
    */
   public getPRHierarchy(prId: string): PRHierarchy | null {
     this.refreshCacheIfNeeded();
-    
+
     const pr = this.prCache.get(prId);
     if (!pr) {
       return null;
@@ -126,7 +124,7 @@ export class RelationshipManager {
     return {
       pr,
       issue,
-      epic
+      epic,
     };
   }
 
@@ -135,15 +133,13 @@ export class RelationshipManager {
    */
   public getChildren(parentId: string, type: 'epic' | 'issue'): AnyItemData[] {
     this.refreshCacheIfNeeded();
-    
+
     if (type === 'epic') {
-      return Array.from(this.issueCache.values())
-        .filter(issue => issue.epic_id === parentId);
+      return Array.from(this.issueCache.values()).filter((issue) => issue.epic_id === parentId);
     } else if (type === 'issue') {
-      return Array.from(this.taskCache.values())
-        .filter(task => task.issue_id === parentId);
+      return Array.from(this.taskCache.values()).filter((task) => task.issue_id === parentId);
     }
-    
+
     return [];
   }
 
@@ -152,7 +148,7 @@ export class RelationshipManager {
    */
   public getParent(childId: string, childType: 'issue' | 'task' | 'pr'): AnyItemData | null {
     this.refreshCacheIfNeeded();
-    
+
     if (childType === 'issue') {
       const issue = this.issueCache.get(childId);
       return issue ? this.epicCache.get(issue.epic_id) || null : null;
@@ -163,7 +159,7 @@ export class RelationshipManager {
       const pr = this.prCache.get(childId);
       return pr ? this.issueCache.get(pr.issue_id) || null : null;
     }
-    
+
     return null;
   }
 
@@ -178,7 +174,7 @@ export class RelationshipManager {
     blocks: AnyItemData[];
   } {
     this.refreshCacheIfNeeded();
-    
+
     const item = this.findItemById(itemId);
     if (!item) {
       return { siblings: [], dependencies: [], dependents: [], blocked_by: [], blocks: [] };
@@ -187,30 +183,33 @@ export class RelationshipManager {
     // Get siblings (same parent)
     let siblings: AnyItemData[] = [];
     if ('task_id' in item) {
-      siblings = Array.from(this.taskCache.values())
-        .filter(task => task.issue_id === item.issue_id && task.task_id !== itemId);
+      siblings = Array.from(this.taskCache.values()).filter(
+        (task) => task.issue_id === item.issue_id && task.task_id !== itemId
+      );
     } else if ('pr_id' in item) {
-      siblings = Array.from(this.prCache.values())
-        .filter(pr => pr.issue_id === item.issue_id && pr.pr_id !== itemId);
+      siblings = Array.from(this.prCache.values()).filter(
+        (pr) => pr.issue_id === item.issue_id && pr.pr_id !== itemId
+      );
     } else if ('issue_id' in item && !('task_id' in item) && !('pr_id' in item)) {
-      siblings = Array.from(this.issueCache.values())
-        .filter(issue => issue.epic_id === item.epic_id && issue.issue_id !== itemId);
+      siblings = Array.from(this.issueCache.values()).filter(
+        (issue) => issue.epic_id === item.epic_id && issue.issue_id !== itemId
+      );
     }
 
     // Get dependencies and dependents
     const dependencies = this.resolveDependencies(item.dependencies || []);
     const dependents = this.findDependents(itemId);
-    
+
     // Get blocked relationships (if item supports it)
-    const blocked_by = ('blocked_by' in item) ? this.resolveDependencies(item.blocked_by || []) : [];
-    const blocks = ('blocks' in item) ? this.resolveDependencies(item.blocks || []) : [];
+    const blocked_by = 'blocked_by' in item ? this.resolveDependencies(item.blocked_by || []) : [];
+    const blocks = 'blocks' in item ? this.resolveDependencies(item.blocks || []) : [];
 
     return {
       siblings,
       dependencies,
       dependents,
       blocked_by,
-      blocks
+      blocks,
     };
   }
 
@@ -220,67 +219,68 @@ export class RelationshipManager {
   public search(filters: SearchFilters): SearchResult<AnyItemData> {
     const startTime = Date.now();
     this.refreshCacheIfNeeded();
-    
+
     let allItems: AnyItemData[] = [
       ...Array.from(this.epicCache.values()),
       ...Array.from(this.issueCache.values()),
       ...Array.from(this.taskCache.values()),
-      ...Array.from(this.prCache.values())
+      ...Array.from(this.prCache.values()),
     ];
 
     // Apply filters
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      allItems = allItems.filter(item => statuses.includes(item.status));
+      allItems = allItems.filter((item) => statuses.includes(item.status));
     }
 
     if (filters.priority) {
       const priorities = Array.isArray(filters.priority) ? filters.priority : [filters.priority];
-      allItems = allItems.filter(item => priorities.includes(item.priority));
+      allItems = allItems.filter((item) => priorities.includes(item.priority));
     }
 
     if (filters.assignee) {
       const assignees = Array.isArray(filters.assignee) ? filters.assignee : [filters.assignee];
-      allItems = allItems.filter(item => assignees.includes(item.assignee));
+      allItems = allItems.filter((item) => assignees.includes(item.assignee));
     }
 
     if (filters.tags) {
       const tags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
-      allItems = allItems.filter(item => {
-        const itemTags = ('tags' in item) ? item.tags || [] : [];
-        return tags.some(tag => itemTags.includes(tag));
+      allItems = allItems.filter((item) => {
+        const itemTags = 'tags' in item ? item.tags || [] : [];
+        return tags.some((tag) => itemTags.includes(tag));
       });
     }
 
     if (filters.created_after) {
-      allItems = allItems.filter(item => item.created_date >= filters.created_after!);
+      allItems = allItems.filter((item) => item.created_date >= filters.created_after!);
     }
 
     if (filters.created_before) {
-      allItems = allItems.filter(item => item.created_date <= filters.created_before!);
+      allItems = allItems.filter((item) => item.created_date <= filters.created_before!);
     }
 
     if (filters.updated_after) {
-      allItems = allItems.filter(item => item.updated_date >= filters.updated_after!);
+      allItems = allItems.filter((item) => item.updated_date >= filters.updated_after!);
     }
 
     if (filters.updated_before) {
-      allItems = allItems.filter(item => item.updated_date <= filters.updated_before!);
+      allItems = allItems.filter((item) => item.updated_date <= filters.updated_before!);
     }
 
     if (filters.content_search) {
       const searchTerm = filters.content_search.toLowerCase();
-      allItems = allItems.filter(item => 
-        item.title.toLowerCase().includes(searchTerm) ||
-        item.description.toLowerCase().includes(searchTerm) ||
-        item.content.toLowerCase().includes(searchTerm)
+      allItems = allItems.filter(
+        (item) =>
+          item.title.toLowerCase().includes(searchTerm) ||
+          item.description.toLowerCase().includes(searchTerm) ||
+          item.content.toLowerCase().includes(searchTerm)
       );
     }
 
     if (filters.ai_context_search) {
       const searchTerm = filters.ai_context_search.toLowerCase();
-      allItems = allItems.filter(item => 
-        item.ai_context.some(context => context.toLowerCase().includes(searchTerm))
+      allItems = allItems.filter((item) =>
+        item.ai_context.some((context) => context.toLowerCase().includes(searchTerm))
       );
     }
 
@@ -290,7 +290,7 @@ export class RelationshipManager {
       items: allItems,
       total_count: allItems.length,
       search_query: filters,
-      execution_time: executionTime
+      execution_time: executionTime,
     };
   }
 
@@ -299,7 +299,7 @@ export class RelationshipManager {
    */
   public validateRelationships(): ValidationResult {
     this.refreshCacheIfNeeded();
-    
+
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
 
@@ -309,7 +309,7 @@ export class RelationshipManager {
         errors.push({
           field: 'epic_id',
           message: `Issue ${issue.issue_id} references non-existent epic ${issue.epic_id}`,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
@@ -320,15 +320,15 @@ export class RelationshipManager {
         errors.push({
           field: 'issue_id',
           message: `Task ${task.task_id} references non-existent issue ${task.issue_id}`,
-          severity: 'error'
+          severity: 'error',
         });
       }
-      
+
       if (!this.epicCache.has(task.epic_id)) {
         errors.push({
           field: 'epic_id',
           message: `Task ${task.task_id} references non-existent epic ${task.epic_id}`,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
@@ -339,15 +339,15 @@ export class RelationshipManager {
         errors.push({
           field: 'issue_id',
           message: `PR ${pr.pr_id} references non-existent issue ${pr.issue_id}`,
-          severity: 'error'
+          severity: 'error',
         });
       }
-      
+
       if (!this.epicCache.has(pr.epic_id)) {
         errors.push({
           field: 'epic_id',
           message: `PR ${pr.pr_id} references non-existent epic ${pr.epic_id}`,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
@@ -358,7 +358,7 @@ export class RelationshipManager {
       errors.push({
         field: 'dependencies',
         message: `Circular dependency detected: ${cycle.join(' → ')}`,
-        severity: 'error'
+        severity: 'error',
       });
     }
 
@@ -369,7 +369,7 @@ export class RelationshipManager {
         warnings.push({
           field: 'epic_id',
           message: `Task ${task.task_id} epic_id (${task.epic_id}) doesn't match issue's epic_id (${issue.epic_id})`,
-          severity: 'warning'
+          severity: 'warning',
         });
       }
     }
@@ -381,7 +381,7 @@ export class RelationshipManager {
         warnings.push({
           field: 'epic_id',
           message: `PR ${pr.pr_id} epic_id (${pr.epic_id}) doesn't match issue's epic_id (${issue.epic_id})`,
-          severity: 'warning'
+          severity: 'warning',
         });
       }
     }
@@ -389,7 +389,7 @@ export class RelationshipManager {
     return {
       valid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -450,7 +450,7 @@ export class RelationshipManager {
       tasks: this.taskCache.size,
       prs: this.prCache.size,
       lastUpdate: new Date(this.lastCacheUpdate),
-      isStale: Date.now() - this.lastCacheUpdate > this.cacheExpiry
+      isStale: Date.now() - this.lastCacheUpdate > this.cacheExpiry,
     };
   }
 
@@ -467,11 +467,13 @@ export class RelationshipManager {
    * Find item by ID across all caches
    */
   private findItemById(itemId: string): AnyItemData | null {
-    return this.epicCache.get(itemId) || 
-           this.issueCache.get(itemId) || 
-           this.taskCache.get(itemId) || 
-           this.prCache.get(itemId) ||
-           null;
+    return (
+      this.epicCache.get(itemId) ||
+      this.issueCache.get(itemId) ||
+      this.taskCache.get(itemId) ||
+      this.prCache.get(itemId) ||
+      null
+    );
   }
 
   /**
@@ -479,14 +481,14 @@ export class RelationshipManager {
    */
   private resolveDependencies(dependencyIds: string[]): AnyItemData[] {
     const dependencies: AnyItemData[] = [];
-    
+
     for (const depId of dependencyIds) {
       const item = this.findItemById(depId);
       if (item) {
         dependencies.push(item);
       }
     }
-    
+
     return dependencies;
   }
 
@@ -495,20 +497,20 @@ export class RelationshipManager {
    */
   private findDependents(itemId: string): AnyItemData[] {
     const dependents: AnyItemData[] = [];
-    
+
     const allItems = [
       ...Array.from(this.epicCache.values()),
       ...Array.from(this.issueCache.values()),
       ...Array.from(this.taskCache.values()),
-      ...Array.from(this.prCache.values())
+      ...Array.from(this.prCache.values()),
     ];
-    
+
     for (const item of allItems) {
-      if (item.dependencies && item.dependencies.includes(itemId)) {
+      if (item.dependencies?.includes(itemId)) {
         dependents.push(item);
       }
     }
-    
+
     return dependents;
   }
 
@@ -519,14 +521,14 @@ export class RelationshipManager {
     const cycles: string[][] = [];
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
-    
+
     const allItems = [
       ...Array.from(this.epicCache.values()),
       ...Array.from(this.issueCache.values()),
       ...Array.from(this.taskCache.values()),
-      ...Array.from(this.prCache.values())
+      ...Array.from(this.prCache.values()),
     ];
-    
+
     for (const item of allItems) {
       const itemId = this.getItemId(item);
       if (!visited.has(itemId)) {
@@ -534,7 +536,7 @@ export class RelationshipManager {
         this.dfsForCycles(itemId, visited, recursionStack, path, cycles);
       }
     }
-    
+
     return cycles;
   }
 
@@ -551,9 +553,9 @@ export class RelationshipManager {
     visited.add(itemId);
     recursionStack.add(itemId);
     path.push(itemId);
-    
+
     const item = this.findItemById(itemId);
-    if (item && item.dependencies) {
+    if (item?.dependencies) {
       for (const depId of item.dependencies) {
         if (!visited.has(depId)) {
           this.dfsForCycles(depId, visited, recursionStack, path, cycles);
@@ -565,7 +567,7 @@ export class RelationshipManager {
         }
       }
     }
-    
+
     recursionStack.delete(itemId);
     path.pop();
   }
@@ -602,27 +604,35 @@ export class RelationshipManager {
     };
   } {
     this.refreshCacheIfNeeded();
-    
+
     const allItems = [
       ...Array.from(this.epicCache.values()),
       ...Array.from(this.issueCache.values()),
       ...Array.from(this.taskCache.values()),
-      ...Array.from(this.prCache.values())
+      ...Array.from(this.prCache.values()),
     ];
 
     const statusBreakdown: Record<string, number> = {};
     const priorityBreakdown: Record<string, number> = {};
-    
+
     for (const item of allItems) {
       statusBreakdown[item.status] = (statusBreakdown[item.status] || 0) + 1;
       priorityBreakdown[item.priority] = (priorityBreakdown[item.priority] || 0) + 1;
     }
 
-    const completedEpics = Array.from(this.epicCache.values()).filter(e => e.status === 'completed').length;
-    const completedIssues = Array.from(this.issueCache.values()).filter(i => i.status === 'completed').length;
-    const completedTasks = Array.from(this.taskCache.values()).filter(t => t.status === 'completed').length;
-    const completedPRs = Array.from(this.prCache.values()).filter(p => p.status === 'completed' || p.pr_status === 'merged').length;
-    
+    const completedEpics = Array.from(this.epicCache.values()).filter(
+      (e) => e.status === 'completed'
+    ).length;
+    const completedIssues = Array.from(this.issueCache.values()).filter(
+      (i) => i.status === 'completed'
+    ).length;
+    const completedTasks = Array.from(this.taskCache.values()).filter(
+      (t) => t.status === 'completed'
+    ).length;
+    const completedPRs = Array.from(this.prCache.values()).filter(
+      (p) => p.status === 'completed' || p.pr_status === 'merged'
+    ).length;
+
     const totalItems = allItems.length;
     const completedItems = completedEpics + completedIssues + completedTasks + completedPRs;
     const overallCompletion = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
@@ -632,7 +642,7 @@ export class RelationshipManager {
         epics: this.epicCache.size,
         issues: this.issueCache.size,
         tasks: this.taskCache.size,
-        prs: this.prCache.size
+        prs: this.prCache.size,
       },
       status_breakdown: statusBreakdown,
       priority_breakdown: priorityBreakdown,
@@ -641,8 +651,8 @@ export class RelationshipManager {
         completed_issues: completedIssues,
         completed_tasks: completedTasks,
         completed_prs: completedPRs,
-        overall_completion: Math.round(overallCompletion * 100) / 100
-      }
+        overall_completion: Math.round(overallCompletion * 100) / 100,
+      },
     };
   }
 

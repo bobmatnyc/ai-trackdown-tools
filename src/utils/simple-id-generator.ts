@@ -3,8 +3,8 @@
  * Generates unique IDs for Epics, Issues, and Tasks
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 export class IdGenerator {
   private countersPath: string;
@@ -17,7 +17,7 @@ export class IdGenerator {
     epic: 1,
     issue: 1,
     task: 1,
-    pr: 1
+    pr: 1,
   };
 
   constructor() {
@@ -29,7 +29,7 @@ export class IdGenerator {
   /**
    * Generate unique Epic ID
    */
-  public generateEpicId(title: string): string {
+  public generateEpicId(_title: string): string {
     const id = `EP-${this.counters.epic.toString().padStart(4, '0')}`;
     this.counters.epic++;
     this.saveCounters();
@@ -39,7 +39,7 @@ export class IdGenerator {
   /**
    * Generate unique Issue ID
    */
-  public generateIssueId(epic_id: string, title: string): string {
+  public generateIssueId(_epic_id: string, _title: string): string {
     const id = `ISS-${this.counters.issue.toString().padStart(4, '0')}`;
     this.counters.issue++;
     this.saveCounters();
@@ -49,7 +49,7 @@ export class IdGenerator {
   /**
    * Generate unique Task ID
    */
-  public generateTaskId(issue_id: string, title: string): string {
+  public generateTaskId(_issue_id: string, _title: string): string {
     const id = `TSK-${this.counters.task.toString().padStart(4, '0')}`;
     this.counters.task++;
     this.saveCounters();
@@ -59,7 +59,7 @@ export class IdGenerator {
   /**
    * Generate unique PR ID
    */
-  public generatePRId(issue_id: string, title: string): string {
+  public generatePRId(_issue_id: string, _title: string): string {
     const id = `PR-${this.counters.pr.toString().padStart(4, '0')}`;
     this.counters.pr++;
     this.saveCounters();
@@ -74,13 +74,13 @@ export class IdGenerator {
       if (fs.existsSync(this.countersPath)) {
         const data = fs.readFileSync(this.countersPath, 'utf8');
         const loaded = JSON.parse(data);
-        
+
         this.counters.epic = Math.max(1, loaded.epic || 1);
         this.counters.issue = Math.max(1, loaded.issue || 1);
         this.counters.task = Math.max(1, loaded.task || 1);
         this.counters.pr = Math.max(1, loaded.pr || 1);
       }
-    } catch (error) {
+    } catch (_error) {
       // Keep default values
     }
   }
@@ -97,7 +97,7 @@ export class IdGenerator {
 
       const data = JSON.stringify(this.counters, null, 2);
       fs.writeFileSync(this.countersPath, data, 'utf8');
-    } catch (error) {
+    } catch (_error) {
       // Silently fail
     }
   }

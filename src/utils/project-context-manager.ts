@@ -3,12 +3,12 @@
  * Manages project context for CLI operations in both single and multi-project modes
  */
 
-import { join } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
-import { ProjectDetector, type ProjectMode, type ProjectContext } from './project-detector.js';
-import { PathResolver } from './path-resolver.js';
-import { ConfigManager } from './config-manager.js';
+import { join } from 'node:path';
 import type { ProjectConfig } from '../types/ai-trackdown.js';
+import { ConfigManager } from './config-manager.js';
+import { PathResolver } from './path-resolver.js';
+import { type ProjectContext, ProjectDetector, type ProjectMode } from './project-detector.js';
 
 export interface ContextualizedPaths {
   projectRoot: string;
@@ -55,16 +55,16 @@ export class ProjectContextManager {
   async initializeContext(projectName?: string): Promise<ProjectContextState> {
     // Create project detector
     const projectDetector = new ProjectDetector(this.projectRoot, undefined, this.modeOverride);
-    
+
     // Get project context
     const context = projectDetector.getProjectContext(projectName);
-    
+
     // Determine the actual project root path
     const actualProjectRoot = this.getActualProjectRoot(context);
-    
+
     // Create config manager for the project
     const configManager = new ConfigManager(actualProjectRoot);
-    
+
     // Create path resolver with project context
     const pathResolver = new PathResolver(
       configManager,
@@ -72,19 +72,19 @@ export class ProjectContextManager {
       context.currentProject,
       this.modeOverride
     );
-    
+
     // Build contextualized paths
     const paths = this.buildContextualizedPaths(context, pathResolver, actualProjectRoot);
-    
+
     // Create and cache the context state
     this.currentContext = {
       context,
       paths,
       configManager,
       pathResolver,
-      projectDetector
+      projectDetector,
     };
-    
+
     return this.currentContext;
   }
 
@@ -114,7 +114,10 @@ export class ProjectContextManager {
   /**
    * Create a new project in multi-project mode
    */
-  async createProject(projectName: string, config?: Partial<ProjectConfig>): Promise<ProjectContextState> {
+  async createProject(
+    projectName: string,
+    config?: Partial<ProjectConfig>
+  ): Promise<ProjectContextState> {
     if (!this.currentContext) {
       // Initialize context first to detect mode
       await this.initializeContext();
@@ -130,14 +133,14 @@ export class ProjectContextManager {
 
     // Create project directory
     const projectPath = this.currentContext.projectDetector.createProject(projectName);
-    
+
     // Create directory structure
     mkdirSync(projectPath, { recursive: true });
-    
+
     // Initialize project with config
     const projectConfigManager = new ConfigManager(projectPath);
-    const projectConfig = projectConfigManager.initializeProject(projectName, config);
-    
+    const _projectConfig = projectConfigManager.initializeProject(projectName, config);
+
     // Switch to the new project
     return await this.switchProject(projectName);
   }
@@ -206,7 +209,7 @@ export class ProjectContextManager {
     }
 
     const { paths, configManager } = this.currentContext;
-    
+
     // Create all required directories
     const directories = [
       paths.configDir,
@@ -215,7 +218,7 @@ export class ProjectContextManager {
       paths.issuesDir,
       paths.tasksDir,
       paths.prsDir,
-      paths.templatesDir
+      paths.templatesDir,
     ];
 
     for (const dir of directories) {
@@ -244,7 +247,7 @@ export class ProjectContextManager {
       return {
         valid: false,
         issues: ['No project context initialized'],
-        warnings: []
+        warnings: [],
       };
     }
 
@@ -255,16 +258,17 @@ export class ProjectContextManager {
     if (this.currentContext.context.mode === 'multi') {
       if (!this.currentContext.context.currentProject) {
         issues.push('No project selected in multi-project mode');
-      } else if (!this.currentContext.projectDetector.projectExists(this.currentContext.context.currentProject)) {
+      } else if (
+        !this.currentContext.projectDetector.projectExists(
+          this.currentContext.context.currentProject
+        )
+      ) {
         issues.push(`Project '${this.currentContext.context.currentProject}' does not exist`);
       }
     }
 
     // Check if required directories exist
-    const requiredDirs = [
-      this.currentContext.paths.configDir,
-      this.currentContext.paths.tasksRoot
-    ];
+    const requiredDirs = [this.currentContext.paths.configDir, this.currentContext.paths.tasksRoot];
 
     for (const dir of requiredDirs) {
       if (!existsSync(dir)) {
@@ -274,19 +278,21 @@ export class ProjectContextManager {
 
     // Check config validity
     try {
-      const config = this.currentContext.configManager.getConfig();
+      const _config = this.currentContext.configManager.getConfig();
       const validation = this.currentContext.configManager.validateConfig();
       if (!validation.valid) {
         issues.push(...validation.errors);
       }
     } catch (error) {
-      issues.push(`Configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      issues.push(
+        `Configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
 
     return {
       valid: issues.length === 0,
       issues,
-      warnings
+      warnings,
     };
   }
 
@@ -300,11 +306,11 @@ export class ProjectContextManager {
     }
 
     const { context, paths } = this.currentContext;
-    
+
     console.log(`\n📋 Project Context Information`);
     console.log(`Mode: ${context.mode.toUpperCase()}`);
     console.log(`Root: ${context.projectRoot}`);
-    
+
     if (context.mode === 'multi') {
       console.log(`Projects Directory: ${context.projectsDir || 'Not set'}`);
       console.log(`Current Project: ${context.currentProject || 'None selected'}`);
@@ -324,12 +330,12 @@ export class ProjectContextManager {
     const validation = this.validateContext();
     if (!validation.valid) {
       console.log(`\n❌ Context Issues:`);
-      validation.issues.forEach(issue => console.log(`   • ${issue}`));
+      validation.issues.forEach((issue) => console.log(`   • ${issue}`));
     }
 
     if (validation.warnings.length > 0) {
       console.log(`\n⚠️  Warnings:`);
-      validation.warnings.forEach(warning => console.log(`   • ${warning}`));
+      validation.warnings.forEach((warning) => console.log(`   • ${warning}`));
     }
   }
 
@@ -343,7 +349,10 @@ export class ProjectContextManager {
 
     // Multi-project mode
     if (context.currentProject) {
-      return join(context.projectsDir || join(context.projectRoot, 'projects'), context.currentProject);
+      return join(
+        context.projectsDir || join(context.projectRoot, 'projects'),
+        context.currentProject
+      );
     }
 
     // No project selected in multi-project mode
@@ -354,7 +363,7 @@ export class ProjectContextManager {
    * Build contextualized paths for the current project
    */
   private buildContextualizedPaths(
-    context: ProjectContext,
+    _context: ProjectContext,
     pathResolver: PathResolver,
     actualProjectRoot: string
   ): ContextualizedPaths {
@@ -366,7 +375,7 @@ export class ProjectContextManager {
       issuesDir: pathResolver.getIssuesDir(),
       tasksDir: pathResolver.getTasksDir(),
       prsDir: pathResolver.getPRsDir(),
-      templatesDir: pathResolver.getTemplatesDir()
+      templatesDir: pathResolver.getTemplatesDir(),
     };
   }
 

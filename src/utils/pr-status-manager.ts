@@ -3,19 +3,18 @@
  * Handles PR status transitions, validation, and file organization
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { PRData, PRStatus } from '../types/ai-trackdown.js';
-import { ConfigManager } from './config-manager.js';
-import { Formatter } from './formatter.js';
+import type { ConfigManager } from './config-manager.js';
 
 export class PRStatusManager {
   private configManager: ConfigManager;
-  
+
   constructor(configManager: ConfigManager) {
     this.configManager = configManager;
   }
-  
+
   /**
    * Validates if a status transition is allowed
    */
@@ -26,12 +25,12 @@ export class PRStatusManager {
       review: ['open', 'approved', 'closed'],
       approved: ['review', 'merged', 'closed'],
       merged: [], // Merged PRs cannot transition to other states
-      closed: ['draft', 'open'] // Closed PRs can be reopened
+      closed: ['draft', 'open'], // Closed PRs can be reopened
     };
-    
+
     return validTransitions[currentStatus].includes(newStatus);
   }
-  
+
   /**
    * Gets the directory path for a given PR status
    */
@@ -42,12 +41,12 @@ export class PRStatusManager {
       review: path.join(basePRsDir, 'active'),
       approved: path.join(basePRsDir, 'active'),
       merged: path.join(basePRsDir, 'merged'),
-      closed: path.join(basePRsDir, 'closed')
+      closed: path.join(basePRsDir, 'closed'),
     };
-    
+
     return statusDirs[status];
   }
-  
+
   /**
    * Moves a PR file to the appropriate directory based on status
    */
@@ -58,32 +57,32 @@ export class PRStatusManager {
   ): Promise<string | null> {
     const currentDir = path.dirname(pr.file_path);
     const targetDir = this.getStatusDirectory(newStatus, basePRsDir);
-    
+
     // Only move if different directory
     if (currentDir === targetDir) {
       return null; // No move needed
     }
-    
+
     // Ensure target directory exists
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
-    
+
     // Generate new file path
     const fileName = path.basename(pr.file_path);
     const newFilePath = path.join(targetDir, fileName);
-    
+
     // Check if target file already exists
     if (fs.existsSync(newFilePath)) {
       throw new Error(`Target file already exists: ${newFilePath}`);
     }
-    
+
     // Move the file
     fs.renameSync(pr.file_path, newFilePath);
-    
+
     return newFilePath;
   }
-  
+
   /**
    * Validates PR status transition business rules
    */
@@ -97,43 +96,44 @@ export class PRStatusManager {
   ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    
+
     // Check if transition is structurally valid
     if (!this.isValidStatusTransition(pr.pr_status, newStatus)) {
       errors.push(`Invalid status transition: ${pr.pr_status} → ${newStatus}`);
     }
-    
+
     // Business rule validations (can be bypassed)
     if (!options.bypassChecks) {
       switch (newStatus) {
-        case 'approved':
+        case 'approved': {
           // Check if there are reviewers
           if (!pr.reviewers || pr.reviewers.length === 0) {
             warnings.push('PR has no reviewers assigned');
           }
-          
+
           // Check if all reviewers have approved
           const approvals = pr.approvals || [];
           const reviewers = pr.reviewers || [];
           const requiredApprovals = options.requiredApprovals || reviewers.length;
-          
+
           if (approvals.length < requiredApprovals) {
             warnings.push(`PR needs ${requiredApprovals - approvals.length} more approvals`);
           }
           break;
-          
+        }
+
         case 'merged':
           // Check if PR is approved
           if (pr.pr_status !== 'approved') {
             errors.push('PR must be approved before merging');
           }
-          
+
           // Check for blocking dependencies
           if (pr.blocked_by && pr.blocked_by.length > 0) {
             errors.push(`PR is blocked by: ${pr.blocked_by.join(', ')}`);
           }
           break;
-          
+
         case 'closed':
           // Warn if closing an approved PR
           if (pr.pr_status === 'approved') {
@@ -142,14 +142,14 @@ export class PRStatusManager {
           break;
       }
     }
-    
+
     return {
       valid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
-  
+
   /**
    * Gets the next recommended status for a PR
    */
@@ -159,17 +159,18 @@ export class PRStatusManager {
         return 'open';
       case 'open':
         return 'review';
-      case 'review':
+      case 'review': {
         const approvals = pr.approvals || [];
         const reviewers = pr.reviewers || [];
         return approvals.length >= reviewers.length ? 'approved' : 'review';
+      }
       case 'approved':
         return 'merged';
       default:
         return null;
     }
   }
-  
+
   /**
    * Gets status-specific requirements and suggestions
    */
@@ -178,38 +179,38 @@ export class PRStatusManager {
       draft: {
         required: [],
         recommended: ['title', 'description', 'branch_name'],
-        nextActions: ['Add reviewers', 'Update to open when ready']
+        nextActions: ['Add reviewers', 'Update to open when ready'],
       },
       open: {
         required: ['title', 'description'],
         recommended: ['reviewers', 'target_branch'],
-        nextActions: ['Request reviews', 'Update to review status']
+        nextActions: ['Request reviews', 'Update to review status'],
       },
       review: {
         required: ['reviewers'],
         recommended: ['approval_count'],
-        nextActions: ['Wait for reviews', 'Address feedback']
+        nextActions: ['Wait for reviews', 'Address feedback'],
       },
       approved: {
         required: ['approvals'],
         recommended: ['merge_strategy'],
-        nextActions: ['Merge PR', 'Deploy changes']
+        nextActions: ['Merge PR', 'Deploy changes'],
       },
       merged: {
         required: ['merge_commit'],
         recommended: ['linked_tasks_updated'],
-        nextActions: ['Close related tasks', 'Update documentation']
+        nextActions: ['Close related tasks', 'Update documentation'],
       },
       closed: {
         required: [],
         recommended: ['close_reason'],
-        nextActions: ['Archive or reopen if needed']
-      }
+        nextActions: ['Archive or reopen if needed'],
+      },
     };
-    
+
     return requirements[status];
   }
-  
+
   /**
    * Applies automatic status transitions based on PR state
    */
@@ -218,36 +219,29 @@ export class PRStatusManager {
     if (pr.pr_status === 'review') {
       const approvals = pr.approvals || [];
       const reviewers = pr.reviewers || [];
-      
+
       if (reviewers.length > 0 && approvals.length >= reviewers.length) {
         return 'approved';
       }
     }
-    
+
     return null;
   }
-  
+
   /**
    * Creates status-specific directories if they don't exist
    */
   ensureStatusDirectories(basePRsDir: string): void {
-    const statusDirs = [
-      'draft',
-      'active',
-      'merged',
-      'closed',
-      'reviews',
-      'logs'
-    ];
-    
-    statusDirs.forEach(dir => {
+    const statusDirs = ['draft', 'active', 'merged', 'closed', 'reviews', 'logs'];
+
+    statusDirs.forEach((dir) => {
       const dirPath = path.join(basePRsDir, dir);
       if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
       }
     });
   }
-  
+
   /**
    * Generates a status transition report
    */
@@ -258,7 +252,7 @@ export class PRStatusManager {
     metadata: any = {}
   ): StatusTransitionReport {
     const now = new Date().toISOString();
-    
+
     return {
       pr_id: pr.pr_id,
       from_status: fromStatus,
@@ -270,7 +264,7 @@ export class PRStatusManager {
       approvals_count: (pr.approvals || []).length,
       reviewers_count: (pr.reviewers || []).length,
       validation_passed: metadata.validation_passed || true,
-      validation_warnings: metadata.validation_warnings || []
+      validation_warnings: metadata.validation_warnings || [],
     };
   }
 }

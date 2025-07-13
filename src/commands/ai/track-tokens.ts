@@ -5,9 +5,9 @@
 
 import { Command } from 'commander';
 import { ConfigManager } from '../../utils/config-manager.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
-import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { Formatter } from '../../utils/formatter.js';
+import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
 
 interface TrackOptions {
   itemId?: string;
@@ -21,7 +21,7 @@ interface TrackOptions {
 
 export function createAiTrackTokensCommand(): Command {
   const cmd = new Command('track-tokens');
-  
+
   cmd
     .description('Track and update token usage across items')
     .option('-i, --item-id <id>', 'specific item ID to update')
@@ -35,7 +35,11 @@ export function createAiTrackTokensCommand(): Command {
       try {
         await trackTokens(options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to track tokens: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to track tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -51,21 +55,22 @@ async function trackTokens(options: TrackOptions): Promise<void> {
   const cliTasksDir = process.env.CLI_TASKS_DIR; // Set by parent command
 
   // Get absolute paths with CLI override
-  const paths = configManager.getAbsolutePaths(cliTasksDir);  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
+  const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
   const parser = new FrontmatterParser();
-  
+
   // If just showing report
   if (options.report || (!options.itemId && !options.estimated && !options.actual)) {
     await showTokenReport(relationshipManager, options.format || 'table', options.type);
     return;
   }
-  
+
   // If updating specific item
   if (options.itemId) {
     await updateItemTokens(relationshipManager, parser, options);
     return;
   }
-  
+
   throw new Error('Must specify either --item-id for updates or --report for viewing usage');
 }
 
@@ -76,22 +81,25 @@ async function updateItemTokens(
 ): Promise<void> {
   // Find the item
   const searchResult = relationshipManager.search({ content_search: options.itemId! });
-  const item = searchResult.items.find(item => {
-    if (options.itemId!.startsWith('EP-') && 'epic_id' in item) return item.epic_id === options.itemId;
-    if (options.itemId!.startsWith('ISS-') && 'issue_id' in item) return item.issue_id === options.itemId;
-    if (options.itemId!.startsWith('TSK-') && 'task_id' in item) return item.task_id === options.itemId;
+  const item = searchResult.items.find((item) => {
+    if (options.itemId?.startsWith('EP-') && 'epic_id' in item)
+      return item.epic_id === options.itemId;
+    if (options.itemId?.startsWith('ISS-') && 'issue_id' in item)
+      return item.issue_id === options.itemId;
+    if (options.itemId?.startsWith('TSK-') && 'task_id' in item)
+      return item.task_id === options.itemId;
     return false;
   });
-  
+
   if (!item) {
     throw new Error(`Item not found: ${options.itemId}`);
   }
-  
+
   // Prepare updates
   const updates: any = {
-    updated_date: new Date().toISOString()
+    updated_date: new Date().toISOString(),
   };
-  
+
   if (options.estimated !== undefined) {
     if (options.operation === 'add') {
       updates.estimated_tokens = (item.estimated_tokens || 0) + options.estimated;
@@ -99,7 +107,7 @@ async function updateItemTokens(
       updates.estimated_tokens = options.estimated;
     }
   }
-  
+
   if (options.actual !== undefined) {
     if (options.operation === 'add') {
       updates.actual_tokens = (item.actual_tokens || 0) + options.actual;
@@ -107,23 +115,30 @@ async function updateItemTokens(
       updates.actual_tokens = options.actual;
     }
   }
-  
+
   // Update the item
   const updatedItem = parser.updateFile(item.file_path, updates);
-  
+
   // Refresh cache
   relationshipManager.rebuildCache();
-  
+
   console.log(Formatter.success(`Token usage updated successfully!`));
   console.log(Formatter.info(`Item: ${options.itemId} - ${item.title}`));
-  console.log(Formatter.info(`Estimated Tokens: ${item.estimated_tokens || 0} → ${updatedItem.estimated_tokens || 0}`));
-  console.log(Formatter.info(`Actual Tokens: ${item.actual_tokens || 0} → ${updatedItem.actual_tokens || 0}`));
-  
+  console.log(
+    Formatter.info(
+      `Estimated Tokens: ${item.estimated_tokens || 0} → ${updatedItem.estimated_tokens || 0}`
+    )
+  );
+  console.log(
+    Formatter.info(`Actual Tokens: ${item.actual_tokens || 0} → ${updatedItem.actual_tokens || 0}`)
+  );
+
   if (updatedItem.estimated_tokens > 0) {
     const efficiency = (updatedItem.actual_tokens || 0) / updatedItem.estimated_tokens;
-    const efficiencyDisplay = efficiency <= 1 ? 
-      Formatter.success(`${(efficiency * 100).toFixed(1)}%`) :
-      Formatter.warning(`${(efficiency * 100).toFixed(1)}%`);
+    const efficiencyDisplay =
+      efficiency <= 1
+        ? Formatter.success(`${(efficiency * 100).toFixed(1)}%`)
+        : Formatter.warning(`${(efficiency * 100).toFixed(1)}%`);
     console.log(Formatter.info(`Token Efficiency: ${efficiencyDisplay}`));
   }
 }
@@ -136,48 +151,56 @@ async function showTokenReport(
   // Get all items
   const searchResult = relationshipManager.search({});
   let items = searchResult.items;
-  
+
   // Apply type filter
   if (typeFilter) {
-    items = items.filter(item => {
+    items = items.filter((item) => {
       switch (typeFilter) {
-        case 'epic': return 'epic_id' in item && !('issue_id' in item);
-        case 'issue': return 'issue_id' in item && !('task_id' in item);
-        case 'task': return 'task_id' in item;
-        default: return true;
+        case 'epic':
+          return 'epic_id' in item && !('issue_id' in item);
+        case 'issue':
+          return 'issue_id' in item && !('task_id' in item);
+        case 'task':
+          return 'task_id' in item;
+        default:
+          return true;
       }
     });
   }
-  
+
   // Calculate totals
   const totalEstimated = items.reduce((sum, item) => sum + (item.estimated_tokens || 0), 0);
   const totalActual = items.reduce((sum, item) => sum + (item.actual_tokens || 0), 0);
   const overallEfficiency = totalEstimated > 0 ? (totalActual / totalEstimated) * 100 : 0;
-  
+
   // Show report based on format
   switch (format) {
-    case 'json':
+    case 'json': {
       const jsonReport = {
         summary: {
           total_items: items.length,
           total_estimated: totalEstimated,
           total_actual: totalActual,
-          efficiency_percentage: overallEfficiency
+          efficiency_percentage: overallEfficiency,
         },
-        items: items.map(item => ({
+        items: items.map((item) => ({
           id: getItemId(item),
           title: item.title,
           type: getItemType(item),
           status: item.status,
           estimated_tokens: item.estimated_tokens || 0,
           actual_tokens: item.actual_tokens || 0,
-          efficiency: item.estimated_tokens > 0 ? ((item.actual_tokens || 0) / item.estimated_tokens) * 100 : 0
-        }))
+          efficiency:
+            item.estimated_tokens > 0
+              ? ((item.actual_tokens || 0) / item.estimated_tokens) * 100
+              : 0,
+        })),
       };
       console.log(JSON.stringify(jsonReport, null, 2));
       break;
-      
-    case 'summary':
+    }
+
+    case 'summary': {
       console.log(Formatter.success('Token Usage Summary'));
       console.log('');
       console.log(`Total Items: ${items.length}`);
@@ -185,20 +208,26 @@ async function showTokenReport(
       console.log(`Total Actual Tokens: ${totalActual}`);
       console.log(`Overall Efficiency: ${overallEfficiency.toFixed(1)}%`);
       console.log('');
-      
+
       // Group by type
-      const byType = items.reduce((acc, item) => {
-        const type = getItemType(item);
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(item);
-        return acc;
-      }, {} as Record<string, any[]>);
-      
+      const byType = items.reduce(
+        (acc, item) => {
+          const type = getItemType(item);
+          if (!acc[type]) acc[type] = [];
+          acc[type].push(item);
+          return acc;
+        },
+        {} as Record<string, any[]>
+      );
+
       for (const [type, typeItems] of Object.entries(byType)) {
-        const typeEstimated = typeItems.reduce((sum, item) => sum + (item.estimated_tokens || 0), 0);
+        const typeEstimated = typeItems.reduce(
+          (sum, item) => sum + (item.estimated_tokens || 0),
+          0
+        );
         const typeActual = typeItems.reduce((sum, item) => sum + (item.actual_tokens || 0), 0);
         const typeEfficiency = typeEstimated > 0 ? (typeActual / typeEstimated) * 100 : 0;
-        
+
         console.log(`${type.charAt(0).toUpperCase() + type.slice(1)}s:`);
         console.log(`  Count: ${typeItems.length}`);
         console.log(`  Estimated: ${typeEstimated}`);
@@ -207,31 +236,33 @@ async function showTokenReport(
         console.log('');
       }
       break;
-      
-    default:
+    }
+
+    default: {
       // Table format
       console.log(Formatter.success('Token Usage Report'));
       console.log('');
-      
+
       if (items.length === 0) {
         console.log(Formatter.info('No items found.'));
         return;
       }
-      
+
       // Table headers
       const headers = ['ID', 'Title', 'Type', 'Status', 'Estimated', 'Actual', 'Efficiency'];
       const colWidths = [12, 40, 8, 10, 10, 10, 10];
-      
+
       // Print header
       printTableRow(headers, colWidths, true);
       printSeparator(colWidths);
-      
+
       // Print items
       for (const item of items) {
-        const efficiency = item.estimated_tokens > 0 ? 
-          ((item.actual_tokens || 0) / item.estimated_tokens * 100).toFixed(1) + '%' : 
-          'N/A';
-          
+        const efficiency =
+          item.estimated_tokens > 0
+            ? `${(((item.actual_tokens || 0) / item.estimated_tokens) * 100).toFixed(1)}%`
+            : 'N/A';
+
         const row = [
           getItemId(item),
           truncateText(item.title, 38),
@@ -239,12 +270,12 @@ async function showTokenReport(
           item.status.toUpperCase(),
           (item.estimated_tokens || 0).toString(),
           (item.actual_tokens || 0).toString(),
-          efficiency
+          efficiency,
         ];
-        
+
         printTableRow(row, colWidths, false);
       }
-      
+
       // Print summary
       console.log('');
       console.log(Formatter.success('Summary:'));
@@ -252,6 +283,7 @@ async function showTokenReport(
       console.log(`Total Estimated: ${totalEstimated}`);
       console.log(`Total Actual: ${totalActual}`);
       console.log(`Overall Efficiency: ${overallEfficiency.toFixed(1)}%`);
+    }
   }
 }
 
@@ -272,7 +304,7 @@ function getItemType(item: any): string {
 function printTableRow(row: string[], widths: number[], isHeader: boolean): void {
   const paddedRow = row.map((cell, i) => cell.padEnd(widths[i]));
   const rowText = paddedRow.join(' | ');
-  
+
   if (isHeader) {
     console.log(Formatter.info(rowText));
   } else {
@@ -281,11 +313,11 @@ function printTableRow(row: string[], widths: number[], isHeader: boolean): void
 }
 
 function printSeparator(widths: number[]): void {
-  const separator = widths.map(width => '-'.repeat(width)).join('-+-');
+  const separator = widths.map((width) => '-'.repeat(width)).join('-+-');
   console.log(separator);
 }
 
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
+  return `${text.substring(0, maxLength - 3)}...`;
 }

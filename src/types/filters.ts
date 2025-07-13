@@ -46,7 +46,18 @@ export interface ParsedSearchQuery {
   repo?: string;
   head?: string;
   base?: string;
-  sort?: 'comments' | 'reactions' | 'reactions-+1' | 'reactions--1' | 'reactions-smile' | 'reactions-thinking_face' | 'reactions-heart' | 'reactions-tada' | 'interactions' | 'created' | 'updated';
+  sort?:
+    | 'comments'
+    | 'reactions'
+    | 'reactions-+1'
+    | 'reactions--1'
+    | 'reactions-smile'
+    | 'reactions-thinking_face'
+    | 'reactions-heart'
+    | 'reactions-tada'
+    | 'interactions'
+    | 'created'
+    | 'updated';
   order?: 'asc' | 'desc';
   // Full text search terms (anything not matching above patterns)
   text?: string[];
@@ -70,12 +81,12 @@ export interface NumberQuery {
 export interface AdvancedFilters {
   // Text search
   query?: string;
-  
+
   // State filters
   state?: 'open' | 'closed' | 'all';
   draft?: boolean;
   locked?: boolean;
-  
+
   // User filters
   author?: string;
   assignee?: string | 'none' | '*';
@@ -83,43 +94,43 @@ export interface AdvancedFilters {
   mentions?: string;
   commenter?: string;
   involves?: string;
-  
+
   // Label filters
   labels?: string | string[];
   labelOperator?: 'and' | 'or'; // How to combine multiple labels
-  
+
   // Milestone filters
   milestone?: string | number | 'none' | '*';
-  
+
   // Date filters
   created?: string | DateQuery;
   updated?: string | DateQuery;
   closed?: string | DateQuery;
   since?: string;
   until?: string;
-  
+
   // Numeric filters
   comments?: NumberQuery;
   reactions?: NumberQuery;
   interactions?: NumberQuery;
-  
+
   // Sorting
   sort?: 'created' | 'updated' | 'comments' | 'reactions' | 'interactions';
   direction?: 'asc' | 'desc';
-  
+
   // Pagination
   page?: number;
   per_page?: number;
   limit?: number;
-  
+
   // Content filters
   in?: Array<'title' | 'body' | 'comments'>;
-  
+
   // Repository filters
   repo?: string;
   org?: string;
   user?: string;
-  
+
   // Additional GitHub-specific filters
   project?: string;
   review?: 'none' | 'required' | 'approved' | 'changes_requested';
@@ -129,7 +140,7 @@ export interface AdvancedFilters {
   language?: string;
   archived?: boolean;
   fork?: boolean;
-  
+
   // Pull request specific
   head?: string;
   base?: string;
@@ -138,7 +149,12 @@ export interface AdvancedFilters {
 
 // Search syntax validation
 export interface SearchSyntaxError {
-  type: 'invalid_operator' | 'invalid_date' | 'invalid_number' | 'unknown_qualifier' | 'missing_value';
+  type:
+    | 'invalid_operator'
+    | 'invalid_date'
+    | 'invalid_number'
+    | 'unknown_qualifier'
+    | 'missing_value';
   message: string;
   position?: number;
   qualifier?: string;
@@ -156,7 +172,15 @@ export interface FilterValidationResult {
 
 // Sort options for different endpoints
 export interface SortOptions {
-  issues: Array<'created' | 'updated' | 'comments' | 'reactions' | 'reactions-+1' | 'reactions--1' | 'interactions'>;
+  issues: Array<
+    | 'created'
+    | 'updated'
+    | 'comments'
+    | 'reactions'
+    | 'reactions-+1'
+    | 'reactions--1'
+    | 'interactions'
+  >;
   labels: Array<'name' | 'created' | 'updated'>;
   milestones: Array<'due_on' | 'completeness' | 'created' | 'updated'>;
   comments: Array<'created' | 'updated'>;
@@ -175,62 +199,62 @@ export const DEFAULT_FILTER_PRESETS: FilterPreset[] = [
     name: 'my-issues',
     description: 'Issues assigned to me',
     filters: { assignee: '@me', state: 'open' },
-    icon: '👤'
+    icon: '👤',
   },
   {
     name: 'my-created',
     description: 'Issues I created',
     filters: { author: '@me', state: 'open' },
-    icon: '✏️'
+    icon: '✏️',
   },
   {
     name: 'mentioned',
     description: 'Issues that mention me',
     filters: { mentions: '@me', state: 'open' },
-    icon: '📢'
+    icon: '📢',
   },
   {
     name: 'bugs',
     description: 'Open bug reports',
     filters: { labels: 'bug', state: 'open' },
-    icon: '🐛'
+    icon: '🐛',
   },
   {
     name: 'enhancements',
     description: 'Enhancement requests',
     filters: { labels: 'enhancement', state: 'open' },
-    icon: '✨'
+    icon: '✨',
   },
   {
     name: 'help-wanted',
     description: 'Issues looking for help',
     filters: { labels: 'help wanted', state: 'open' },
-    icon: '🆘'
+    icon: '🆘',
   },
   {
     name: 'good-first-issue',
     description: 'Good for new contributors',
     filters: { labels: 'good first issue', state: 'open' },
-    icon: '🌱'
+    icon: '🌱',
   },
   {
     name: 'high-priority',
     description: 'High priority issues',
     filters: { labels: ['priority:high', 'urgent'], labelOperator: 'or', state: 'open' },
-    icon: '🔥'
+    icon: '🔥',
   },
   {
     name: 'no-assignee',
     description: 'Unassigned issues',
     filters: { assignee: 'none', state: 'open' },
-    icon: '❓'
+    icon: '❓',
   },
   {
     name: 'stale',
     description: 'Issues not updated in 30 days',
     filters: { updated: '<30d', state: 'open' },
-    icon: '📅'
-  }
+    icon: '📅',
+  },
 ];
 
 // Query builder helpers

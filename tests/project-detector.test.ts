@@ -3,12 +3,12 @@
  * Tests multi-project support functionality, detection logic, and path resolution
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { ProjectDetector, type ProjectMode, type ProjectDetectionResult } from '../src/utils/project-detector.js';
-import { ConfigManager } from '../src/utils/config-manager.js';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConfigManager } from '../src/utils/config-manager.js';
+import { ProjectDetector } from '../src/utils/project-detector.js';
 
 describe('ProjectDetector', () => {
   let testProjectRoot: string;
@@ -21,17 +21,17 @@ describe('ProjectDetector', () => {
     testProjectRoot = fs.mkdtempSync(path.join(tmpdir(), 'project-detector-test-'));
     originalCwd = process.cwd();
     process.chdir(testProjectRoot);
-    
+
     // Mock ConfigManager
     mockConfigManager = {
       getConfig: vi.fn(),
       isProjectDirectory: vi.fn().mockReturnValue(true),
       initializeProject: vi.fn(),
-      validateConfig: vi.fn().mockReturnValue({ valid: true, errors: [] })
+      validateConfig: vi.fn().mockReturnValue({ valid: true, errors: [] }),
     } as any;
-    
+
     detector = new ProjectDetector(testProjectRoot, mockConfigManager);
-    
+
     // Clear environment variables
     delete process.env.AITRACKDOWN_PROJECT_MODE;
   });
@@ -333,10 +333,12 @@ describe('ProjectDetector', () => {
     it('should display single-project info', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       detector.showDetectionInfo();
-      
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('AI-Trackdown Project Detection'));
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('AI-Trackdown Project Detection')
+      );
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Mode: SINGLE'));
-      
+
       consoleSpy.mockRestore();
     });
 
@@ -345,26 +347,28 @@ describe('ProjectDetector', () => {
       const projectsDir = path.join(testProjectRoot, 'projects');
       fs.mkdirSync(projectsDir);
       fs.mkdirSync(path.join(projectsDir, 'project1'));
-      
+
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       detector.showDetectionInfo();
-      
+
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Mode: MULTI'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Available Projects: project1'));
-      
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Available Projects: project1')
+      );
+
       consoleSpy.mockRestore();
     });
 
     it('should display migration recommendations', () => {
       // Create PRJ files to trigger migration
       fs.writeFileSync(path.join(testProjectRoot, 'PRJ-0001-project-one.md'), '# Project One');
-      
+
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       detector.showDetectionInfo();
-      
+
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Migration needed'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Recommendations:'));
-      
+
       consoleSpy.mockRestore();
     });
   });
@@ -373,11 +377,11 @@ describe('ProjectDetector', () => {
     it('should handle unreadable directory gracefully', () => {
       // Create detector with non-existent path
       const invalidDetector = new ProjectDetector('/invalid/path/that/does/not/exist');
-      
+
       expect(() => {
         invalidDetector.detectProjectMode();
       }).not.toThrow();
-      
+
       const result = invalidDetector.detectProjectMode();
       expect(result.mode).toBe('single');
     });
@@ -386,7 +390,7 @@ describe('ProjectDetector', () => {
       mockConfigManager.getConfig = vi.fn().mockImplementation(() => {
         throw new Error('Config error');
       });
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('single'); // Should fallback to auto-detection
     });
@@ -417,25 +421,25 @@ describe('ProjectDetector', () => {
       mockConfigManager.getConfig = vi.fn().mockImplementation(() => {
         throw new Error('Config not found');
       });
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('single'); // Should fallback to auto-detection
     });
 
     it('should handle invalid config format', () => {
       mockConfigManager.getConfig = vi.fn().mockReturnValue({
-        project_mode: 'invalid_mode'
+        project_mode: 'invalid_mode',
       });
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('single'); // Should fallback to auto-detection
     });
 
     it('should handle valid config values', () => {
       mockConfigManager.getConfig = vi.fn().mockReturnValue({
-        project_mode: 'multi'
+        project_mode: 'multi',
       });
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('multi');
     });
@@ -445,7 +449,7 @@ describe('ProjectDetector', () => {
     it('should handle empty projects directory', () => {
       const projectsDir = path.join(testProjectRoot, 'projects');
       fs.mkdirSync(projectsDir);
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('multi');
       expect(result.detectedProjects).toEqual([]);
@@ -455,7 +459,7 @@ describe('ProjectDetector', () => {
       const projectsDir = path.join(testProjectRoot, 'projects');
       fs.mkdirSync(projectsDir);
       fs.writeFileSync(path.join(projectsDir, 'file.txt'), 'content');
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('multi');
       expect(result.detectedProjects).toEqual([]);
@@ -466,7 +470,7 @@ describe('ProjectDetector', () => {
       fs.mkdirSync(projectsDir);
       fs.mkdirSync(path.join(projectsDir, 'project1'));
       fs.writeFileSync(path.join(projectsDir, 'file.txt'), 'content');
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('multi');
       expect(result.detectedProjects).toEqual(['project1']);
@@ -475,7 +479,7 @@ describe('ProjectDetector', () => {
     it('should handle PRJ files with different extensions', () => {
       fs.writeFileSync(path.join(testProjectRoot, 'PRJ-0001-project.txt'), 'content');
       fs.writeFileSync(path.join(testProjectRoot, 'PRJ-0002-project.md'), 'content');
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('multi');
       expect(result.detectedProjects).toEqual(['PRJ-0002-project.md']);
@@ -485,7 +489,7 @@ describe('ProjectDetector', () => {
       const projDir = path.join(testProjectRoot, 'project1');
       fs.mkdirSync(projDir);
       fs.mkdirSync(path.join(projDir, '.ai-trackdown'));
-      
+
       const result = detector.detectProjectMode();
       expect(result.mode).toBe('single'); // Only one, so not multi
     });

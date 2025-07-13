@@ -1,6 +1,6 @@
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { VersionManager } from './version.js';
 
 export interface ChangelogEntry {
@@ -46,7 +46,7 @@ export class ChangelogManager {
    * Parse conventional commits from git log
    */
   static parseCommits(since?: string): ConventionalCommit[] {
-    const projectRoot = this.getProjectRoot();
+    const projectRoot = ChangelogManager.getProjectRoot();
 
     try {
       const sinceFlag = since ? `--since="${since}"` : '';
@@ -64,10 +64,10 @@ export class ChangelogManager {
         .filter((line) => line.trim())
         .map((line) => {
           const [hash, subject, body] = line.split('|');
-          return this.parseConventionalCommit(hash, subject, body || '');
+          return ChangelogManager.parseConventionalCommit(hash, subject, body || '');
         })
         .filter((commit) => commit !== null) as ConventionalCommit[];
-    } catch (error) {
+    } catch (_error) {
       console.warn('Warning: Could not parse git commits. Make sure you are in a git repository.');
       return [];
     }
@@ -181,8 +181,8 @@ export class ChangelogManager {
    */
   static generateChangelogEntry(version?: string, since?: string): ChangelogEntry {
     const currentVersion = version || VersionManager.getVersion().version;
-    const commits = this.parseCommits(since);
-    const sections = this.categorizeCommits(commits);
+    const commits = ChangelogManager.parseCommits(since);
+    const sections = ChangelogManager.categorizeCommits(commits);
 
     return {
       version: currentVersion,
@@ -228,11 +228,11 @@ export class ChangelogManager {
    * Generate or update CHANGELOG.md
    */
   static generateChangelog(version?: string, since?: string): void {
-    const projectRoot = this.getProjectRoot();
-    const changelogPath = path.join(projectRoot, this.CHANGELOG_FILE);
+    const projectRoot = ChangelogManager.getProjectRoot();
+    const changelogPath = path.join(projectRoot, ChangelogManager.CHANGELOG_FILE);
 
-    const entry = this.generateChangelogEntry(version, since);
-    const entryMarkdown = this.formatChangelogEntry(entry);
+    const entry = ChangelogManager.generateChangelogEntry(version, since);
+    const entryMarkdown = ChangelogManager.formatChangelogEntry(entry);
 
     let changelogContent = '';
 
@@ -245,13 +245,13 @@ export class ChangelogManager {
       if (headerEndIndex !== -1) {
         const header = existingContent.substring(0, headerEndIndex + 1);
         const rest = existingContent.substring(headerEndIndex + 1);
-        changelogContent = header + entryMarkdown + '\n' + rest;
+        changelogContent = `${header + entryMarkdown}\n${rest}`;
       } else {
-        changelogContent = existingContent + '\n' + entryMarkdown;
+        changelogContent = `${existingContent}\n${entryMarkdown}`;
       }
     } else {
       // Create new changelog
-      changelogContent = this.createChangelogHeader() + entryMarkdown;
+      changelogContent = ChangelogManager.createChangelogHeader() + entryMarkdown;
     }
 
     fs.writeFileSync(changelogPath, changelogContent);
@@ -275,8 +275,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    * Get the latest version from CHANGELOG.md
    */
   static getLatestChangelogVersion(): string | null {
-    const projectRoot = this.getProjectRoot();
-    const changelogPath = path.join(projectRoot, this.CHANGELOG_FILE);
+    const projectRoot = ChangelogManager.getProjectRoot();
+    const changelogPath = path.join(projectRoot, ChangelogManager.CHANGELOG_FILE);
 
     if (!fs.existsSync(changelogPath)) {
       return null;

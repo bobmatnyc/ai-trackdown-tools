@@ -4,8 +4,8 @@
  * and resolves paths accordingly.
  */
 
-import { join, dirname } from 'node:path';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ConfigManager } from './config-manager.js';
 
 export type ProjectMode = 'single' | 'multi';
@@ -93,10 +93,13 @@ export class ProjectDetector {
     try {
       const config = this.configManager.getConfig();
       // Check for project_mode in config
-      if ('project_mode' in config && (config.project_mode === 'single' || config.project_mode === 'multi')) {
+      if (
+        'project_mode' in config &&
+        (config.project_mode === 'single' || config.project_mode === 'multi')
+      ) {
         return config.project_mode as ProjectMode;
       }
-    } catch (error) {
+    } catch (_error) {
       // Config not found or invalid - continue with auto-detection
     }
 
@@ -108,18 +111,18 @@ export class ProjectDetector {
    */
   private autoDetectMode(): ProjectDetectionResult {
     const indicators = this.scanDirectoryIndicators();
-    
+
     // Multi-project indicators (in order of priority):
     // 1. projects/ directory exists
     // 2. PRJ-XXXX files exist in root
     // 3. Multiple .ai-trackdown directories in subdirectories
-    
+
     if (indicators.hasProjectsDirectory) {
       return this.buildDetectionResult('multi', {
         projectsDir: join(this.projectRoot, 'projects'),
         detectedProjects: indicators.projectsInDirectory,
         migrationNeeded: false,
-        recommendations: indicators.multiProjectRecommendations
+        recommendations: indicators.multiProjectRecommendations,
       });
     }
 
@@ -127,7 +130,7 @@ export class ProjectDetector {
       return this.buildDetectionResult('multi', {
         detectedProjects: indicators.prjFileProjects,
         migrationNeeded: true,
-        recommendations: indicators.migrationRecommendations
+        recommendations: indicators.migrationRecommendations,
       });
     }
 
@@ -135,14 +138,14 @@ export class ProjectDetector {
       return this.buildDetectionResult('multi', {
         detectedProjects: indicators.aiTrackdownProjects,
         migrationNeeded: true,
-        recommendations: indicators.consolidationRecommendations
+        recommendations: indicators.consolidationRecommendations,
       });
     }
 
     // Default to single-project mode
     return this.buildDetectionResult('single', {
       migrationNeeded: indicators.hasLegacyStructure,
-      recommendations: indicators.singleProjectRecommendations
+      recommendations: indicators.singleProjectRecommendations,
     });
   }
 
@@ -161,46 +164,46 @@ export class ProjectDetector {
       multiProjectRecommendations: [] as string[],
       migrationRecommendations: [] as string[],
       consolidationRecommendations: [] as string[],
-      singleProjectRecommendations: [] as string[]
+      singleProjectRecommendations: [] as string[],
     };
 
     try {
       const entries = readdirSync(this.projectRoot, { withFileTypes: true });
 
       // Check for projects/ directory
-      const projectsDir = entries.find(entry => entry.isDirectory() && entry.name === 'projects');
+      const projectsDir = entries.find((entry) => entry.isDirectory() && entry.name === 'projects');
       if (projectsDir) {
         indicators.hasProjectsDirectory = true;
         const projectsPath = join(this.projectRoot, 'projects');
         try {
           const projectEntries = readdirSync(projectsPath, { withFileTypes: true });
           indicators.projectsInDirectory = projectEntries
-            .filter(entry => entry.isDirectory())
-            .map(entry => entry.name);
-        } catch (error) {
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name);
+        } catch (_error) {
           // projects directory not readable
         }
       }
 
       // Check for PRJ-XXXX files
-      const prjFiles = entries.filter(entry => 
-        entry.isFile() && /^PRJ-\d{4}.*\.md$/.test(entry.name)
+      const prjFiles = entries.filter(
+        (entry) => entry.isFile() && /^PRJ-\d{4}.*\.md$/.test(entry.name)
       );
       if (prjFiles.length > 0) {
         indicators.hasPRJFiles = true;
-        indicators.prjFileProjects = prjFiles.map(file => file.name);
+        indicators.prjFileProjects = prjFiles.map((file) => file.name);
         indicators.migrationRecommendations.push(
           'Detected PRJ-XXXX files in root directory',
           'Consider creating projects/ directory structure:',
           'mkdir -p projects/',
-          ...prjFiles.map(file => `mkdir -p projects/${file.name.replace(/\.md$/, '')}/`)
+          ...prjFiles.map((file) => `mkdir -p projects/${file.name.replace(/\.md$/, '')}/`)
         );
       }
 
       // Check for multiple .ai-trackdown directories
-      const subdirs = entries.filter(entry => entry.isDirectory() && entry.name !== 'projects');
+      const subdirs = entries.filter((entry) => entry.isDirectory() && entry.name !== 'projects');
       let aiTrackdownCount = 0;
-      
+
       for (const subdir of subdirs) {
         const aiTrackdownPath = join(this.projectRoot, subdir.name, '.ai-trackdown');
         if (existsSync(aiTrackdownPath)) {
@@ -215,15 +218,15 @@ export class ProjectDetector {
           'Multiple .ai-trackdown directories detected',
           'Consider consolidating into multi-project structure:',
           'mkdir -p projects/',
-          ...indicators.aiTrackdownProjects.map(proj => `mv ${proj} projects/${proj}/`)
+          ...indicators.aiTrackdownProjects.map((proj) => `mv ${proj} projects/${proj}/`)
         );
       }
 
       // Check for legacy structure indicators
-      const legacyDirs = ['trackdown', 'epics', 'issues', 'tasks'].filter(dir => 
-        entries.some(entry => entry.isDirectory() && entry.name === dir)
+      const legacyDirs = ['trackdown', 'epics', 'issues', 'tasks'].filter((dir) =>
+        entries.some((entry) => entry.isDirectory() && entry.name === dir)
       );
-      
+
       if (legacyDirs.length > 0) {
         indicators.hasLegacyStructure = true;
         indicators.singleProjectRecommendations.push(
@@ -232,8 +235,7 @@ export class ProjectDetector {
           'aitrackdown migrate-structure --from-legacy'
         );
       }
-
-    } catch (error) {
+    } catch (_error) {
       // Directory not readable - continue with defaults
     }
 
@@ -254,7 +256,7 @@ export class ProjectDetector {
       detectedProjects: options.detectedProjects || [],
       migrationNeeded: options.migrationNeeded || false,
       recommendations: options.recommendations || [],
-      ...options
+      ...options,
     };
   }
 
@@ -263,12 +265,12 @@ export class ProjectDetector {
    */
   getProjectContext(projectName?: string): ProjectContext {
     const detection = this.detectProjectMode();
-    
+
     const context: ProjectContext = {
       mode: detection.mode,
       projectRoot: detection.projectRoot,
       projectsDir: detection.projectsDir,
-      availableProjects: detection.detectedProjects || []
+      availableProjects: detection.detectedProjects || [],
     };
 
     if (detection.mode === 'multi') {
@@ -277,7 +279,9 @@ export class ProjectDetector {
         if (context.availableProjects.includes(projectName)) {
           context.currentProject = projectName;
         } else {
-          throw new Error(`Project '${projectName}' not found. Available projects: ${context.availableProjects.join(', ')}`);
+          throw new Error(
+            `Project '${projectName}' not found. Available projects: ${context.availableProjects.join(', ')}`
+          );
         }
       } else if (context.availableProjects.length === 1) {
         // Auto-select single project
@@ -293,7 +297,7 @@ export class ProjectDetector {
    */
   listAvailableProjects(): string[] {
     const detection = this.detectProjectMode();
-    
+
     if (detection.mode === 'single') {
       return [];
     }
@@ -306,7 +310,7 @@ export class ProjectDetector {
    */
   projectExists(projectName: string): boolean {
     const detection = this.detectProjectMode();
-    
+
     if (detection.mode === 'single') {
       return false;
     }
@@ -319,7 +323,7 @@ export class ProjectDetector {
    */
   getProjectPath(projectName?: string): string {
     const detection = this.detectProjectMode();
-    
+
     if (detection.mode === 'single') {
       return this.projectRoot;
     }
@@ -340,7 +344,7 @@ export class ProjectDetector {
    */
   createProject(projectName: string): string {
     const detection = this.detectProjectMode();
-    
+
     if (detection.mode === 'single') {
       throw new Error('Cannot create project in single-project mode');
     }
@@ -367,11 +371,11 @@ export class ProjectDetector {
    */
   showDetectionInfo(): void {
     const detection = this.detectProjectMode();
-    
+
     console.log(`\n🔍 AI-Trackdown Project Detection`);
     console.log(`Mode: ${detection.mode.toUpperCase()}`);
     console.log(`Root: ${detection.projectRoot}`);
-    
+
     if (detection.mode === 'multi') {
       console.log(`Projects Directory: ${detection.projectsDir || 'Not set'}`);
       if (detection.detectedProjects && detection.detectedProjects.length > 0) {
@@ -385,7 +389,7 @@ export class ProjectDetector {
 
     if (detection.recommendations.length > 0) {
       console.log(`\n📋 Recommendations:`);
-      detection.recommendations.forEach(rec => console.log(`   ${rec}`));
+      detection.recommendations.forEach((rec) => console.log(`   ${rec}`));
     }
   }
 }

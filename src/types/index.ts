@@ -105,22 +105,22 @@ export interface StatusFilter {
   priority?: string;
   assignee?: string;
   id?: string;
-  
+
   // Multi-value filters
   statusIn?: string[];
   priorityIn?: string[];
   tags?: string[];
-  
+
   // Date filters
   createdAfter?: Date;
   createdBefore?: Date;
   updatedAfter?: Date;
   updatedBefore?: Date;
-  
+
   // Estimate filters
   estimateMin?: number;
   estimateMax?: number;
-  
+
   // Legacy/compatibility
   search?: string;
 }

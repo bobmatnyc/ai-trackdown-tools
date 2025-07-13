@@ -2,9 +2,9 @@
  * Issue reopen command - Deprecated in favor of issue update
  */
 
-import { Command } from 'commander';
 import chalk from 'chalk';
-import { formatSuccess, formatError, formatWarning, formatInfo } from '../../utils/formatters.js';
+import { Command } from 'commander';
+import { formatError, formatInfo } from '../../utils/formatters.js';
 
 interface IssueReopenOptions {
   comment?: string;
@@ -14,7 +14,7 @@ interface IssueReopenOptions {
 
 export function createIssueReopenCommand(): Command {
   const cmd = new Command('reopen');
-  
+
   cmd
     .description('Reopen an issue (deprecated - use "issue update")')
     .argument('<issue-id>', 'Issue ID (e.g., ISS-0001)')
@@ -25,7 +25,9 @@ export function createIssueReopenCommand(): Command {
       try {
         await handleReopenIssue(issueId, options);
       } catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error occurred'));
+        console.error(
+          formatError(error instanceof Error ? error.message : 'Unknown error occurred')
+        );
         process.exit(1);
       }
     });
@@ -37,11 +39,11 @@ async function handleReopenIssue(issueId: string, options: IssueReopenOptions): 
   // This command is deprecated
   console.log(formatInfo(`The "reopen" command is deprecated.`));
   console.log(formatInfo(`Please use: aitrackdown issue update ${issueId} --status todo`));
-  
+
   if (options.comment) {
     console.log(formatInfo(`To add a comment, edit the issue content directly.`));
   }
-  
+
   console.log('');
   console.log(chalk.yellow('The "reopen" command will be removed in a future version.'));
   console.log(chalk.yellow('Please update your scripts to use the "update" command instead.'));

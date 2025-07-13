@@ -4,10 +4,10 @@
  * when items are created, modified, or deleted
  */
 
-import { TrackdownIndexManager } from './trackdown-index-manager.js';
+import type { ItemType } from '../types/ai-trackdown.js';
 import { ConfigManager } from './config-manager.js';
 import { Formatter } from './formatter.js';
-import type { ItemType } from '../types/ai-trackdown.js';
+import { TrackdownIndexManager } from './trackdown-index-manager.js';
 
 export class IndexAutoUpdater {
   private indexManager: TrackdownIndexManager;
@@ -37,7 +37,11 @@ export class IndexAutoUpdater {
       }
     } catch (error) {
       if (!silent) {
-        console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.warn(
+          Formatter.warning(
+            `Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
     }
   }
@@ -55,7 +59,11 @@ export class IndexAutoUpdater {
       }
     } catch (error) {
       if (!silent) {
-        console.warn(Formatter.warning(`Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.warn(
+          Formatter.warning(
+            `Index update failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
     }
   }
@@ -73,7 +81,11 @@ export class IndexAutoUpdater {
       }
     } catch (error) {
       if (!silent) {
-        console.warn(Formatter.warning(`Index cleanup failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.warn(
+          Formatter.warning(
+            `Index cleanup failed (non-critical): ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
     }
   }
@@ -81,7 +93,10 @@ export class IndexAutoUpdater {
   /**
    * Batch update multiple items (for performance)
    */
-  async onBatchUpdate(updates: { type: ItemType; id: string; action: 'create' | 'update' | 'delete' }[], silent: boolean = false): Promise<void> {
+  async onBatchUpdate(
+    updates: { type: ItemType; id: string; action: 'create' | 'update' | 'delete' }[],
+    silent: boolean = false
+  ): Promise<void> {
     if (!this.isEnabled) return;
 
     const promises = updates.map(async (update) => {
@@ -97,13 +112,17 @@ export class IndexAutoUpdater {
         }
       } catch (error) {
         if (!silent) {
-          console.warn(Formatter.warning(`Index ${update.action} failed for ${update.type} ${update.id}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+          console.warn(
+            Formatter.warning(
+              `Index ${update.action} failed for ${update.type} ${update.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          );
         }
       }
     });
 
     await Promise.all(promises);
-    
+
     if (!silent && updates.length > 1) {
       console.log(Formatter.dim(`✓ Index batch updated (${updates.length} items)`));
     }
@@ -117,15 +136,19 @@ export class IndexAutoUpdater {
       if (!silent) {
         console.log(Formatter.info('🔄 Rebuilding index...'));
       }
-      
+
       await this.indexManager.rebuildIndex();
-      
+
       if (!silent) {
         console.log(Formatter.success('✅ Index rebuilt successfully'));
       }
     } catch (error) {
       if (!silent) {
-        console.error(Formatter.error(`Index rebuild failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Index rebuild failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
       throw error;
     }
@@ -137,7 +160,7 @@ export class IndexAutoUpdater {
   async validateAndRepair(silent: boolean = false): Promise<boolean> {
     try {
       const isValid = await this.indexManager.validateIndex();
-      
+
       if (!isValid) {
         if (!silent) {
           console.warn(Formatter.warning('Index validation failed. Rebuilding...'));
@@ -145,11 +168,15 @@ export class IndexAutoUpdater {
         await this.rebuildIndex(silent);
         return true;
       }
-      
+
       return false;
     } catch (error) {
       if (!silent) {
-        console.warn(Formatter.warning(`Index validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.warn(
+          Formatter.warning(
+            `Index validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
       }
       return false;
     }
@@ -166,17 +193,17 @@ export class IndexAutoUpdater {
     try {
       const stats = await this.indexManager.getIndexStats();
       const needsRebuild = !stats.healthy || !stats.indexFileExists;
-      
+
       return {
         healthy: stats.healthy,
         stats,
-        needsRebuild
+        needsRebuild,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         healthy: false,
         stats: null,
-        needsRebuild: true
+        needsRebuild: true,
       };
     }
   }
@@ -197,9 +224,9 @@ export function createIndexAutoUpdater(cliTasksDir?: string): IndexAutoUpdater |
     const configManager = new ConfigManager();
     const config = configManager.getConfig();
     const projectRoot = configManager.findProjectRoot();
-    
+
     return new IndexAutoUpdater(config, projectRoot, cliTasksDir);
-  } catch (error) {
+  } catch (_error) {
     // Not in a valid AI-Trackdown project, index auto-updater not available
     return null;
   }
@@ -210,12 +237,14 @@ export function createIndexAutoUpdater(cliTasksDir?: string): IndexAutoUpdater |
  */
 export function withIndexUpdate<T extends any[], R>(
   commandFn: (...args: T) => Promise<R>,
-  getUpdateInfo: (...args: T) => { type: ItemType; id: string; action: 'create' | 'update' | 'delete' } | null,
+  getUpdateInfo: (
+    ...args: T
+  ) => { type: ItemType; id: string; action: 'create' | 'update' | 'delete' } | null,
   cliTasksDir?: string
 ) {
   return async (...args: T): Promise<R> => {
     const result = await commandFn(...args);
-    
+
     const updateInfo = getUpdateInfo(...args);
     if (updateInfo) {
       const updater = createIndexAutoUpdater(cliTasksDir);
@@ -233,7 +262,7 @@ export function withIndexUpdate<T extends any[], R>(
         }
       }
     }
-    
+
     return result;
   };
 }
@@ -242,7 +271,10 @@ export function withIndexUpdate<T extends any[], R>(
  * Auto-initialization function for commands
  * Ensures index is healthy before operations
  */
-export async function ensureIndexHealth(cliTasksDir?: string, silent: boolean = true): Promise<void> {
+export async function ensureIndexHealth(
+  cliTasksDir?: string,
+  silent: boolean = true
+): Promise<void> {
   const updater = createIndexAutoUpdater(cliTasksDir);
   if (updater) {
     const health = await updater.getHealthStatus();

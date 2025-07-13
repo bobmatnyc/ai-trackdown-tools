@@ -4,10 +4,10 @@
  */
 
 import { Command } from 'commander';
+import type { EpicData, IssueData, PRData, TaskData } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
-import { RelationshipManager } from '../../utils/relationship-manager.js';
 import { Formatter } from '../../utils/formatter.js';
-import type { IssueData, TaskData, PRData, EpicData } from '../../types/ai-trackdown.js';
+import { RelationshipManager } from '../../utils/relationship-manager.js';
 
 interface ShowOptions {
   format?: 'detailed' | 'json' | 'yaml';
@@ -19,7 +19,7 @@ interface ShowOptions {
 
 export function createIssueShowCommand(): Command {
   const cmd = new Command('show');
-  
+
   cmd
     .description('Show detailed information about an issue')
     .argument('<issue-id>', 'issue ID to show')
@@ -32,7 +32,11 @@ export function createIssueShowCommand(): Command {
       try {
         await showIssue(issueId, options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to show issue: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to show issue: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -50,38 +54,40 @@ async function showIssue(issueId: string, options: ShowOptions): Promise<void> {
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
   const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
-  
+
   // Get issue hierarchy
   const hierarchy = relationshipManager.getIssueHierarchy(issueId);
   if (!hierarchy) {
     throw new Error(`Issue not found: ${issueId}`);
   }
-  
+
   const { issue, tasks, prs, epic } = hierarchy;
-  
+
   // Output based on format
   switch (options.format) {
-    case 'json':
+    case 'json': {
       const jsonOutput = {
         issue,
         ...(options.showTasks && { tasks }),
         ...(options.showPRs && { prs }),
-        ...(epic && { epic })
+        ...(epic && { epic }),
       };
       console.log(JSON.stringify(jsonOutput, null, 2));
       break;
-      
-    case 'yaml':
+    }
+
+    case 'yaml': {
       const YAML = await import('yaml');
       const yamlOutput = {
         issue,
         ...(options.showTasks && { tasks }),
         ...(options.showPRs && { prs }),
-        ...(epic && { epic })
+        ...(epic && { epic }),
       };
       console.log(YAML.stringify(yamlOutput));
       break;
-      
+    }
+
     default:
       await displayIssueDetailed(issue, tasks, prs, epic, options, relationshipManager);
   }
@@ -99,61 +105,61 @@ async function displayIssueDetailed(
   console.log(Formatter.success(`\n=== ISSUE: ${issue.title} ===`));
   console.log(Formatter.info(`ID: ${issue.issue_id}`));
   console.log('');
-  
+
   // Basic Information
   console.log(Formatter.success('Basic Information:'));
   console.log(`  Title: ${issue.title}`);
   console.log(`  Status: ${getStatusDisplay(issue.status)}`);
   console.log(`  Priority: ${getPriorityDisplay(issue.priority)}`);
   console.log(`  Assignee: ${issue.assignee || 'Unassigned'}`);
-  
+
   if (epic) {
     console.log(`  Epic: ${epic.epic_id} - ${epic.title}`);
   }
-  
+
   if (issue.milestone) {
     console.log(`  Milestone: ${issue.milestone}`);
   }
-  
+
   if (issue.tags && issue.tags.length > 0) {
     console.log(`  Tags: ${issue.tags.join(', ')}`);
   }
-  
+
   if (issue.completion_percentage !== undefined) {
     console.log(`  Progress: ${issue.completion_percentage}%`);
   }
-  
+
   console.log('');
-  
+
   // Dates and Tracking
   console.log(Formatter.success('Tracking Information:'));
   console.log(`  Created: ${formatDateTime(issue.created_date)}`);
   console.log(`  Updated: ${formatDateTime(issue.updated_date)}`);
   console.log(`  Estimated Tokens: ${issue.estimated_tokens || 0}`);
   console.log(`  Actual Tokens: ${issue.actual_tokens || 0}`);
-  
+
   if (issue.estimated_tokens > 0) {
     const efficiency = issue.actual_tokens / issue.estimated_tokens;
     console.log(`  Token Efficiency: ${(efficiency * 100).toFixed(1)}%`);
   }
-  
+
   console.log(`  Sync Status: ${issue.sync_status || 'local'}`);
   console.log('');
-  
+
   // Description
   if (issue.description) {
     console.log(Formatter.success('Description:'));
     console.log(`  ${issue.description}`);
     console.log('');
   }
-  
+
   // Content
   if (options.showContent && issue.content) {
     console.log(Formatter.success('Content:'));
     console.log(issue.content);
     console.log('');
   }
-  
+
   // AI Context
   if (issue.ai_context && issue.ai_context.length > 0) {
     console.log(Formatter.success('AI Context:'));
@@ -162,7 +168,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Dependencies
   if (issue.dependencies && issue.dependencies.length > 0) {
     console.log(Formatter.success('Dependencies:'));
@@ -171,7 +177,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Blocked by / Blocks
   if (issue.blocked_by && issue.blocked_by.length > 0) {
     console.log(Formatter.success('Blocked By:'));
@@ -180,7 +186,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   if (issue.blocks && issue.blocks.length > 0) {
     console.log(Formatter.success('Blocks:'));
     for (const blocked of issue.blocks) {
@@ -188,7 +194,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Related Tasks
   if (options.showTasks || tasks.length > 0) {
     console.log(Formatter.success(`Related Tasks (${tasks.length}):`));
@@ -203,7 +209,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Related PRs
   if (options.showPRs || prs.length > 0) {
     console.log(Formatter.success(`Related Pull Requests (${prs.length}):`));
@@ -217,7 +223,7 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Related Issues
   if (issue.related_issues && issue.related_issues.length > 0) {
     console.log(Formatter.success('Related Issues:'));
@@ -226,11 +232,11 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // Related Items (if requested)
   if (options.showRelated) {
     const related = relationshipManager.getRelatedItems(issue.issue_id);
-    
+
     if (related.siblings.length > 0) {
       console.log(Formatter.success('Sibling Issues:'));
       for (const sibling of related.siblings) {
@@ -238,7 +244,7 @@ async function displayIssueDetailed(
       }
       console.log('');
     }
-    
+
     if (related.dependencies.length > 0) {
       console.log(Formatter.success('Dependencies:'));
       for (const dep of related.dependencies) {
@@ -246,7 +252,7 @@ async function displayIssueDetailed(
       }
       console.log('');
     }
-    
+
     if (related.dependents.length > 0) {
       console.log(Formatter.success('Dependents:'));
       for (const dep of related.dependents) {
@@ -255,7 +261,7 @@ async function displayIssueDetailed(
       console.log('');
     }
   }
-  
+
   // GitHub sync information
   if (issue.github_id || issue.github_number || issue.github_url) {
     console.log(Formatter.success('GitHub Integration:'));
@@ -273,76 +279,76 @@ async function displayIssueDetailed(
     }
     console.log('');
   }
-  
+
   // File Information
   console.log(Formatter.success('File Information:'));
   console.log(`  Path: ${issue.file_path}`);
   console.log('');
-  
+
   // Summary Statistics
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const mergedPRs = prs.filter(p => p.pr_status === 'merged').length;
-  
+  const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+  const mergedPRs = prs.filter((p) => p.pr_status === 'merged').length;
+
   console.log(Formatter.success('Summary:'));
   console.log(`  Tasks: ${completedTasks}/${tasks.length} completed`);
   console.log(`  PRs: ${mergedPRs}/${prs.length} merged`);
-  
+
   if (tasks.length > 0) {
-    const taskCompletionRate = (completedTasks / tasks.length * 100).toFixed(1);
+    const taskCompletionRate = ((completedTasks / tasks.length) * 100).toFixed(1);
     console.log(`  Task Completion: ${taskCompletionRate}%`);
   }
-  
+
   if (prs.length > 0) {
-    const prMergeRate = (mergedPRs / prs.length * 100).toFixed(1);
+    const prMergeRate = ((mergedPRs / prs.length) * 100).toFixed(1);
     console.log(`  PR Merge Rate: ${prMergeRate}%`);
   }
 }
 
 function getStatusDisplay(status: string): string {
   const statusColors: Record<string, (text: string) => string> = {
-    'planning': (text) => Formatter.info(text),
-    'active': (text) => Formatter.success(text),
-    'completed': (text) => Formatter.success(text),
-    'archived': (text) => Formatter.debug(text)
+    planning: (text) => Formatter.info(text),
+    active: (text) => Formatter.success(text),
+    completed: (text) => Formatter.success(text),
+    archived: (text) => Formatter.debug(text),
   };
-  
+
   const colorFn = statusColors[status] || ((text) => text);
   return colorFn(status.toUpperCase());
 }
 
 function getPriorityDisplay(priority: string): string {
   const priorityColors: Record<string, (text: string) => string> = {
-    'critical': (text) => Formatter.error(text),
-    'high': (text) => Formatter.warning(text),
-    'medium': (text) => Formatter.info(text),
-    'low': (text) => Formatter.debug(text)
+    critical: (text) => Formatter.error(text),
+    high: (text) => Formatter.warning(text),
+    medium: (text) => Formatter.info(text),
+    low: (text) => Formatter.debug(text),
   };
-  
+
   const colorFn = priorityColors[priority] || ((text) => text);
   return colorFn(priority.toUpperCase());
 }
 
 function getStatusIcon(status: string): string {
   const icons: Record<string, string> = {
-    'planning': '⏳',
-    'active': '🔄',
-    'completed': '✅',
-    'archived': '📦'
+    planning: '⏳',
+    active: '🔄',
+    completed: '✅',
+    archived: '📦',
   };
-  
+
   return icons[status] || '❓';
 }
 
 function getPRStatusIcon(status: string): string {
   const icons: Record<string, string> = {
-    'draft': '📝',
-    'open': '🔓',
-    'review': '👀',
-    'approved': '✅',
-    'merged': '🔗',
-    'closed': '❌'
+    draft: '📝',
+    open: '🔓',
+    review: '👀',
+    approved: '✅',
+    merged: '🔗',
+    closed: '❌',
   };
-  
+
   return icons[status] || '❓';
 }
 

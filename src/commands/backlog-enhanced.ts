@@ -1,7 +1,7 @@
 /**
  * Enhanced Backlog Command with TrackdownIndexManager
  * High-performance backlog overview using the .ai-trackdown-index file system
- * 
+ *
  * Performance Benefits:
  * - Instant backlog generation from pre-indexed data
  * - Fast filtering and hierarchical navigation
@@ -10,9 +10,8 @@
 
 import { Command } from 'commander';
 import { ConfigManager } from '../utils/config-manager.js';
-import { TrackdownIndexManager } from '../utils/trackdown-index-manager.js';
 import { Formatter } from '../utils/formatter.js';
-import type { ItemStatus, Priority } from '../types/ai-trackdown.js';
+import { TrackdownIndexManager } from '../utils/trackdown-index-manager.js';
 
 interface BacklogOptions {
   epic?: string;
@@ -40,7 +39,9 @@ export function createBacklogEnhancedCommand(): Command {
     .option('--progress', 'show detailed progress metrics')
     .option('--export <file>', 'export backlog to JSON file')
     .option('--rebuild-index', 'force rebuild of index before displaying backlog')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   $ aitrackdown backlog-enhanced
   $ aitrackdown backlog-enhanced --hierarchy --progress
@@ -53,12 +54,17 @@ Performance Features:
   🔗 Pre-calculated hierarchical relationships
   📊 Real-time progress tracking
   🎯 Fast filtering across all dimensions
-`)
+`
+    )
     .action(async (options: BacklogOptions) => {
       try {
         await displayEnhancedBacklog(options);
       } catch (error) {
-        console.error(Formatter.error(`Failed to display backlog: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(
+          Formatter.error(
+            `Failed to display backlog: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
         process.exit(1);
       }
     });
@@ -68,15 +74,15 @@ Performance Features:
 
 async function displayEnhancedBacklog(options: BacklogOptions): Promise<void> {
   const startTime = Date.now();
-  
+
   // Initialize configuration and index manager
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
-  
+
   // Get CLI tasks directory from parent command options
   const parentCommand = (process as any).command?.parent;
   const cliTasksDir = parentCommand?.opts()?.rootDir || parentCommand?.opts()?.tasksDir;
-  
+
   const projectRoot = configManager.findProjectRoot();
   const indexManager = new TrackdownIndexManager(config, projectRoot, cliTasksDir);
 
@@ -93,11 +99,11 @@ async function displayEnhancedBacklog(options: BacklogOptions): Promise<void> {
     indexManager.getItemsByType('epic'),
     indexManager.getItemsByType('issue'),
     indexManager.getItemsByType('task'),
-    indexManager.getItemsByType('pr')
+    indexManager.getItemsByType('pr'),
   ]);
 
   // Apply filters
-  const filteredData = applyBacklogFilters({epics, issues, tasks, prs}, options);
+  const filteredData = applyBacklogFilters({ epics, issues, tasks, prs }, options);
 
   // Show progress summary if requested
   if (options.progress) {
@@ -175,15 +181,23 @@ function displayProgressSummary(data: any): void {
     ...epics.filter((e: any) => e.status === 'completed'),
     ...issues.filter((i: any) => i.status === 'completed'),
     ...tasks.filter((t: any) => t.status === 'completed'),
-    ...prs.filter((p: any) => p.status === 'completed')
+    ...prs.filter((p: any) => p.status === 'completed'),
   ].length;
 
   const completionRate = total > 0 ? Math.round((completedItems / total) * 100) : 0;
 
   console.log(Formatter.info(`Total Items: ${total}`));
   console.log(Formatter.info(`Completed: ${completedItems} (${completionRate}%)`));
-  console.log(Formatter.info(`In Progress: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'active').length}`));
-  console.log(Formatter.info(`Planned: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'planning').length}`));
+  console.log(
+    Formatter.info(
+      `In Progress: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'active').length}`
+    )
+  );
+  console.log(
+    Formatter.info(
+      `Planned: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'planning').length}`
+    )
+  );
 
   // Progress by type
   console.log(Formatter.subheader('\n📈 Progress by Type'));
@@ -198,7 +212,7 @@ function displayProgressSummary(data: any): void {
 function displayTypeProgress(typeName: string, items: any[]): void {
   if (items.length === 0) return;
 
-  const completed = items.filter(item => item.status === 'completed').length;
+  const completed = items.filter((item) => item.status === 'completed').length;
   const rate = Math.round((completed / items.length) * 100);
   const progressBar = createProgressBar(rate);
 
@@ -226,7 +240,7 @@ function displayHierarchicalView(data: any, options: BacklogOptions): void {
 
     // Get related issues for this epic
     const epicIssues = issues.filter((issue: any) => issue.epicId === epic.id);
-    
+
     epicIssues.forEach((issue: any, issueIndex: number) => {
       const isLastIssue = issueIndex === epicIssues.length - 1;
       displayIssue(issue, isLastIssue, options);
@@ -257,16 +271,18 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
 
   // Group all items by status
   const allItems = [...epics, ...issues, ...tasks, ...prs]
-    .map(item => ({
+    .map((item) => ({
       ...item,
-      type: getItemType(item.id)
+      type: getItemType(item.id),
     }))
     .sort((a, b) => {
       // Sort by priority first, then by last modified
       const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      const priorityDiff = priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
+      const priorityDiff =
+        priorityOrder[b.priority as keyof typeof priorityOrder] -
+        priorityOrder[a.priority as keyof typeof priorityOrder];
       if (priorityDiff !== 0) return priorityDiff;
-      
+
       return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
     });
 
@@ -276,18 +292,23 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
   }
 
   // Group by status
-  const grouped = allItems.reduce((acc, item) => {
-    if (!acc[item.status]) acc[item.status] = [];
-    acc[item.status].push(item);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const grouped = allItems.reduce(
+    (acc, item) => {
+      if (!acc[item.status]) acc[item.status] = [];
+      acc[item.status].push(item);
+      return acc;
+    },
+    {} as Record<string, any[]>
+  );
 
   // Display each status group
   for (const [status, statusItems] of Object.entries(grouped)) {
     if (statusItems.length > 0) {
       const statusEmoji = getStatusEmoji(status);
-      console.log(Formatter.subheader(`${statusEmoji} ${status.toUpperCase()} (${statusItems.length})`));
-      
+      console.log(
+        Formatter.subheader(`${statusEmoji} ${status.toUpperCase()} (${statusItems.length})`)
+      );
+
       statusItems.forEach((item: any, index: number) => {
         displayBacklogItem(item, index, options);
       });
@@ -299,12 +320,13 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
 function displayEpic(epic: any, options: BacklogOptions): void {
   const statusEmoji = getStatusEmoji(epic.status);
   const priorityColor = getPriorityColor(epic.priority);
-  const completionInfo = epic.completion_percentage !== undefined 
-    ? ` (${epic.completion_percentage}%)` 
-    : '';
+  const completionInfo =
+    epic.completion_percentage !== undefined ? ` (${epic.completion_percentage}%)` : '';
 
-  console.log(`🎯 ${statusEmoji} ${priorityColor(epic.priority.toUpperCase())} ${Formatter.highlight(epic.title)}${completionInfo} ${Formatter.dim(`(${epic.id})`)}`);
-  
+  console.log(
+    `🎯 ${statusEmoji} ${priorityColor(epic.priority.toUpperCase())} ${Formatter.highlight(epic.title)}${completionInfo} ${Formatter.dim(`(${epic.id})`)}`
+  );
+
   if (options.detailed) {
     console.log(`   Assignee: ${epic.assignee || 'unassigned'}`);
     if (epic.milestone) console.log(`   Milestone: ${epic.milestone}`);
@@ -318,8 +340,10 @@ function displayIssue(issue: any, isLast: boolean, options: BacklogOptions): voi
   const statusEmoji = getStatusEmoji(issue.status);
   const priorityColor = getPriorityColor(issue.priority);
 
-  console.log(`${prefix}📋 ${statusEmoji} ${priorityColor(issue.priority.toUpperCase())} ${issue.title} ${Formatter.dim(`(${issue.id})`)}`);
-  
+  console.log(
+    `${prefix}📋 ${statusEmoji} ${priorityColor(issue.priority.toUpperCase())} ${issue.title} ${Formatter.dim(`(${issue.id})`)}`
+  );
+
   if (options.detailed) {
     const indent = isLast ? '    ' : '│   ';
     console.log(`${indent}Assignee: ${issue.assignee || 'unassigned'}`);
@@ -328,14 +352,21 @@ function displayIssue(issue: any, isLast: boolean, options: BacklogOptions): voi
   }
 }
 
-function displayTask(task: any, issueIsLast: boolean, isLast: boolean, options: BacklogOptions): void {
+function displayTask(
+  task: any,
+  issueIsLast: boolean,
+  isLast: boolean,
+  options: BacklogOptions
+): void {
   const issuePrefix = issueIsLast ? '    ' : '│   ';
   const taskPrefix = isLast ? '└── ' : '├── ';
   const statusEmoji = getStatusEmoji(task.status);
   const priorityColor = getPriorityColor(task.priority);
 
-  console.log(`${issuePrefix}${taskPrefix}✅ ${statusEmoji} ${priorityColor(task.priority.toUpperCase())} ${task.title} ${Formatter.dim(`(${task.id})`)}`);
-  
+  console.log(
+    `${issuePrefix}${taskPrefix}✅ ${statusEmoji} ${priorityColor(task.priority.toUpperCase())} ${task.title} ${Formatter.dim(`(${task.id})`)}`
+  );
+
   if (options.detailed) {
     const indent = issuePrefix + (isLast ? '    ' : '│   ');
     console.log(`${indent}Assignee: ${task.assignee || 'unassigned'}`);
@@ -350,8 +381,10 @@ function displayPR(pr: any, issueIsLast: boolean, isLast: boolean, options: Back
   const statusEmoji = getStatusEmoji(pr.status);
   const priorityColor = getPriorityColor(pr.priority);
 
-  console.log(`${issuePrefix}${prPrefix}🔄 ${statusEmoji} ${priorityColor(pr.priority.toUpperCase())} ${pr.title} ${Formatter.dim(`(${pr.id})`)}`);
-  
+  console.log(
+    `${issuePrefix}${prPrefix}🔄 ${statusEmoji} ${priorityColor(pr.priority.toUpperCase())} ${pr.title} ${Formatter.dim(`(${pr.id})`)}`
+  );
+
   if (options.detailed) {
     const indent = issuePrefix + (isLast ? '    ' : '│   ');
     console.log(`${indent}PR Status: ${pr.pr_status}`);
@@ -389,12 +422,12 @@ async function exportBacklog(data: any, filename: string): Promise<void> {
       totalEpics: data.epics.length,
       totalIssues: data.issues.length,
       totalTasks: data.tasks.length,
-      totalPRs: data.prs.length
+      totalPRs: data.prs.length,
     },
-    data
+    data,
   };
 
-  const fs = await import('fs');
+  const fs = await import('node:fs');
   fs.writeFileSync(filename, JSON.stringify(exportData, null, 2));
   console.log(Formatter.success(`Backlog exported to ${filename}`));
 }
@@ -410,21 +443,31 @@ function getItemType(id: string): string {
 
 function getTypeEmoji(type: string): string {
   switch (type) {
-    case 'epic': return '🎯';
-    case 'issue': return '📋';
-    case 'task': return '✅';
-    case 'pr': return '🔄';
-    default: return '📄';
+    case 'epic':
+      return '🎯';
+    case 'issue':
+      return '📋';
+    case 'task':
+      return '✅';
+    case 'pr':
+      return '🔄';
+    default:
+      return '📄';
   }
 }
 
 function getStatusEmoji(status: string): string {
   switch (status) {
-    case 'planning': return '📝';
-    case 'active': return '🔄';
-    case 'completed': return '✅';
-    case 'archived': return '📦';
-    default: return '📄';
+    case 'planning':
+      return '📝';
+    case 'active':
+      return '🔄';
+    case 'completed':
+      return '✅';
+    case 'archived':
+      return '📦';
+    default:
+      return '📄';
   }
 }
 

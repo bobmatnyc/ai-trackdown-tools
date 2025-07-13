@@ -3,11 +3,11 @@
  * ATT-004: Fix Task Directory Structure - Single Root Directory Implementation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('CLI Integration - Tasks Directory Option', () => {
   let tempDir: string;
@@ -18,7 +18,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'cli-integration-test-'));
     originalCwd = process.cwd();
     originalEnv = { ...process.env };
-    
+
     // Change to temp directory for tests
     process.chdir(tempDir);
   });
@@ -27,7 +27,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
     // Restore original state
     process.chdir(originalCwd);
     process.env = originalEnv;
-    
+
     if (existsSync(tempDir)) {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -39,7 +39,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
       const mockOptions = {
         tasksDir: 'custom-tasks',
         verbose: false,
-        noColor: false
+        noColor: false,
       };
 
       // Simulate the preAction hook logic
@@ -56,7 +56,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
       const mockOptions = {
         rootDir: 'custom-root',
         verbose: false,
-        noColor: false
+        noColor: false,
       };
 
       // Simulate the preAction hook logic
@@ -74,7 +74,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
         tasksDir: 'tasks-dir-value',
         rootDir: 'root-dir-value',
         verbose: false,
-        noColor: false
+        noColor: false,
       };
 
       // Simulate the preAction hook logic
@@ -95,12 +95,12 @@ describe('CLI Integration - Tasks Directory Option', () => {
       // Import and create ConfigManager as commands would
       const { ConfigManager } = await import('../src/utils/config-manager.js');
       const configManager = new ConfigManager(tempDir);
-      
+
       // Create project with custom tasks directory
       const config = configManager.createDefaultConfig('test-project', {
-        tasks_directory: process.env.CLI_TASKS_DIR || 'tasks'
+        tasks_directory: process.env.CLI_TASKS_DIR || 'tasks',
       });
-      
+
       configManager.initializeProject('test-project', config);
 
       // Verify the unified structure was created with custom directory
@@ -136,7 +136,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
     it('should respect correct priority: CLI > ENV > CONFIG > DEFAULT', async () => {
       const { ConfigManager } = await import('../src/utils/config-manager.js');
       const { UnifiedPathResolver } = await import('../src/utils/unified-path-resolver.js');
-      
+
       // Create config with tasks_directory
       const config = {
         name: 'test-project',
@@ -147,15 +147,15 @@ describe('CLI Integration - Tasks Directory Option', () => {
           issues_dir: 'issues',
           tasks_dir: 'tasks',
           templates_dir: 'templates',
-          prs_dir: 'prs'
+          prs_dir: 'prs',
         },
         naming_conventions: {
           epic_prefix: 'EP',
           issue_prefix: 'ISS',
           task_prefix: 'TSK',
           pr_prefix: 'PR',
-          file_extension: '.md'
-        }
+          file_extension: '.md',
+        },
       };
 
       // Test 1: Default only
@@ -177,7 +177,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
 
     it('should handle fallback when configuration is missing tasks_directory', async () => {
       const { UnifiedPathResolver } = await import('../src/utils/unified-path-resolver.js');
-      
+
       // Config without tasks_directory (backward compatibility)
       const configWithoutTasksDir = {
         name: 'test-project',
@@ -186,14 +186,14 @@ describe('CLI Integration - Tasks Directory Option', () => {
           epics_dir: 'epics',
           issues_dir: 'issues',
           tasks_dir: 'tasks',
-          templates_dir: 'templates'
+          templates_dir: 'templates',
         },
         naming_conventions: {
           epic_prefix: 'EP',
           issue_prefix: 'ISS',
           task_prefix: 'TSK',
-          file_extension: '.md'
-        }
+          file_extension: '.md',
+        },
       };
 
       const resolver = new UnifiedPathResolver(configWithoutTasksDir, tempDir);
@@ -204,7 +204,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
   describe('Error handling', () => {
     it('should handle missing configuration gracefully', async () => {
       const { UnifiedPathResolver } = await import('../src/utils/unified-path-resolver.js');
-      
+
       // Minimal config that might cause issues
       const minimalConfig = {
         name: 'test-project',
@@ -213,18 +213,18 @@ describe('CLI Integration - Tasks Directory Option', () => {
           epics_dir: 'epics',
           issues_dir: 'issues',
           tasks_dir: 'tasks',
-          templates_dir: 'templates'
+          templates_dir: 'templates',
         },
         naming_conventions: {
           epic_prefix: 'EP',
           issue_prefix: 'ISS',
           task_prefix: 'TSK',
-          file_extension: '.md'
-        }
+          file_extension: '.md',
+        },
       };
 
       const resolver = new UnifiedPathResolver(minimalConfig, tempDir);
-      
+
       // Should not throw and should provide sensible defaults
       expect(() => resolver.getUnifiedPaths()).not.toThrow();
       expect(() => resolver.getRequiredDirectories()).not.toThrow();
@@ -236,14 +236,14 @@ describe('CLI Integration - Tasks Directory Option', () => {
     it('should support complete workflow with custom tasks directory', async () => {
       // Step 1: Initialize project with custom tasks directory
       process.env.CLI_TASKS_DIR = 'project-tasks';
-      
+
       const { ConfigManager } = await import('../src/utils/config-manager.js');
       const configManager = new ConfigManager(tempDir);
-      
+
       const config = configManager.createDefaultConfig('workflow-test', {
-        tasks_directory: process.env.CLI_TASKS_DIR
+        tasks_directory: process.env.CLI_TASKS_DIR,
       });
-      
+
       configManager.initializeProject('workflow-test', config);
 
       // Step 2: Verify structure creation
@@ -261,7 +261,7 @@ describe('CLI Integration - Tasks Directory Option', () => {
       // Step 4: Test unified path resolver
       const { UnifiedPathResolver } = await import('../src/utils/unified-path-resolver.js');
       const resolver = new UnifiedPathResolver(config, tempDir, process.env.CLI_TASKS_DIR);
-      
+
       const validation = resolver.validateStructure();
       expect(validation.valid).toBe(true);
       expect(validation.missingDirs).toHaveLength(0);

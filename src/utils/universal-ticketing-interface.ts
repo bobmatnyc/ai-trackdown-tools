@@ -4,10 +4,10 @@
  * and ensuring real-time monitoring capabilities
  */
 
-import { RelationshipManager } from './relationship-manager.js';
+import type { EpicData, IssueData, ProjectConfig, TaskData } from '../types/ai-trackdown.js';
 import { ConfigManager } from './config-manager.js';
 import { Formatter } from './formatter.js';
-import type { EpicData, IssueData, TaskData, ProjectConfig } from '../types/ai-trackdown.js';
+import { RelationshipManager } from './relationship-manager.js';
 
 export interface TicketCounts {
   epics: number;
@@ -57,7 +57,7 @@ export class UniversalTicketingInterface {
     } else {
       this.config = config;
     }
-    
+
     this.relationshipManager = new RelationshipManager(this.config, projectRoot, cliTasksDir);
   }
 
@@ -73,7 +73,7 @@ export class UniversalTicketingInterface {
       epics: epics.length,
       issues: issues.length,
       tasks: tasks.length,
-      total: epics.length + issues.length + tasks.length
+      total: epics.length + issues.length + tasks.length,
     };
   }
 
@@ -84,7 +84,7 @@ export class UniversalTicketingInterface {
     return {
       epics: this.relationshipManager.getAllEpics(),
       issues: this.relationshipManager.getAllIssues(),
-      tasks: this.relationshipManager.getAllTasks()
+      tasks: this.relationshipManager.getAllTasks(),
     };
   }
 
@@ -94,13 +94,13 @@ export class UniversalTicketingInterface {
   public getHealthMetrics(): TicketHealthMetrics {
     const data = this.getAllTicketData();
     const allItems = [...data.epics, ...data.issues, ...data.tasks];
-    
+
     // Calculate status breakdown
     const statusBreakdown = {
       planning: 0,
       active: 0,
       completed: 0,
-      blocked: 0
+      blocked: 0,
     };
 
     // Calculate priority breakdown
@@ -108,7 +108,7 @@ export class UniversalTicketingInterface {
       low: 0,
       medium: 0,
       high: 0,
-      critical: 0
+      critical: 0,
     };
 
     // Calculate recent activity
@@ -153,7 +153,7 @@ export class UniversalTicketingInterface {
       // Recent activity
       const updatedDate = new Date(item.updated_date);
       const createdDate = new Date(item.created_date);
-      
+
       if (updatedDate >= lastWeek) {
         updatedLastWeek++;
       }
@@ -162,9 +162,8 @@ export class UniversalTicketingInterface {
       }
     }
 
-    const completionRate = allItems.length > 0 
-      ? Math.round((statusBreakdown.completed / allItems.length) * 100)
-      : 0;
+    const completionRate =
+      allItems.length > 0 ? Math.round((statusBreakdown.completed / allItems.length) * 100) : 0;
 
     return {
       counts: this.getTicketCounts(),
@@ -172,10 +171,10 @@ export class UniversalTicketingInterface {
       priorityBreakdown,
       recentActivity: {
         updatedLastWeek,
-        createdLastWeek
+        createdLastWeek,
       },
       completionRate,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     };
   }
 
@@ -184,10 +183,10 @@ export class UniversalTicketingInterface {
    */
   public displayHealthMetrics(): void {
     const metrics = this.getHealthMetrics();
-    
+
     console.log(Formatter.header('🎯 Universal Ticketing Interface - Health Monitoring'));
     console.log('');
-    
+
     // Ticket counts
     console.log(Formatter.subheader('📊 Ticket Counts'));
     console.log(`   📋 Epics: ${Formatter.highlight(metrics.counts.epics.toString())}`);
@@ -195,7 +194,7 @@ export class UniversalTicketingInterface {
     console.log(`   ✅ Tasks: ${Formatter.highlight(metrics.counts.tasks.toString())}`);
     console.log(`   🔢 Total: ${Formatter.highlight(metrics.counts.total.toString())}`);
     console.log('');
-    
+
     // Status breakdown
     console.log(Formatter.subheader('🎯 Status Breakdown'));
     console.log(`   📝 Planning: ${metrics.statusBreakdown.planning}`);
@@ -203,7 +202,7 @@ export class UniversalTicketingInterface {
     console.log(`   ✅ Completed: ${metrics.statusBreakdown.completed}`);
     console.log(`   🚫 Blocked: ${metrics.statusBreakdown.blocked}`);
     console.log('');
-    
+
     // Priority breakdown
     console.log(Formatter.subheader('⚡ Priority Distribution'));
     console.log(`   🔴 Critical: ${metrics.priorityBreakdown.critical}`);
@@ -211,14 +210,16 @@ export class UniversalTicketingInterface {
     console.log(`   🟡 Medium: ${metrics.priorityBreakdown.medium}`);
     console.log(`   🟢 Low: ${metrics.priorityBreakdown.low}`);
     console.log('');
-    
+
     // Health indicators
     console.log(Formatter.subheader('🏥 Health Indicators'));
     console.log(`   📈 Completion Rate: ${Formatter.highlight(`${metrics.completionRate}%`)}`);
-    console.log(`   🔄 Recent Activity: ${metrics.recentActivity.updatedLastWeek} updated, ${metrics.recentActivity.createdLastWeek} created (last 7 days)`);
+    console.log(
+      `   🔄 Recent Activity: ${metrics.recentActivity.updatedLastWeek} updated, ${metrics.recentActivity.createdLastWeek} created (last 7 days)`
+    );
     console.log(`   ⏰ Last Updated: ${metrics.lastUpdated.toLocaleString()}`);
     console.log('');
-    
+
     // Health alerts
     this.displayHealthAlerts(metrics);
   }
@@ -228,30 +229,32 @@ export class UniversalTicketingInterface {
    */
   private displayHealthAlerts(metrics: TicketHealthMetrics): void {
     const alerts = [];
-    
+
     // Check for high number of blocked items
     if (metrics.statusBreakdown.blocked > 3) {
       alerts.push(`⚠️ High number of blocked items: ${metrics.statusBreakdown.blocked}`);
     }
-    
+
     // Check for low completion rate
     if (metrics.completionRate < 10 && metrics.counts.total > 10) {
       alerts.push(`⚠️ Low completion rate: ${metrics.completionRate}%`);
     }
-    
+
     // Check for high critical priority items
     if (metrics.priorityBreakdown.critical > 5) {
       alerts.push(`🚨 High number of critical items: ${metrics.priorityBreakdown.critical}`);
     }
-    
+
     // Check for stale items (low recent activity)
     if (metrics.recentActivity.updatedLastWeek < Math.ceil(metrics.counts.total * 0.1)) {
-      alerts.push(`⏰ Low recent activity: only ${metrics.recentActivity.updatedLastWeek} items updated in last 7 days`);
+      alerts.push(
+        `⏰ Low recent activity: only ${metrics.recentActivity.updatedLastWeek} items updated in last 7 days`
+      );
     }
-    
+
     if (alerts.length > 0) {
       console.log(Formatter.subheader('🚨 Health Alerts'));
-      alerts.forEach(alert => {
+      alerts.forEach((alert) => {
         console.log(`   ${alert}`);
       });
       console.log('');
@@ -270,7 +273,7 @@ export class UniversalTicketingInterface {
       this.relationshipManager.rebuildCache();
       this.lastCacheUpdate = now;
     }
-    
+
     return this.getHealthMetrics();
   }
 
@@ -285,24 +288,27 @@ export class UniversalTicketingInterface {
   /**
    * Get epic-specific metrics
    */
-  public getEpicMetrics(): { 
-    total: number; 
-    active: number; 
-    completed: number; 
-    averageCompletion: number 
+  public getEpicMetrics(): {
+    total: number;
+    active: number;
+    completed: number;
+    averageCompletion: number;
   } {
     const epics = this.relationshipManager.getAllEpics();
-    const active = epics.filter(epic => epic.status === 'active').length;
-    const completed = epics.filter(epic => epic.status === 'completed').length;
-    const averageCompletion = epics.length > 0 
-      ? Math.round(epics.reduce((sum, epic) => sum + (epic.completion_percentage || 0), 0) / epics.length)
-      : 0;
+    const active = epics.filter((epic) => epic.status === 'active').length;
+    const completed = epics.filter((epic) => epic.status === 'completed').length;
+    const averageCompletion =
+      epics.length > 0
+        ? Math.round(
+            epics.reduce((sum, epic) => sum + (epic.completion_percentage || 0), 0) / epics.length
+          )
+        : 0;
 
     return {
       total: epics.length,
       active,
       completed,
-      averageCompletion
+      averageCompletion,
     };
   }
 
@@ -341,7 +347,7 @@ export class UniversalTicketingInterface {
       total: issues.length,
       byEpic,
       unassigned,
-      highPriority
+      highPriority,
     };
   }
 
@@ -383,8 +389,8 @@ export class UniversalTicketingInterface {
       standalone,
       estimatedVsActual: {
         estimated: totalEstimated,
-        actual: totalActual
-      }
+        actual: totalActual,
+      },
     };
   }
 }

@@ -320,7 +320,12 @@ export interface ItemTemplate {
 }
 
 // Export union types for type safety
-export type AnyFrontmatter = ProjectFrontmatter | EpicFrontmatter | IssueFrontmatter | TaskFrontmatter | PRFrontmatter;
+export type AnyFrontmatter =
+  | ProjectFrontmatter
+  | EpicFrontmatter
+  | IssueFrontmatter
+  | TaskFrontmatter
+  | PRFrontmatter;
 export type AnyItemData = ProjectData | EpicData | IssueData | TaskData | PRData;
 export type ItemType = 'project' | 'epic' | 'issue' | 'task' | 'pr';
 
