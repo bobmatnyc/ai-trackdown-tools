@@ -15,6 +15,7 @@ import type {
   SearchFilters,
   SearchResult,
   TaskData,
+  TaskHierarchy,
   ValidationError,
   ValidationResult,
 } from '../types/ai-trackdown.js';
@@ -123,6 +124,31 @@ export class RelationshipManager {
 
     return {
       pr,
+      issue,
+      epic,
+    };
+  }
+
+  /**
+   * Get hierarchy for a task (task + parent issue + parent epic)
+   */
+  public getTaskHierarchy(taskId: string): TaskHierarchy | null {
+    this.refreshCacheIfNeeded();
+
+    const task = this.taskCache.get(taskId);
+    if (!task) {
+      return null;
+    }
+
+    const issue = this.issueCache.get(task.issue_id);
+    if (!issue) {
+      return null;
+    }
+
+    const epic = task.epic_id ? this.epicCache.get(task.epic_id) : undefined;
+
+    return {
+      task,
       issue,
       epic,
     };

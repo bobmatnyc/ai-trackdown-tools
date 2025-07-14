@@ -225,6 +225,13 @@ export interface PRHierarchy {
   project?: ProjectData;
 }
 
+export interface TaskHierarchy {
+  task: TaskData;
+  issue: IssueData;
+  epic?: EpicData;
+  project?: ProjectData;
+}
+
 // Project configuration
 export interface ProjectConfig {
   name: string;
@@ -586,6 +593,9 @@ export interface StateOnlyItem {
 export type MigrationCompatibleItem = LegacyItem | ModernItem | StateOnlyItem;
 
 // State management utility functions
+// Re-export StateTransition from utils for convenience
+export { StateTransition } from '../utils/state-migration.js';
+
 export class StateManager {
   private static readonly STATE_TRANSITIONS: StateValidationRule[] = [
     // Engineering workflow
