@@ -1,0 +1,103 @@
+type: task
+name: enhanced-with-state
+description: Task template with unified state management
+frontmatter_template:
+  title: Task Title
+  description: Task description
+  status: planning  # Legacy field preserved for backward compatibility
+  state: planning
+  state_metadata:
+    transitioned_at: ""  # Will be auto-filled
+    transitioned_by: ""  # Will be set to current user
+    automation_eligible: true
+    approval_required: false
+    transition_reason: "Task created"
+  priority: medium
+  assignee: ""
+  created_date: ""  # Auto-filled
+  updated_date: ""  # Auto-filled
+  estimated_tokens: 0
+  actual_tokens: 0
+  ai_context:
+    - context/requirements
+    - context/constraints
+    - context/assumptions
+    - context/dependencies
+  sync_status: local
+  tags:
+    - new-task
+  dependencies: []
+content_template: |-
+  # Task: {{title}}
+
+  ## Description
+  {{description}}
+
+  ## State Management
+  - **Current State**: {{state}}
+  - **Automation Eligible**: {{state_metadata.automation_eligible}}
+  - **Approval Required**: {{state_metadata.approval_required}}
+
+  ## Implementation Steps
+  1. Step 1
+  2. Step 2
+  3. Step 3
+
+  ## Acceptance Criteria
+  - [ ] Criteria 1
+  - [ ] Criteria 2
+  - [ ] Criteria 3
+
+  ## Testing Requirements
+  - [ ] Unit tests written and passing
+  - [ ] Integration tests updated
+  - [ ] Manual testing completed
+
+  ## State Transition Plan
+  1. **planning → active**
+     - Task prioritized and assigned
+     - Implementation approach defined
+     - Dependencies resolved
+
+  2. **active → ready_for_qa**
+     - Implementation complete
+     - Code review passed
+     - Unit tests green
+     - Self-testing completed
+
+  3. **ready_for_qa → ready_for_deployment**
+     - QA testing complete
+     - All acceptance criteria met
+     - No blocking issues found
+
+  4. **ready_for_deployment → done**
+     - Successfully deployed
+     - Post-deployment verification passed
+     - Task objectives achieved
+
+  ## CI/CD Integration
+  ```yaml
+  automation_config:
+    triggers:
+      on_code_push:
+        - run_tests: true
+        - transition_to_qa_if_green: true
+      on_qa_approval:
+        - transition_to_deployment: true
+        - notify_devops_team: true
+      on_deployment_success:
+        - transition_to_done: true
+        - update_metrics: true
+  ```
+
+  ## Dependencies
+  List any dependencies here.
+
+  ## Notes
+  Add any additional notes here.
+
+  ## Quality Gates
+  - **Code Quality**: Linting passes, complexity within limits
+  - **Test Coverage**: Minimum 80% coverage required
+  - **Security**: No high-severity vulnerabilities
+  - **Performance**: Response time requirements met

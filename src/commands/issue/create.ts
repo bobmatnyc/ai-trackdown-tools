@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Command } from 'commander';
-import type { IssueFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
+import type { IssueFrontmatter, ItemStatus, Priority, UnifiedState } from '../../types/ai-trackdown.js';
 import type { ConfigManager } from '../../utils/config-manager.js';
 import { Formatter } from '../../utils/formatter.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
@@ -22,6 +22,7 @@ interface CreateOptions {
   assignee?: string;
   priority?: Priority;
   status?: ItemStatus;
+  state?: UnifiedState;
   template?: string;
   estimatedTokens?: number;
   tags?: string;
@@ -46,6 +47,10 @@ export function createIssueCreateCommand(): Command {
       '-s, --status <status>',
       'initial status (planning|active|completed|archived)',
       'planning'
+    )
+    .option(
+      '--state <state>',
+      'initial unified state (planning|active|completed|archived|ready_for_engineering|ready_for_qa|ready_for_deployment|won_t_do|done)'
     )
     .option('-t, --template <name>', 'template to use', 'default')
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
@@ -154,6 +159,16 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
     title,
     description: options.description || template.frontmatter_template.description || '',
     status: options.status || 'planning',
+    // Add state field if provided
+    ...(options.state && { 
+      state: options.state,
+      state_metadata: {
+        transitioned_at: now,
+        transitioned_by: process.env.USER || 'system',
+        automation_eligible: false,
+        transition_reason: 'Initial creation'
+      }
+    }),
     priority: options.priority || 'medium',
     assignee: options.assignee || config.default_assignee || 'unassigned',
     created_date: now,
@@ -188,6 +203,9 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
     console.log(Formatter.debug(`Epic ID: ${epicId || 'none'}`));
     console.log(Formatter.debug(`Title: ${title}`));
     console.log(Formatter.debug(`Status: ${issueFrontmatter.status}`));
+    if (issueFrontmatter.state) {
+      console.log(Formatter.debug(`State: ${issueFrontmatter.state}`));
+    }
     console.log(Formatter.debug(`Priority: ${issueFrontmatter.priority}`));
     console.log(Formatter.debug(`Assignee: ${issueFrontmatter.assignee}`));
     if (tags.length > 0) {

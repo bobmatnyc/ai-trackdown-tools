@@ -1,0 +1,238 @@
+# GitHub Actions workflow for automated state transitions
+# This workflow demonstrates integration with ai-trackdown state management
+
+name: AI-Trackdown State Automation
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+  push:
+    branches: [main, develop]
+  deployment_status:
+    types: [success, failure]
+  workflow_run:
+    workflows: ["Test Suite", "Security Scan"]
+    types: [completed]
+
+env:
+  AITRACKDOWN_CLI: aitrackdown
+  AUTOMATION_USER: github-actions
+
+jobs:
+  # Transition tasks when PR is opened
+  pr-opened:
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract issue from PR title
+        id: extract-issue
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          ISSUE_ID=$(echo "$PR_TITLE" | grep -oE 'ISS-[0-9]+' | head -1)
+          echo "issue_id=$ISSUE_ID" >> $GITHUB_OUTPUT
+          
+      - name: Transition issue to ready for QA
+        if: steps.extract-issue.outputs.issue_id
+        run: |
+          $AITRACKDOWN_CLI issue update ${{ steps.extract-issue.outputs.issue_id }} \
+            --state ready_for_qa \
+            --transitioned-by $AUTOMATION_USER \
+            --automation-source "github-pr-opened" \
+            --transition-reason "PR opened: ${{ github.event.pull_request.html_url }}" \
+            --automation-eligible true
+
+  # Transition when tests pass
+  tests-completed:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get associated tickets
+        id: get-tickets
+        run: |
+          # Extract ticket IDs from recent commits
+          TICKETS=$(git log --oneline -10 | grep -oE 'ISS-[0-9]+|TSK-[0-9]+|PR-[0-9]+' | sort -u)
+          echo "tickets=$TICKETS" >> $GITHUB_OUTPUT
+          
+      - name: Transition tickets based on test success
+        if: steps.get-tickets.outputs.tickets
+        run: |
+          for TICKET in ${{ steps.get-tickets.outputs.tickets }}; do
+            TICKET_TYPE=$(echo $TICKET | cut -d'-' -f1)
+            
+            case $TICKET_TYPE in
+              "ISS")
+                $AITRACKDOWN_CLI issue update $TICKET \
+                  --state ready_for_deployment \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-tests-passed" \
+                  --reviewer "automated-testing" \
+                  --automation-eligible true
+                ;;
+              "TSK")
+                $AITRACKDOWN_CLI task update $TICKET \
+                  --state ready_for_deployment \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-tests-passed" \
+                  --automation-eligible true
+                ;;
+              "PR")
+                $AITRACKDOWN_CLI pr update $TICKET \
+                  --state ready_for_deployment \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-tests-passed" \
+                  --automation-eligible true
+                ;;
+            esac
+          done
+
+  # Handle deployment success
+  deployment-success:
+    if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get deployment environment
+        id: env-info
+        run: |
+          ENV_NAME="${{ github.event.deployment.environment }}"
+          echo "environment=$ENV_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Get tickets from deployment
+        id: deployment-tickets
+        run: |
+          # Get tickets from deployment description or recent commits
+          TICKETS=$(echo "${{ github.event.deployment.description }}" | grep -oE 'ISS-[0-9]+|TSK-[0-9]+|PR-[0-9]+' | sort -u)
+          if [ -z "$TICKETS" ]; then
+            TICKETS=$(git log --oneline -5 ${{ github.event.deployment.sha }} | grep -oE 'ISS-[0-9]+|TSK-[0-9]+|PR-[0-9]+' | sort -u)
+          fi
+          echo "tickets=$TICKETS" >> $GITHUB_OUTPUT
+          
+      - name: Mark tickets as done for production deployments
+        if: steps.env-info.outputs.environment == 'production' && steps.deployment-tickets.outputs.tickets
+        run: |
+          for TICKET in ${{ steps.deployment-tickets.outputs.tickets }}; do
+            TICKET_TYPE=$(echo $TICKET | cut -d'-' -f1)
+            
+            case $TICKET_TYPE in
+              "ISS")
+                $AITRACKDOWN_CLI issue update $TICKET \
+                  --state done \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-deployment-production" \
+                  --transition-reason "Successfully deployed to production" \
+                  --deployment-timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                  --deployed-by "deployment-automation"
+                ;;
+              "TSK")
+                $AITRACKDOWN_CLI task update $TICKET \
+                  --state done \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-deployment-production" \
+                  --deployment-timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                ;;
+              "PR") 
+                $AITRACKDOWN_CLI pr update $TICKET \
+                  --state done \
+                  --transitioned-by $AUTOMATION_USER \
+                  --automation-source "github-deployment-production" \
+                  --deployment-timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                ;;
+            esac
+          done
+
+  # Handle deployment failures
+  deployment-failure:
+    if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get failed deployment tickets
+        id: failed-tickets
+        run: |
+          TICKETS=$(echo "${{ github.event.deployment.description }}" | grep -oE 'ISS-[0-9]+|TSK-[0-9]+|PR-[0-9]+' | sort -u)
+          echo "tickets=$TICKETS" >> $GITHUB_OUTPUT
+          
+      - name: Add deployment failure metadata
+        if: steps.failed-tickets.outputs.tickets
+        run: |
+          for TICKET in ${{ steps.failed-tickets.outputs.tickets }}; do
+            TICKET_TYPE=$(echo $TICKET | cut -d'-' -f1)
+            
+            # Add failure metadata without changing state
+            $AITRACKDOWN_CLI $TICKET_TYPE update $TICKET \
+              --add-metadata "deployment_failure_timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --add-metadata "deployment_failure_url=${{ github.event.deployment_status.target_url }}" \
+              --add-metadata "deployment_failure_environment=${{ github.event.deployment.environment }}" \
+              --transition-reason "Deployment failed - requires investigation"
+          done
+          
+      - name: Create incident issue for deployment failure
+        run: |
+          $AITRACKDOWN_CLI issue create \
+            --title "Deployment Failure: ${{ github.event.deployment.environment }} - $(date +%Y-%m-%d)" \
+            --description "Automated issue for deployment failure in ${{ github.event.deployment.environment }}" \
+            --priority high \
+            --assignee devops-team \
+            --state active \
+            --automation-source "github-deployment-failure" \
+            --add-metadata "failed_deployment_sha=${{ github.event.deployment.sha }}" \
+            --add-metadata "failed_tickets=${{ steps.failed-tickets.outputs.tickets }}"
+
+  # Security scan automation
+  security-scan-completed:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Security Scan'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Handle security scan results
+        run: |
+          SCAN_RESULT="${{ github.event.workflow_run.conclusion }}"
+          TICKETS=$(git log --oneline -5 | grep -oE 'ISS-[0-9]+|TSK-[0-9]+|PR-[0-9]+' | sort -u)
+          
+          for TICKET in $TICKETS; do
+            if [ "$SCAN_RESULT" = "success" ]; then
+              # Security scan passed - can proceed
+              $AITRACKDOWN_CLI ${TICKET%%-*} update $TICKET \
+                --add-metadata "security_scan_passed=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                --add-metadata "security_scan_url=${{ github.event.workflow_run.html_url }}" \
+                --automation-eligible true
+            else
+              # Security scan failed - block automation
+              $AITRACKDOWN_CLI ${TICKET%%-*} update $TICKET \
+                --add-metadata "security_scan_failed=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                --add-metadata "security_scan_url=${{ github.event.workflow_run.html_url }}" \
+                --automation-eligible false \
+                --blocked-reason "Security scan failed - manual review required"
+            fi
+          done
+
+  # Scheduled state health check
+  state-health-check:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for stale states
+        run: |
+          # Find tickets in ready_for_qa for more than 2 days
+          STALE_QA=$($AITRACKDOWN_CLI status --state ready_for_qa --format json | \
+            jq -r '.[] | select(.state_metadata.transitioned_at < (now - 172800)) | .id')
+          
+          # Find tickets in ready_for_deployment for more than 1 day  
+          STALE_DEPLOY=$($AITRACKDOWN_CLI status --state ready_for_deployment --format json | \
+            jq -r '.[] | select(.state_metadata.transitioned_at < (now - 86400)) | .id')
+          
+          # Add stale notifications
+          for TICKET in $STALE_QA; do
+            $AITRACKDOWN_CLI ${TICKET%%-*} update $TICKET \
+              --add-metadata "stale_in_qa_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --transition-reason "Ticket has been in QA for over 2 days"
+          done
+          
+          for TICKET in $STALE_DEPLOY; do
+            $AITRACKDOWN_CLI ${TICKET%%-*} update $TICKET \
+              --add-metadata "stale_in_deployment_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --transition-reason "Ticket ready for deployment over 1 day"
+          done
+
+# Workflow configuration for different triggers
+on:
+  schedule:
+    # Run health check daily at 9 AM UTC
+    - cron: '0 9 * * *'

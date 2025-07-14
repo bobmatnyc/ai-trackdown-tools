@@ -7,9 +7,11 @@ import { Command } from 'commander';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { Formatter } from '../../utils/formatter.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { StateManager } from '../../types/ai-trackdown.js';
 
 interface ListOptions {
   status?: string;
+  state?: string;
   priority?: string;
   assignee?: string;
   epic?: string;
@@ -18,6 +20,7 @@ interface ListOptions {
   limit?: number;
   offset?: number;
   active?: boolean;
+  showState?: boolean;
 }
 
 export function createIssueListCommand(): Command {
@@ -26,6 +29,8 @@ export function createIssueListCommand(): Command {
   cmd
     .description('List issues with filtering options')
     .option('--status <status>', 'filter by status (todo|in-progress|done|blocked)')
+    .option('--state <state>', 'filter by unified state (planning|active|completed|archived|ready_for_engineering|ready_for_qa|ready_for_deployment|won_t_do|done)')
+    .option('--show-state', 'show unified state column in table output')
     .option('--priority <priority>', 'filter by priority (low|medium|high|critical)')
     .option('--assignee <assignee>', 'filter by assignee')
     .option('--epic <epic-id>', 'filter by epic ID')
@@ -83,6 +88,14 @@ async function listIssues(options: ListOptions): Promise<void> {
     issues = issues.filter((issue) => issue.epic_id === options.epic);
   }
 
+  // Filter by unified state
+  if (options.state) {
+    issues = issues.filter((issue) => {
+      const effectiveState = StateManager.getEffectiveState(issue);
+      return effectiveState === options.state;
+    });
+  }
+
   if (options.tags && options.tags.length > 0) {
     issues = issues.filter(
       (issue) => issue.tags && options.tags?.some((tag) => issue.tags.includes(tag))
@@ -107,7 +120,7 @@ async function listIssues(options: ListOptions): Promise<void> {
     }
 
     default:
-      await displayIssuesTable(paginatedIssues, issues.length, offset, limit);
+      await displayIssuesTable(paginatedIssues, issues.length, offset, limit, options);
   }
 }
 
@@ -115,7 +128,8 @@ async function displayIssuesTable(
   issues: any[],
   totalCount: number,
   offset: number,
-  limit: number
+  limit: number,
+  options: ListOptions
 ): Promise<void> {
   if (issues.length === 0) {
     console.log(Formatter.info('No issues found matching the criteria'));
@@ -136,8 +150,16 @@ async function displayIssuesTable(
   console.log('');
 
   // Table headers
-  const headers = ['ID', 'Title', 'Status', 'Priority', 'Epic', 'Assignee', 'Updated'];
-  const columnWidths = [12, 40, 12, 10, 12, 15, 12];
+  const headers = ['ID', 'Title', 'Status'];
+  const columnWidths = [12, 40, 12];
+  
+  if (options.showState) {
+    headers.push('State');
+    columnWidths.push(15);
+  }
+  
+  headers.push('Priority', 'Epic', 'Assignee', 'Updated');
+  columnWidths.push(10, 12, 15, 12);
 
   // Print headers
   const headerRow = headers.map((header, i) => header.padEnd(columnWidths[i])).join(' ');
@@ -150,11 +172,19 @@ async function displayIssuesTable(
       issue.issue_id || 'N/A',
       truncate(issue.title || 'Untitled', columnWidths[1]),
       getStatusDisplay(issue.status),
+    ];
+    
+    if (options.showState) {
+      const effectiveState = StateManager.getEffectiveState(issue);
+      row.push(getStateDisplay(effectiveState));
+    }
+    
+    row.push(
       getPriorityDisplay(issue.priority),
       issue.epic_id || 'N/A',
       issue.assignee || 'Unassigned',
-      formatDate(issue.updated_date),
-    ];
+      formatDate(issue.updated_date)
+    );
 
     const formattedRow = row.map((cell, i) => cell.toString().padEnd(columnWidths[i])).join(' ');
     console.log(formattedRow);
@@ -208,6 +238,23 @@ function formatDate(dateString: string): string {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
   return date.toLocaleDateString();
+}
+
+function getStateDisplay(state: string): string {
+  const stateColors: Record<string, (text: string) => string> = {
+    planning: (text) => Formatter.info(text),
+    active: (text) => Formatter.warning(text),
+    completed: (text) => Formatter.success(text),
+    archived: (text) => Formatter.debug(text),
+    ready_for_engineering: (text) => Formatter.info(text),
+    ready_for_qa: (text) => Formatter.warning(text),
+    ready_for_deployment: (text) => Formatter.info(text),
+    won_t_do: (text) => Formatter.error(text),
+    done: (text) => Formatter.success(text),
+  };
+
+  const colorFn = stateColors[state] || ((text) => text);
+  return colorFn(state.toUpperCase().replace(/_/g, ' '));
 }
 
 function truncate(text: string, maxLength: number): string {

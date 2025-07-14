@@ -1,15 +1,20 @@
-# AI Trackdown CLI v1.1.2
+# AI Trackdown CLI v1.1.7
+
+[![npm version](https://badge.fury.io/js/@bobmatnyc%2Fai-trackdown-tools.svg)](https://badge.fury.io/js/@bobmatnyc%2Fai-trackdown-tools)
+[![npm downloads](https://img.shields.io/npm/dm/@bobmatnyc/ai-trackdown-tools.svg)](https://www.npmjs.com/package/@bobmatnyc/ai-trackdown-tools)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Node Version](https://img.shields.io/node/v/@bobmatnyc/ai-trackdown-tools.svg)](https://www.npmjs.com/package/@bobmatnyc/ai-trackdown-tools)
 
 A professional CLI tool for AI-first project management with hierarchical Epic→Issue→Task workflows, comprehensive Pull Request management, token tracking, and YAML frontmatter support.
 
-## What's New in v1.1.2
+## What's New in v1.1.7
 
+🚀 **CLI Index Corruption Fix**: Resolved "No items found" errors in status and backlog commands  
+🚀 **Index Auto-Repair System**: Automatic detection and repair of corrupted index files  
+🚀 **New index-health Command**: Diagnostic command for CLI index validation and repair  
+🚀 **Enhanced CLI Reliability**: Improved index validation and error recovery mechanisms  
 🚀 **Flexible Epic Assignment**: Epic IDs are now optional - create standalone issues or add epic assignment later  
 🚀 **Anywhere-Submit Functionality**: Execute commands from anywhere with `--project-dir` for seamless multi-project workflows  
-🚀 **Enhanced Template System**: Bundled default templates with robust fallback mechanisms  
-🚀 **Performance Optimizations**: 90%+ faster operations with intelligent indexing system  
-🚀 **Fixed Directory Structure**: Unified path resolution and improved configuration management  
-🚀 **Enhanced Help System**: Comprehensive help documentation and error handling  
 
 ## Features
 
@@ -22,6 +27,7 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 ✅ **AI Context Generation**: Automatic llms.txt generation for AI workflows  
 ✅ **Enhanced Template System**: Bundled defaults with project-specific overrides  
 ✅ **Performance Optimized**: <10ms response times with intelligent indexing  
+✅ **Index Health Monitoring**: Built-in diagnostic and repair tools for CLI reliability  
 ✅ **Git-Native**: Local file-based storage with git integration  
 
 ## Installation
@@ -53,6 +59,9 @@ aitrackdown status
 
 # Generate AI context file
 aitrackdown ai generate-llms-txt
+
+# Check CLI index health (v1.1.7+)
+aitrackdown index-health
 ```
 
 ## Anywhere-Submit Functionality (v3.0.0)
@@ -96,6 +105,10 @@ aitrackdown task list
 # AI Features with Enhanced Performance
 aitrackdown ai track-tokens --report --format table
 aitrackdown ai context --item-id EP-0001 --add "requirements context"
+
+# CLI Health and Diagnostics (v1.1.7+)
+aitrackdown index-health --verbose
+aitrackdown index-health --repair
 ```
 
 ## Pull Request Management
@@ -362,8 +375,36 @@ aitrackdown migrate --from-csv tasks.csv
 - `init` - Initialize new ai-trackdown project
 - `status` - Show project overview with metrics (< 10ms with indexing)
 - `export` - Export project data in various formats
+- `index-health` - Diagnostic command for CLI index validation and repair
 
 ## Troubleshooting
+
+### CLI Index Issues (Resolved in v1.1.7)
+
+**Previous Issue**: "No items found" errors in status and backlog commands due to index corruption  
+**Resolution**: Automatic index validation and repair system with new index-health command
+
+**Previous Issue**: Index corruption causing CLI commands to fail  
+**Resolution**: Built-in health checks for index integrity with automatic recovery
+
+**Previous Issue**: Manual index rebuilding required when corruption detected  
+**Resolution**: Graceful handling of index corruption scenarios with auto-repair
+
+#### Using the index-health Command
+
+```bash
+# Basic health check
+aitrackdown index-health
+
+# Detailed diagnostics with verbose output
+aitrackdown index-health --verbose
+
+# Auto-repair detected issues
+aitrackdown index-health --repair
+
+# Force complete index rebuild
+aitrackdown index-health --rebuild-index
+```
 
 ### Epic Assignment Issues (Resolved in v1.1.2)
 
@@ -397,13 +438,22 @@ A: Performance actually improves due to optional validation reducing parser over
 
 For other issues, check:
 1. Verify ai-trackdown initialization: `aitrackdown status`
-2. Check project structure: Ensure `.ai-trackdown/` directory exists
-3. Template issues: CLI includes bundled fallback templates
-4. Performance: Index rebuilds automatically if corrupted
+2. Check CLI index health: `aitrackdown index-health` (v1.1.7+)
+3. Check project structure: Ensure `.ai-trackdown/` directory exists
+4. Template issues: CLI includes bundled fallback templates
+5. Performance: Index rebuilds automatically if corrupted or use `aitrackdown index-health --repair`
 
 ## Recent Enhancements
 
 ### Major Enhancements
+
+#### CLI Index Reliability (v1.1.7)
+- **Index Corruption Fix**: Resolved "No items found" errors in status and backlog commands
+- **Auto-Repair System**: Automatic detection and repair of corrupted index files  
+- **Health Monitoring**: New index-health command for diagnostic and repair operations
+- **Enhanced Error Recovery**: Graceful handling of index corruption scenarios
+- **Improved CLI Reliability**: Built-in health checks for index integrity
+- **Performance Consistency**: Ensures reliable CLI performance across all operations
 
 #### Flexible Epic Assignment (v1.1.2)
 - **Optional Epic IDs**: Create standalone issues without epic assignment requirement

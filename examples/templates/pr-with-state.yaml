@@ -1,0 +1,156 @@
+type: pr
+name: enhanced-with-state
+description: Pull Request template with unified state management
+frontmatter_template:
+  title: PR Title
+  description: PR description
+  status: planning  # Legacy field preserved for backward compatibility
+  state: planning
+  state_metadata:
+    transitioned_at: ""  # Will be auto-filled
+    transitioned_by: ""  # Will be set to current user
+    automation_eligible: true
+    approval_required: true  # PRs typically require approval
+    transition_reason: "PR created"
+    reviewer: ""  # To be assigned
+  priority: medium
+  assignee: ""
+  created_date: ""  # Auto-filled
+  updated_date: ""  # Auto-filled
+  estimated_tokens: 0
+  actual_tokens: 0
+  ai_context:
+    - context/requirements
+    - context/constraints
+    - context/assumptions
+    - context/dependencies
+  sync_status: local
+  tags:
+    - new-pr
+  dependencies: []
+content_template: |-
+  # PR: {{title}}
+
+  ## Description
+  {{description}}
+
+  ## State Management
+  - **Current State**: {{state}}
+  - **Automation Eligible**: {{state_metadata.automation_eligible}}
+  - **Approval Required**: {{state_metadata.approval_required}}
+  - **Reviewer**: {{state_metadata.reviewer}}
+
+  ## Changes Summary
+  - Change 1
+  - Change 2
+  - Change 3
+
+  ## Testing
+  - [ ] Unit tests pass
+  - [ ] Integration tests pass
+  - [ ] Manual testing completed
+  - [ ] Performance impact assessed
+
+  ## Code Review Checklist
+  - [ ] Code follows style guidelines
+  - [ ] Self-review completed
+  - [ ] No commented-out code
+  - [ ] No debug statements
+  - [ ] Error handling appropriate
+  - [ ] Documentation updated
+
+  ## Security Review
+  - [ ] No hardcoded secrets
+  - [ ] Input validation implemented
+  - [ ] Authorization checks in place
+  - [ ] SQL injection prevention
+  - [ ] XSS prevention measures
+
+  ## State Transition Plan
+  1. **planning → active**
+     - PR created and initial code pushed
+     - CI checks initiated
+     - Reviewer assigned
+
+  2. **active → ready_for_qa**
+     - Code review completed and approved
+     - All CI checks passing
+     - Conflicts resolved
+     - Ready for final testing
+
+  3. **ready_for_qa → ready_for_deployment**
+     - Final QA approval received
+     - All acceptance criteria met
+     - No blocking issues
+     - Deployment readiness confirmed
+
+  4. **ready_for_deployment → done**
+     - Successfully merged to main branch
+     - Deployment completed
+     - Post-merge verification passed
+
+  ## CI/CD Integration
+  ```yaml
+  automation_config:
+    on_pr_creation:
+      - run_ci_checks: true
+      - assign_reviewer: automatic
+      - notify_team: "#team-channel"
+    
+    on_ci_success:
+      - transition_to_ready_for_qa: conditional
+      - request_review: true
+      
+    on_approval:
+      - transition_to_ready_for_deployment: true
+      - enable_merge: true
+      
+    on_merge:
+      - transition_to_done: true
+      - trigger_deployment: conditional
+      - notify_stakeholders: true
+  ```
+
+  ## Related
+  - Issue: {{issue_id}}
+  - Branch: {{branch_name}}
+  - Target: {{target_branch}}
+
+  ## Breaking Changes
+  - [ ] No breaking changes
+  - [ ] Breaking changes documented
+  - [ ] Migration guide provided
+  - [ ] Backward compatibility maintained
+
+  ## Deployment Notes
+  - Database migrations: Yes/No
+  - Configuration changes: Yes/No
+  - Feature flags: Yes/No
+  - Rollback plan: Documented
+
+  ## Approval Workflow
+  ```yaml
+  approval_requirements:
+    code_review:
+      required_reviewers: 1
+      dismiss_stale_reviews: true
+      require_code_owner_reviews: true
+    
+    security_review:
+      required_for: ["security-sensitive", "auth-changes"]
+      reviewer: "security-team"
+    
+    architecture_review:
+      required_for: ["major-changes", "api-changes"]
+      reviewer: "architecture-team"
+  ```
+
+  ## Notes
+  Add any additional notes here.
+
+  ## Post-Merge Actions
+  - [ ] Verify deployment successful
+  - [ ] Monitor error rates
+  - [ ] Check performance metrics
+  - [ ] Update documentation
+  - [ ] Close related issues

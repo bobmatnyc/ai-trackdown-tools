@@ -1,0 +1,99 @@
+type: issue
+name: enhanced-with-state
+description: Issue template with unified state management
+frontmatter_template:
+  title: Issue Title
+  description: Issue description
+  status: planning  # Legacy field preserved for backward compatibility
+  state: planning
+  state_metadata:
+    transitioned_at: ""  # Will be auto-filled
+    transitioned_by: ""  # Will be set to current user
+    automation_eligible: true
+    approval_required: false
+    transition_reason: "Issue created"
+  priority: medium
+  assignee: ""
+  created_date: ""  # Auto-filled
+  updated_date: ""  # Auto-filled
+  estimated_tokens: 0
+  actual_tokens: 0
+  ai_context:
+    - context/requirements
+    - context/constraints
+    - context/assumptions
+    - context/dependencies
+  sync_status: local
+  tags:
+    - new-issue
+  dependencies: []
+content_template: |-
+  # Issue: {{title}}
+
+  ## Description
+  {{description}}
+
+  ## State Management
+  - **Current State**: {{state}}
+  - **Automation Eligible**: {{state_metadata.automation_eligible}}
+  - **Approval Required**: {{state_metadata.approval_required}}
+
+  ## Requirements
+  - [ ] Requirement 1
+  - [ ] Requirement 2
+  - [ ] Requirement 3
+
+  ## Tasks
+  - [ ] Task 1
+  - [ ] Task 2
+  - [ ] Task 3
+
+  ## Acceptance Criteria
+  - [ ] Criteria 1
+  - [ ] Criteria 2
+  - [ ] Criteria 3
+
+  ## State Transition Plan
+  1. **planning → ready_for_engineering**
+     - Requirements finalized
+     - Design approval received
+     - Team assignment confirmed
+
+  2. **ready_for_engineering → active**
+     - Development team picks up work
+     - Implementation begins
+
+  3. **active → ready_for_qa**
+     - Implementation complete
+     - Code review passed
+     - Unit tests green
+
+  4. **ready_for_qa → ready_for_deployment**
+     - QA testing complete
+     - All acceptance criteria met
+     - Deployment approval received
+
+  5. **ready_for_deployment → done**
+     - Successfully deployed to production
+     - Monitoring confirms healthy metrics
+     - Business objectives achieved
+
+  ## Dependencies
+  List any dependencies here.
+
+  ## Notes
+  Add any additional notes here.
+
+  ## Workflow Configuration
+  ```yaml
+  automation_triggers:
+    on_ready_for_qa:
+      - notify: qa-team
+      - create_test_environment: true
+    on_ready_for_deployment:
+      - notify: devops-team
+      - trigger_deployment_pipeline: conditional
+    on_done:
+      - notify: stakeholders
+      - update_metrics_dashboard: true
+  ```

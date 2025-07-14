@@ -8,6 +8,28 @@ export type ItemStatus = 'planning' | 'active' | 'completed' | 'archived';
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 export type SyncStatus = 'local' | 'synced' | 'conflict';
 
+// Resolution states for unified state management
+export type ResolutionState = 
+  | 'ready_for_engineering'
+  | 'ready_for_qa'
+  | 'ready_for_deployment'
+  | 'won_t_do'
+  | 'done';
+
+// Combined state type that includes both legacy status and resolution states
+export type UnifiedState = ItemStatus | ResolutionState;
+
+// State metadata for tracking transitions and automation
+export interface StateMetadata {
+  transitioned_at: string;
+  transitioned_by: string;
+  previous_state?: UnifiedState;
+  automation_eligible: boolean;
+  automation_source?: string;
+  transition_reason?: string;
+  reviewer?: string;
+}
+
 // GitHub sync configuration
 export interface GitHubSyncConfig {
   enabled: boolean;
@@ -26,7 +48,12 @@ export interface GitHubSyncConfig {
 export interface BaseFrontmatter {
   title: string;
   description: string;
+  // Legacy status field (deprecated, use state instead)
   status: ItemStatus;
+  // NEW: Unified state field for enhanced resolution tracking
+  state?: UnifiedState;
+  // NEW: State metadata for transition tracking
+  state_metadata?: StateMetadata;
   priority: Priority;
   assignee: string;
   created_date: string;
@@ -238,6 +265,8 @@ export interface ProjectConfig {
 // Search and filter types
 export interface SearchFilters {
   status?: ItemStatus | ItemStatus[];
+  // NEW: Support filtering by unified state
+  state?: UnifiedState | UnifiedState[];
   priority?: Priority | Priority[];
   assignee?: string | string[];
   tags?: string | string[];
@@ -247,6 +276,9 @@ export interface SearchFilters {
   updated_before?: string;
   content_search?: string;
   ai_context_search?: string;
+  // NEW: Filter by state transition metadata
+  transitioned_by?: string | string[];
+  automation_eligible?: boolean;
 }
 
 export interface SearchResult<T> {
@@ -263,8 +295,19 @@ export interface ProjectAnalytics {
   total_tasks: number;
   completion_rate: number;
   status_breakdown: Record<ItemStatus, number>;
+  // NEW: State breakdown for resolution analytics
+  state_breakdown: Record<UnifiedState, number>;
   priority_breakdown: Record<Priority, number>;
   assignee_breakdown: Record<string, number>;
+  // NEW: Resolution analytics
+  resolution_analytics: {
+    ready_for_engineering: number;
+    ready_for_qa: number;
+    ready_for_deployment: number;
+    won_t_do: number;
+    done: number;
+    automation_rate: number;
+  };
   token_usage: {
     estimated_total: number;
     actual_total: number;
@@ -275,10 +318,18 @@ export interface ProjectAnalytics {
 export interface TimelineEntry {
   id: string;
   type: 'project' | 'epic' | 'issue' | 'task' | 'pr';
-  action: 'created' | 'updated' | 'completed' | 'archived' | 'merged' | 'closed';
+  action: 'created' | 'updated' | 'completed' | 'archived' | 'merged' | 'closed' | 'state_transitioned';
   timestamp: string;
   item_id: string;
   changes?: Record<string, { from: any; to: any }>;
+  // NEW: State transition metadata
+  state_transition?: {
+    from_state: UnifiedState;
+    to_state: UnifiedState;
+    transitioned_by: string;
+    automation_eligible: boolean;
+    transition_reason?: string;
+  };
 }
 
 // Validation types
@@ -464,4 +515,280 @@ export interface SyncStatusInfo {
   pending_operations: number;
   conflicts: number;
   sync_health: 'healthy' | 'degraded' | 'failed';
+}
+
+// State validation and transition types
+export interface StateValidationRule {
+  from_state: UnifiedState;
+  to_state: UnifiedState;
+  required_role?: string;
+  automation_eligible: boolean;
+  validation_function?: (item: AnyItemData) => boolean;
+  prerequisites?: string[];
+}
+
+export interface StateValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  allowed_transitions: UnifiedState[];
+}
+
+// Migration types for converting legacy status to unified state
+export interface MigrationMapping {
+  legacy_status: ItemStatus;
+  default_state: UnifiedState;
+  fallback_state: UnifiedState;
+  preserve_metadata: boolean;
+}
+
+export interface MigrationResult {
+  success: boolean;
+  migrated_count: number;
+  failed_count: number;
+  errors: string[];
+  migration_log: MigrationLogEntry[];
+}
+
+export interface MigrationLogEntry {
+  item_id: string;
+  item_type: ItemType;
+  old_status: ItemStatus;
+  new_state: UnifiedState;
+  timestamp: string;
+  success: boolean;
+  error?: string;
+}
+
+// Backward compatibility interfaces
+export interface LegacyItem {
+  // Items that only have status field (pre-state implementation)
+  status: ItemStatus;
+  state?: never;
+  state_metadata?: never;
+}
+
+export interface ModernItem {
+  // Items with both fields during transition period
+  status: ItemStatus; // Kept for backward compatibility
+  state: UnifiedState;
+  state_metadata: StateMetadata;
+}
+
+export interface StateOnlyItem {
+  // Future items that only use state field
+  status?: never;
+  state: UnifiedState;
+  state_metadata: StateMetadata;
+}
+
+// Type for mixed environments during migration
+export type MigrationCompatibleItem = LegacyItem | ModernItem | StateOnlyItem;
+
+// State management utility functions
+export class StateManager {
+  private static readonly STATE_TRANSITIONS: StateValidationRule[] = [
+    // Engineering workflow
+    { from_state: 'planning', to_state: 'ready_for_engineering', automation_eligible: true },
+    { from_state: 'active', to_state: 'ready_for_engineering', automation_eligible: true },
+    { from_state: 'ready_for_engineering', to_state: 'active', automation_eligible: false },
+    { from_state: 'ready_for_engineering', to_state: 'ready_for_qa', automation_eligible: true },
+    
+    // QA workflow
+    { from_state: 'ready_for_qa', to_state: 'active', automation_eligible: false },
+    { from_state: 'ready_for_qa', to_state: 'ready_for_deployment', automation_eligible: true },
+    { from_state: 'ready_for_qa', to_state: 'ready_for_engineering', automation_eligible: false },
+    
+    // Deployment workflow
+    { from_state: 'ready_for_deployment', to_state: 'done', automation_eligible: true },
+    { from_state: 'ready_for_deployment', to_state: 'ready_for_qa', automation_eligible: false },
+    
+    // Terminal states
+    { from_state: 'done', to_state: 'archived', automation_eligible: true },
+    { from_state: 'won_t_do', to_state: 'archived', automation_eligible: true },
+    
+    // Universal transitions
+    { from_state: 'planning', to_state: 'won_t_do', automation_eligible: false },
+    { from_state: 'active', to_state: 'won_t_do', automation_eligible: false },
+    { from_state: 'ready_for_engineering', to_state: 'won_t_do', automation_eligible: false },
+    { from_state: 'ready_for_qa', to_state: 'won_t_do', automation_eligible: false },
+    { from_state: 'ready_for_deployment', to_state: 'won_t_do', automation_eligible: false },
+  ];
+
+  private static readonly LEGACY_MIGRATION_MAP: MigrationMapping[] = [
+    { 
+      legacy_status: 'planning', 
+      default_state: 'planning', 
+      fallback_state: 'planning',
+      preserve_metadata: false 
+    },
+    { 
+      legacy_status: 'active', 
+      default_state: 'active', 
+      fallback_state: 'active',
+      preserve_metadata: false 
+    },
+    { 
+      legacy_status: 'completed', 
+      default_state: 'done', 
+      fallback_state: 'ready_for_deployment',
+      preserve_metadata: false 
+    },
+    { 
+      legacy_status: 'archived', 
+      default_state: 'archived', 
+      fallback_state: 'archived',
+      preserve_metadata: true 
+    },
+  ];
+
+  /**
+   * Validates if a state transition is allowed
+   */
+  static validateTransition(
+    from_state: UnifiedState, 
+    to_state: UnifiedState, 
+    user_role?: string
+  ): StateValidationResult {
+    const rule = this.STATE_TRANSITIONS.find(
+      r => r.from_state === from_state && r.to_state === to_state
+    );
+
+    if (!rule) {
+      return {
+        valid: false,
+        errors: [`Invalid transition from ${from_state} to ${to_state}`],
+        warnings: [],
+        allowed_transitions: this.getAllowedTransitions(from_state)
+      };
+    }
+
+    if (rule.required_role && user_role !== rule.required_role) {
+      return {
+        valid: false,
+        errors: [`Transition requires role: ${rule.required_role}`],
+        warnings: [],
+        allowed_transitions: this.getAllowedTransitions(from_state)
+      };
+    }
+
+    return {
+      valid: true,
+      errors: [],
+      warnings: rule.automation_eligible ? [] : ['Manual transition - automation not recommended'],
+      allowed_transitions: this.getAllowedTransitions(from_state)
+    };
+  }
+
+  /**
+   * Gets all allowed transitions from a given state
+   */
+  static getAllowedTransitions(from_state: UnifiedState): UnifiedState[] {
+    return this.STATE_TRANSITIONS
+      .filter(rule => rule.from_state === from_state)
+      .map(rule => rule.to_state);
+  }
+
+  /**
+   * Creates state metadata for a transition
+   */
+  static createStateMetadata(
+    transitioned_by: string,
+    previous_state?: UnifiedState,
+    automation_eligible: boolean = false,
+    automation_source?: string,
+    transition_reason?: string,
+    reviewer?: string
+  ): StateMetadata {
+    return {
+      transitioned_at: new Date().toISOString(),
+      transitioned_by,
+      previous_state,
+      automation_eligible,
+      automation_source,
+      transition_reason,
+      reviewer
+    };
+  }
+
+  /**
+   * Migrates legacy status to unified state
+   */
+  static migrateStatusToState(legacy_status: ItemStatus): UnifiedState {
+    const mapping = this.LEGACY_MIGRATION_MAP.find(m => m.legacy_status === legacy_status);
+    return mapping ? mapping.default_state : legacy_status as UnifiedState;
+  }
+
+  /**
+   * Gets the effective state from an item (handles backward compatibility)
+   */
+  static getEffectiveState(item: BaseFrontmatter): UnifiedState {
+    // If state field exists, use it
+    if (item.state) {
+      return item.state;
+    }
+    
+    // Fall back to migrating from status
+    return this.migrateStatusToState(item.status);
+  }
+
+  /**
+   * Checks if a state is a resolution state
+   */
+  static isResolutionState(state: UnifiedState): state is ResolutionState {
+    const resolutionStates: ResolutionState[] = [
+      'ready_for_engineering',
+      'ready_for_qa', 
+      'ready_for_deployment',
+      'won_t_do',
+      'done'
+    ];
+    return resolutionStates.includes(state as ResolutionState);
+  }
+
+  /**
+   * Checks if a state is a legacy status
+   */
+  static isLegacyStatus(state: UnifiedState): state is ItemStatus {
+    const legacyStatuses: ItemStatus[] = ['planning', 'active', 'completed', 'archived'];
+    return legacyStatuses.includes(state as ItemStatus);
+  }
+
+  /**
+   * Validates state metadata completeness
+   */
+  static validateStateMetadata(metadata: StateMetadata): ValidationResult {
+    const errors: ValidationError[] = [];
+    const warnings: ValidationError[] = [];
+
+    if (!metadata.transitioned_at) {
+      errors.push({
+        field: 'transitioned_at',
+        message: 'Transition timestamp is required',
+        severity: 'error'
+      });
+    }
+
+    if (!metadata.transitioned_by) {
+      errors.push({
+        field: 'transitioned_by',
+        message: 'Transition author is required',
+        severity: 'error'
+      });
+    }
+
+    if (metadata.automation_eligible && !metadata.automation_source) {
+      warnings.push({
+        field: 'automation_source',
+        message: 'Automation source recommended for eligible transitions',
+        severity: 'warning'
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
 }

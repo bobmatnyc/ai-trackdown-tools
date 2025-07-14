@@ -4,16 +4,18 @@
  */
 
 import { Command } from 'commander';
-import type { IssueFrontmatter, ItemStatus, Priority } from '../../types/ai-trackdown.js';
+import type { IssueFrontmatter, ItemStatus, Priority, UnifiedState } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { Formatter } from '../../utils/formatter.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
 import { RelationshipManager } from '../../utils/relationship-manager.js';
+import { StateManager, StateTransition } from '../../types/ai-trackdown.js';
 
 interface UpdateOptions {
   title?: string;
   description?: string;
   status?: ItemStatus;
+  state?: UnifiedState;
   priority?: Priority;
   assignee?: string;
   epicId?: string;
@@ -30,6 +32,8 @@ interface UpdateOptions {
   addBlocks?: string;
   removeBlocks?: string;
   progress?: number;
+  reason?: string;
+  reviewer?: string;
   dryRun?: boolean;
 }
 
@@ -42,6 +46,7 @@ export function createIssueUpdateCommand(): Command {
     .option('-t, --title <text>', 'update title')
     .option('-d, --description <text>', 'update description')
     .option('-s, --status <status>', 'update status (planning|active|completed|archived)')
+    .option('--state <state>', 'update unified state (planning|active|completed|archived|ready_for_engineering|ready_for_qa|ready_for_deployment|won_t_do|done)')
     .option('-p, --priority <level>', 'update priority (low|medium|high|critical)')
     .option('-a, --assignee <username>', 'update assignee')
     .option('--epic-id <id>', 'update epic ID')
@@ -58,6 +63,8 @@ export function createIssueUpdateCommand(): Command {
     .option('--add-blocks <ids>', 'add blocks (comma-separated IDs)')
     .option('--remove-blocks <ids>', 'remove blocks (comma-separated IDs)')
     .option('--progress <percentage>', 'update completion percentage (0-100)')
+    .option('--reason <text>', 'reason for state change (recommended for state updates)')
+    .option('--reviewer <username>', 'reviewer who approved the change (for state updates)')
     .option('--dry-run', 'show what would be updated without updating')
     .action(async (issueId: string, options: UpdateOptions) => {
       try {
@@ -109,6 +116,38 @@ async function updateIssue(issueId: string, options: UpdateOptions): Promise<voi
 
   if (options.status) {
     updates.status = options.status;
+  }
+
+  // Handle state updates with proper validation
+  if (options.state) {
+    const currentState = StateManager.getEffectiveState(issue);
+    
+    // Validate state transition
+    const transitionResult = StateTransition.transitionState(
+      issue,
+      options.state,
+      process.env.USER || 'system',
+      options.reason,
+      options.reviewer
+    );
+
+    if (!transitionResult.success) {
+      console.error(Formatter.error('State transition failed:'));
+      transitionResult.errors.forEach(error => 
+        console.error(Formatter.error(`  - ${error}`))
+      );
+      throw new Error('Invalid state transition');
+    }
+
+    if (transitionResult.warnings.length > 0) {
+      console.log(Formatter.warning('State transition warnings:'));
+      transitionResult.warnings.forEach(warning => 
+        console.log(Formatter.warning(`  - ${warning}`))
+      );
+    }
+
+    updates.state = transitionResult.item.state;
+    updates.state_metadata = transitionResult.item.state_metadata;
   }
 
   if (options.priority) {
@@ -280,6 +319,9 @@ async function updateIssue(issueId: string, options: UpdateOptions): Promise<voi
   console.log(Formatter.success('Current values:'));
   console.log(`  Title: ${updatedIssue.title}`);
   console.log(`  Status: ${getStatusDisplay(updatedIssue.status)}`);
+  if (updatedIssue.state) {
+    console.log(`  State: ${getStateDisplay(updatedIssue.state)}`);
+  }
   console.log(`  Priority: ${getPriorityDisplay(updatedIssue.priority)}`);
   console.log(`  Assignee: ${updatedIssue.assignee}`);
   console.log(`  Epic ID: ${updatedIssue.epic_id}`);
@@ -336,4 +378,21 @@ function getPriorityDisplay(priority: string): string {
 
   const colorFn = priorityColors[priority] || ((text) => text);
   return colorFn(priority.toUpperCase());
+}
+
+function getStateDisplay(state: string): string {
+  const stateColors: Record<string, (text: string) => string> = {
+    planning: (text) => Formatter.info(text),
+    active: (text) => Formatter.warning(text),
+    completed: (text) => Formatter.success(text),
+    archived: (text) => Formatter.debug(text),
+    ready_for_engineering: (text) => Formatter.info(text),
+    ready_for_qa: (text) => Formatter.warning(text),
+    ready_for_deployment: (text) => Formatter.info(text),
+    won_t_do: (text) => Formatter.error(text),
+    done: (text) => Formatter.success(text),
+  };
+
+  const colorFn = stateColors[state] || ((text) => text);
+  return colorFn(state.toUpperCase().replace(/_/g, ' '));
 }

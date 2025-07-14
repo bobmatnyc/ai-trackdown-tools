@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/ai-trackdown-tools",
-  "version": "1.1.7",
+  "version": "1.1.0",
   "description": "Professional CLI tool for ai-trackdown functionality with comprehensive PR management system",
   "type": "module",
   "bin": {
@@ -58,7 +58,11 @@
     "development-tools",
     "yaml-frontmatter",
     "token-tracking",
-    "ai-workflows"
+    "ai-workflows",
+    "index-health",
+    "diagnostic",
+    "auto-repair",
+    "cli-reliability"
   ],
   "author": "bobmatnyc",
   "license": "ISC",
@@ -74,6 +78,7 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
+    "@bobmatnyc/ai-trackdown-tools": "^1.1.7",
     "@octokit/core": "^7.0.2",
     "@octokit/rest": "^22.0.0",
     "boxen": "^8.0.1",

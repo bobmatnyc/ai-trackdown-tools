@@ -11,6 +11,9 @@ import { createInitCommand } from './commands/init.js';
 import { createIssueCommand } from './commands/issue.js';
 import { createMigrateCommand } from './commands/migrate.js';
 import { createMigrateStructureCommand } from './commands/migrate-structure.js';
+import { createResolveCommand } from './commands/resolve.js';
+import { createStateCommand } from './commands/state.js';
+import { createMigrateStateCommand } from './commands/migrate-state.js';
 import { createPortfolioCommand } from './commands/portfolio.js';
 import { createPRCommand } from './commands/pr.js';
 import { createProjectCommand } from './commands/project.js';
@@ -126,6 +129,11 @@ async function main(): Promise<void> {
   // Migration commands
   program.addCommand(createMigrateCommand());
   program.addCommand(createMigrateStructureCommand());
+  program.addCommand(createMigrateStateCommand());
+
+  // State management commands
+  program.addCommand(createResolveCommand());
+  program.addCommand(createStateCommand());
 
   // Add helpful aliases
   program
@@ -208,12 +216,37 @@ async function main(): Promise<void> {
     console.log('    $ aitrackdown portfolio --health');
     console.log('    $ aitrackdown export --format json');
     console.log('');
+    console.log(chalk.bold.cyan('🔄 STATE MANAGEMENT COMMANDS:'));
+    console.log('  Resolve items to completion states:');
+    console.log('    $ aitrackdown resolve engineering ISS-0001 --reason "Development complete"');
+    console.log('    $ aitrackdown resolve qa ISS-0001 --assignee "john@example.com"');
+    console.log('    $ aitrackdown resolve deployment ISS-0001 --reviewer "jane@example.com"');
+    console.log('    $ aitrackdown resolve done ISS-0001');
+    console.log('    $ aitrackdown resolve reject ISS-0001 --reason "Out of scope"');
+    console.log('');
+    console.log('  Query and update states:');
+    console.log('    $ aitrackdown state list --state ready_for_qa --show-state');
+    console.log('    $ aitrackdown state show ISS-0001 --show-transitions');
+    console.log('    $ aitrackdown state update ISS-0001 ready_for_deployment --reason "QA passed"');
+    console.log('    $ aitrackdown state analytics --verbose');
+    console.log('    $ aitrackdown state workflow --from active');
+    console.log('');
+    console.log('  Batch operations:');
+    console.log('    $ aitrackdown resolve batch-qa ISS-0001 ISS-0002 ISS-0003');
+    console.log('    $ aitrackdown state batch-update done ISS-0001 ISS-0002');
+    console.log('');
     console.log(chalk.bold.cyan('🔄 MIGRATION COMMANDS:'));
     console.log('  Legacy to Modern Structure:');
     console.log('    $ aitrackdown migrate --dry-run --verbose');
     console.log('    $ aitrackdown migrate --backup');
     console.log('    $ aitrackdown migrate-structure --dry-run');
     console.log('    $ aitrackdown migrate-structure --tasks-dir work');
+    console.log('');
+    console.log('  State Migration:');
+    console.log('    $ aitrackdown migrate-state preview --verbose');
+    console.log('    $ aitrackdown migrate-state --dry-run --backup');
+    console.log('    $ aitrackdown migrate-state validate');
+    console.log('    $ aitrackdown migrate-state status');
     console.log('');
     console.log(chalk.bold.cyan('⚡ ALIASES & SHORTCUTS:'));
     console.log('  atd = aitrackdown (shorter command)');
