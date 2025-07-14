@@ -1,6 +1,6 @@
 {
   "name": "@bobmatnyc/ai-trackdown-tools",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Professional CLI tool for ai-trackdown functionality with comprehensive PR management system",
   "type": "module",
   "bin": {

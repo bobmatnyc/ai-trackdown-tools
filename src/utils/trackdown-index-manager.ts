@@ -531,6 +531,155 @@ export class TrackdownIndexManager {
   }
 
   /**
+   * Enhanced index validation with detailed health check
+   */
+  public async validateIndexHealth(): Promise<{
+    isValid: boolean;
+    issues: string[];
+    suggestions: string[];
+    stats: {
+      fileCount: number;
+      indexedCount: number;
+      missingCount: number;
+      orphanedCount: number;
+    };
+  }> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+    let isValid = true;
+
+    try {
+      // Check if index file exists
+      const indexExists = await this.indexExists();
+      if (!indexExists) {
+        issues.push('Index file does not exist');
+        suggestions.push('Run: aitrackdown backlog-enhanced --rebuild-index');
+        return {
+          isValid: false,
+          issues,
+          suggestions,
+          stats: { fileCount: 0, indexedCount: 0, missingCount: 0, orphanedCount: 0 }
+        };
+      }
+
+      // Load and validate basic structure
+      const index = await this.loadIndex();
+      if (!this.validateIndexStructure(index)) {
+        issues.push('Index structure is corrupted');
+        isValid = false;
+      }
+
+      // Count actual files vs indexed files
+      const paths = this.pathResolver.getUnifiedPaths();
+      const actualCounts = await this.countActualFiles(paths);
+      const indexedCounts = {
+        epics: Object.keys(index.epics).length,
+        issues: Object.keys(index.issues).length,
+        tasks: Object.keys(index.tasks).length,
+        prs: Object.keys(index.prs).length
+      };
+
+      const totalActual = actualCounts.epics + actualCounts.issues + actualCounts.tasks + actualCounts.prs;
+      const totalIndexed = indexedCounts.epics + indexedCounts.issues + indexedCounts.tasks + indexedCounts.prs;
+
+      // Check for significant discrepancies
+      if (totalActual > totalIndexed * 1.1) { // More than 10% missing
+        issues.push(`Index appears outdated: ${totalActual} files found but only ${totalIndexed} indexed`);
+        suggestions.push('Run: aitrackdown backlog-enhanced --rebuild-index');
+        isValid = false;
+      }
+
+      // Check for orphaned entries
+      const orphanedCount = await this.countOrphanedEntries(index);
+      if (orphanedCount > 0) {
+        issues.push(`${orphanedCount} orphaned entries found in index`);
+        suggestions.push('Run index rebuild to clean up orphaned entries');
+      }
+
+      // Check index age
+      const indexAge = Date.now() - new Date(index.lastUpdated).getTime();
+      if (indexAge > 24 * 60 * 60 * 1000) { // More than 24 hours old
+        issues.push('Index is more than 24 hours old');
+        suggestions.push('Consider running regular index updates');
+      }
+
+      return {
+        isValid,
+        issues,
+        suggestions,
+        stats: {
+          fileCount: totalActual,
+          indexedCount: totalIndexed,
+          missingCount: Math.max(0, totalActual - totalIndexed),
+          orphanedCount
+        }
+      };
+    } catch (error) {
+      issues.push(`Index validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      suggestions.push('Try rebuilding the index completely');
+      return {
+        isValid: false,
+        issues,
+        suggestions,
+        stats: { fileCount: 0, indexedCount: 0, missingCount: 0, orphanedCount: 0 }
+      };
+    }
+  }
+
+  /**
+   * Auto-repair index if issues are detected
+   */
+  public async autoRepairIndex(): Promise<{
+    repaired: boolean;
+    actions: string[];
+    errors: string[];
+  }> {
+    const actions: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      const healthCheck = await this.validateIndexHealth();
+      
+      if (healthCheck.isValid) {
+        return { repaired: false, actions: ['Index is already healthy'], errors: [] };
+      }
+
+      actions.push('Starting auto-repair process...');
+
+      // If index is missing or corrupted, rebuild completely
+      if (healthCheck.issues.some(issue => 
+        issue.includes('does not exist') || 
+        issue.includes('corrupted') || 
+        issue.includes('outdated')
+      )) {
+        actions.push('Rebuilding index completely due to corruption/missing files');
+        await this.rebuildIndex();
+        actions.push('Index rebuilt successfully');
+        return { repaired: true, actions, errors };
+      }
+
+      // Otherwise, try incremental repairs
+      if (healthCheck.stats.orphanedCount > 0) {
+        actions.push(`Cleaning up ${healthCheck.stats.orphanedCount} orphaned entries`);
+        await this.cleanOrphanedEntries();
+        actions.push('Orphaned entries cleaned up');
+      }
+
+      if (healthCheck.stats.missingCount > 0) {
+        actions.push(`Adding ${healthCheck.stats.missingCount} missing entries`);
+        await this.rebuildIndex(); // For now, rebuild is safest for missing entries
+        actions.push('Missing entries added');
+      }
+
+      return { repaired: true, actions, errors };
+    } catch (error) {
+      const errorMsg = `Auto-repair failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      errors.push(errorMsg);
+      return { repaired: false, actions, errors };
+    }
+  }
+
+  /**
    * Get index statistics and health information
    */
   public async getIndexStats(): Promise<
@@ -1146,5 +1295,162 @@ export class TrackdownIndexManager {
         },
       },
     };
+  }
+
+  /**
+   * Count actual files in the filesystem
+   */
+  private async countActualFiles(paths: any): Promise<{
+    epics: number;
+    issues: number;
+    tasks: number;
+    prs: number;
+  }> {
+    const counts = { epics: 0, issues: 0, tasks: 0, prs: 0 };
+
+    try {
+      // Count epics
+      if (await this.directoryExists(paths.epicsDir)) {
+        const epicFiles = await readdir(paths.epicsDir);
+        counts.epics = epicFiles.filter(f => f.endsWith('.md')).length;
+      }
+
+      // Count issues
+      if (await this.directoryExists(paths.issuesDir)) {
+        const issueFiles = await readdir(paths.issuesDir);
+        counts.issues = issueFiles.filter(f => f.endsWith('.md')).length;
+      }
+
+      // Count tasks
+      if (await this.directoryExists(paths.tasksDir)) {
+        const taskFiles = await readdir(paths.tasksDir);
+        counts.tasks = taskFiles.filter(f => f.endsWith('.md')).length;
+      }
+
+      // Count PRs
+      if (await this.directoryExists(paths.prsDir)) {
+        const prFiles = await readdir(paths.prsDir);
+        counts.prs = prFiles.filter(f => f.endsWith('.md')).length;
+      }
+    } catch (error) {
+      console.warn(`Warning: Failed to count actual files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    return counts;
+  }
+
+  /**
+   * Count orphaned entries in the index (entries that reference missing files)
+   */
+  private async countOrphanedEntries(index: TrackdownIndex): Promise<number> {
+    let orphanedCount = 0;
+
+    try {
+      // Check epics
+      for (const epic of Object.values(index.epics)) {
+        if (!(await this.fileExists(epic.filePath))) {
+          orphanedCount++;
+        }
+      }
+
+      // Check issues
+      for (const issue of Object.values(index.issues)) {
+        if (!(await this.fileExists(issue.filePath))) {
+          orphanedCount++;
+        }
+      }
+
+      // Check tasks
+      for (const task of Object.values(index.tasks)) {
+        if (!(await this.fileExists(task.filePath))) {
+          orphanedCount++;
+        }
+      }
+
+      // Check PRs
+      for (const pr of Object.values(index.prs)) {
+        if (!(await this.fileExists(pr.filePath))) {
+          orphanedCount++;
+        }
+      }
+    } catch (error) {
+      console.warn(`Warning: Failed to count orphaned entries: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    return orphanedCount;
+  }
+
+  /**
+   * Clean orphaned entries from the index
+   */
+  private async cleanOrphanedEntries(): Promise<void> {
+    const index = await this.loadIndex();
+    let cleanedCount = 0;
+
+    // Clean epics
+    for (const [id, epic] of Object.entries(index.epics)) {
+      if (!(await this.fileExists(epic.filePath))) {
+        delete index.epics[id];
+        cleanedCount++;
+      }
+    }
+
+    // Clean issues
+    for (const [id, issue] of Object.entries(index.issues)) {
+      if (!(await this.fileExists(issue.filePath))) {
+        delete index.issues[id];
+        cleanedCount++;
+      }
+    }
+
+    // Clean tasks
+    for (const [id, task] of Object.entries(index.tasks)) {
+      if (!(await this.fileExists(task.filePath))) {
+        delete index.tasks[id];
+        cleanedCount++;
+      }
+    }
+
+    // Clean PRs
+    for (const [id, pr] of Object.entries(index.prs)) {
+      if (!(await this.fileExists(pr.filePath))) {
+        delete index.prs[id];
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      // Rebuild relationships after cleanup
+      this.buildRelationships(index);
+      await this.saveIndex(index);
+      
+      if (!this.isTestMode) {
+        console.log(`✅ Cleaned ${cleanedCount} orphaned entries from index`);
+      }
+    }
+  }
+
+  /**
+   * Check if a directory exists
+   */
+  private async directoryExists(dirPath: string): Promise<boolean> {
+    try {
+      const stats = await stat(dirPath);
+      return stats.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a file exists
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

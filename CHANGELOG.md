@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2025-07-14
+
+### Fixed
+- **CLI Index Corruption Fix**: Resolved "No items found" errors in status and backlog commands
+- **Index Auto-Repair System**: Automatic detection and repair of corrupted index files
+- **Enhanced CLI Reliability**: Improved index validation and error recovery mechanisms
+
+### Added
+- **index-health Command**: New diagnostic command for CLI index validation and repair
+- **Automatic Index Validation**: Built-in health checks for index integrity
+- **Enhanced Error Recovery**: Graceful handling of index corruption scenarios
+
+### Enhanced
+- **CLI Performance**: Improved reliability and consistency of core CLI operations
+- **Error Handling**: Better user feedback for index-related issues
+- **Index Management**: Robust index file validation and maintenance
+
 ## [1.1.6] - 2025-07-13
 
 ## [1.1.5] - 2025-07-13

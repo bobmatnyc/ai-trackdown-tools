@@ -94,6 +94,31 @@ async function displayEnhancedBacklog(options: BacklogOptions): Promise<void> {
 
   console.log(Formatter.header(`📋 ${config.name || 'AI-Trackdown'} Project Backlog (Enhanced)`));
 
+  // Check index health and auto-repair if needed
+  const healthCheck = await indexManager.validateIndexHealth();
+  if (!healthCheck.isValid) {
+    console.log(Formatter.warning('⚠️  Index health issues detected:'));
+    for (const issue of healthCheck.issues) {
+      console.log(Formatter.warning(`   • ${issue}`));
+    }
+    
+    console.log(Formatter.info('🔧 Auto-repairing index...'));
+    const repairResult = await indexManager.autoRepairIndex();
+    
+    if (repairResult.repaired) {
+      console.log(Formatter.success('✅ Index repaired successfully'));
+      for (const action of repairResult.actions) {
+        console.log(Formatter.dim(`   • ${action}`));
+      }
+    } else {
+      console.log(Formatter.warning('⚠️  Auto-repair failed, continuing with current index'));
+      for (const error of repairResult.errors) {
+        console.log(Formatter.warning(`   • ${error}`));
+      }
+    }
+    console.log('');
+  }
+
   // Get all data from index
   const [epics, issues, tasks, prs] = await Promise.all([
     indexManager.getItemsByType('epic'),

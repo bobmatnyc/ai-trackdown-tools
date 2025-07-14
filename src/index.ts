@@ -6,6 +6,7 @@ import { createBacklogEnhancedCommand } from './commands/backlog-enhanced.js';
 import { createEpicCommand } from './commands/epic.js';
 import { createExportCommand } from './commands/export.js';
 import { createHealthCommand } from './commands/health.js';
+import { createIndexHealthCommand } from './commands/index-health.js';
 import { createInitCommand } from './commands/init.js';
 import { createIssueCommand } from './commands/issue.js';
 import { createMigrateCommand } from './commands/migrate.js';
@@ -111,6 +112,7 @@ async function main(): Promise<void> {
   program.addCommand(createExportCommand());
   program.addCommand(createVersionCommand());
   program.addCommand(createHealthCommand());
+  program.addCommand(createIndexHealthCommand());
 
   // AI-Trackdown hierarchical commands
   program.addCommand(createProjectCommand());
