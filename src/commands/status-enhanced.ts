@@ -25,6 +25,7 @@ interface StatusOptions {
   priority?: string;
   assignee?: string;
   tags?: string;
+  labels?: string;
   type?: string;
   limit?: string;
   rebuildIndex?: boolean;
@@ -44,6 +45,7 @@ export function createStatusEnhancedCommand(): Command {
     .option('-p, --priority <priority>', 'filter by priority (low|medium|high|critical)')
     .option('-a, --assignee <name>', 'filter by assignee')
     .option('-t, --tags <tags>', 'filter by tags (comma-separated)')
+    .option('--labels <labels>', 'filter by labels (comma-separated, alias for --tags)')
     .option('--type <type>', 'filter by item type (epic|issue|task|pr)')
     .option('--limit <count>', 'limit number of results')
     .option('--rebuild-index', 'force rebuild of index before displaying status')
@@ -273,8 +275,9 @@ async function applyFilters(
   }
 
   // Apply tags filter
-  if (options.tags) {
-    const filterTags = options.tags.split(',').map((tag) => tag.trim());
+  if (options.tags || options.labels) {
+    const tagsInput = options.tags || options.labels;
+    const filterTags = tagsInput.split(',').map((tag) => tag.trim());
     items = items.filter((item) => item.tags?.some((tag: string) => filterTags.includes(tag)));
   }
 

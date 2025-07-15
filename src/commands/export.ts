@@ -26,6 +26,7 @@ export function createExportCommand(): Command {
     .option('-p, --priority <priority>', 'filter by priority (low, medium, high, critical)')
     .option('-a, --assignee <name>', 'filter by assignee name or email')
     .option('-t, --tags <tags>', 'filter by tags (comma-separated)')
+    .option('--labels <labels>', 'filter by labels (comma-separated, alias for --tags)')
     .option('-i, --id <id>', 'filter by specific item ID')
     .option('--created-after <date>', 'show items created after date (YYYY-MM-DD)')
     .option('--created-before <date>', 'show items created before date (YYYY-MM-DD)')
@@ -89,6 +90,7 @@ Export Templates:
         priority?: string;
         assignee?: string;
         tags?: string;
+        labels?: string;
         id?: string;
         createdAfter?: string;
         createdBefore?: string;
@@ -511,8 +513,9 @@ function parseAdvancedFilters(options: any): StatusFilter {
   if (options.assignee) {
     filters.assignee = options.assignee;
   }
-  if (options.tags) {
-    filters.tags = options.tags.split(',').map((t: string) => t.trim());
+  if (options.tags || options.labels) {
+    const tagsInput = options.tags || options.labels;
+    filters.tags = tagsInput.split(',').map((t: string) => t.trim());
   }
   if (options.id) {
     filters.id = options.id;

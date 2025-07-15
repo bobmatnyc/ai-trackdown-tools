@@ -112,8 +112,10 @@ Story Points:
           // Validate all inputs
           const validatedTitle = validateRequired(taskData.title, 'Title');
           const priority = validatePriority(taskData.priority);
-          const tags = taskData.tags ? validateTags(taskData.tags) : undefined;
-          const labels = taskData.labels ? validateTags(taskData.labels) : undefined;
+          // Process tags and labels as aliases
+          const tagsInput = taskData.tags || taskData.labels;
+          const tags = tagsInput ? validateTags(tagsInput) : undefined;
+          const labels = tags; // labels is an alias for tags
           const assignee = taskData.assignee
             ? validateAssignee(taskData.assignee)
             : config.autoAssign

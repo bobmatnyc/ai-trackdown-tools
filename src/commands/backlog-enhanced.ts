@@ -12,6 +12,7 @@ import { Command } from 'commander';
 import { ConfigManager } from '../utils/config-manager.js';
 import { Formatter } from '../utils/formatter.js';
 import { TrackdownIndexManager } from '../utils/trackdown-index-manager.js';
+import type { AnyItemData, EpicData, IssueData, TaskData, PRData, ItemStatus, Priority } from '../types/ai-trackdown.js';
 
 interface BacklogOptions {
   epic?: string;
@@ -23,6 +24,29 @@ interface BacklogOptions {
   progress?: boolean;
   export?: string;
   rebuildIndex?: boolean;
+}
+
+interface BacklogData {
+  epics: EpicData[];
+  issues: IssueData[];
+  tasks: TaskData[];
+  prs: PRData[];
+}
+
+interface BacklogItem extends AnyItemData {
+  type: 'epic' | 'issue' | 'task' | 'pr';
+  lastModified: string;
+}
+
+// Commander.js Command interface extension
+interface CommandWithParent extends Command {
+  parent?: CommandWithParent;
+  opts(): { rootDir?: string; tasksDir?: string; [key: string]: unknown };
+}
+
+// Process interface extension for accessing command
+interface ProcessWithCommand extends NodeJS.Process {
+  command?: CommandWithParent;
 }
 
 export function createBacklogEnhancedCommand(): Command {
@@ -80,7 +104,7 @@ async function displayEnhancedBacklog(options: BacklogOptions): Promise<void> {
   const config = configManager.getConfig();
 
   // Get CLI tasks directory from parent command options
-  const parentCommand = (process as any).command?.parent;
+  const parentCommand = (process as ProcessWithCommand).command?.parent;
   const cliTasksDir = parentCommand?.opts()?.rootDir || parentCommand?.opts()?.tasksDir;
 
   const projectRoot = configManager.findProjectRoot();
@@ -152,45 +176,45 @@ async function displayEnhancedBacklog(options: BacklogOptions): Promise<void> {
   console.log(Formatter.dim(`\n⚡ Generated in ${totalTime}ms using index system`));
 }
 
-function applyBacklogFilters(data: any, options: BacklogOptions): any {
+function applyBacklogFilters(data: BacklogData, options: BacklogOptions): BacklogData {
   let { epics, issues, tasks, prs } = data;
 
   // Filter by epic if specified
   if (options.epic) {
-    epics = epics.filter((epic: any) => epic.id === options.epic);
-    issues = issues.filter((issue: any) => issue.epicId === options.epic);
-    tasks = tasks.filter((task: any) => task.epicId === options.epic);
-    prs = prs.filter((pr: any) => pr.epicId === options.epic);
+    epics = epics.filter((epic: EpicData) => epic.epic_id === options.epic);
+    issues = issues.filter((issue: IssueData) => issue.epic_id === options.epic);
+    tasks = tasks.filter((task: TaskData) => task.epic_id === options.epic);
+    prs = prs.filter((pr: PRData) => pr.epic_id === options.epic);
   }
 
   // Filter by status
   if (options.status) {
-    epics = epics.filter((epic: any) => epic.status === options.status);
-    issues = issues.filter((issue: any) => issue.status === options.status);
-    tasks = tasks.filter((task: any) => task.status === options.status);
-    prs = prs.filter((pr: any) => pr.status === options.status);
+    epics = epics.filter((epic: EpicData) => epic.status === options.status);
+    issues = issues.filter((issue: IssueData) => issue.status === options.status);
+    tasks = tasks.filter((task: TaskData) => task.status === options.status);
+    prs = prs.filter((pr: PRData) => pr.status === options.status);
   }
 
   // Filter by priority
   if (options.priority) {
-    epics = epics.filter((epic: any) => epic.priority === options.priority);
-    issues = issues.filter((issue: any) => issue.priority === options.priority);
-    tasks = tasks.filter((task: any) => task.priority === options.priority);
-    prs = prs.filter((pr: any) => pr.priority === options.priority);
+    epics = epics.filter((epic: EpicData) => epic.priority === options.priority);
+    issues = issues.filter((issue: IssueData) => issue.priority === options.priority);
+    tasks = tasks.filter((task: TaskData) => task.priority === options.priority);
+    prs = prs.filter((pr: PRData) => pr.priority === options.priority);
   }
 
   // Filter by assignee
   if (options.assignee) {
-    epics = epics.filter((epic: any) => epic.assignee === options.assignee);
-    issues = issues.filter((issue: any) => issue.assignee === options.assignee);
-    tasks = tasks.filter((task: any) => task.assignee === options.assignee);
-    prs = prs.filter((pr: any) => pr.assignee === options.assignee);
+    epics = epics.filter((epic: EpicData) => epic.assignee === options.assignee);
+    issues = issues.filter((issue: IssueData) => issue.assignee === options.assignee);
+    tasks = tasks.filter((task: TaskData) => task.assignee === options.assignee);
+    prs = prs.filter((pr: PRData) => pr.assignee === options.assignee);
   }
 
   return { epics, issues, tasks, prs };
 }
 
-function displayProgressSummary(data: any): void {
+function displayProgressSummary(data: BacklogData): void {
   const { epics, issues, tasks, prs } = data;
   const total = epics.length + issues.length + tasks.length + prs.length;
 
@@ -203,10 +227,10 @@ function displayProgressSummary(data: any): void {
 
   // Overall completion metrics
   const completedItems = [
-    ...epics.filter((e: any) => e.status === 'completed'),
-    ...issues.filter((i: any) => i.status === 'completed'),
-    ...tasks.filter((t: any) => t.status === 'completed'),
-    ...prs.filter((p: any) => p.status === 'completed'),
+    ...epics.filter((e: EpicData) => e.status === 'completed'),
+    ...issues.filter((i: IssueData) => i.status === 'completed'),
+    ...tasks.filter((t: TaskData) => t.status === 'completed'),
+    ...prs.filter((p: PRData) => p.status === 'completed'),
   ].length;
 
   const completionRate = total > 0 ? Math.round((completedItems / total) * 100) : 0;
@@ -215,12 +239,12 @@ function displayProgressSummary(data: any): void {
   console.log(Formatter.info(`Completed: ${completedItems} (${completionRate}%)`));
   console.log(
     Formatter.info(
-      `In Progress: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'active').length}`
+      `In Progress: ${[...epics, ...issues, ...tasks, ...prs].filter((item: AnyItemData) => item.status === 'active').length}`
     )
   );
   console.log(
     Formatter.info(
-      `Planned: ${[...epics, ...issues, ...tasks, ...prs].filter((item: any) => item.status === 'planning').length}`
+      `Planned: ${[...epics, ...issues, ...tasks, ...prs].filter((item: AnyItemData) => item.status === 'planning').length}`
     )
   );
 
@@ -234,7 +258,7 @@ function displayProgressSummary(data: any): void {
   console.log('');
 }
 
-function displayTypeProgress(typeName: string, items: any[]): void {
+function displayTypeProgress(typeName: string, items: AnyItemData[]): void {
   if (items.length === 0) return;
 
   const completed = items.filter((item) => item.status === 'completed').length;
@@ -250,7 +274,7 @@ function createProgressBar(percentage: number, width: number = 20): string {
   return `[${'█'.repeat(filled)}${' '.repeat(empty)}]`;
 }
 
-function displayHierarchicalView(data: any, options: BacklogOptions): void {
+function displayHierarchicalView(data: BacklogData, options: BacklogOptions): void {
   const { epics, issues, tasks, prs } = data;
 
   console.log(Formatter.subheader('🌳 Hierarchical Backlog View'));
@@ -260,26 +284,26 @@ function displayHierarchicalView(data: any, options: BacklogOptions): void {
     return;
   }
 
-  epics.forEach((epic: any) => {
+  epics.forEach((epic: EpicData) => {
     displayEpic(epic, options);
 
     // Get related issues for this epic
-    const epicIssues = issues.filter((issue: any) => issue.epicId === epic.id);
+    const epicIssues = issues.filter((issue: IssueData) => issue.epic_id === epic.epic_id);
 
-    epicIssues.forEach((issue: any, issueIndex: number) => {
+    epicIssues.forEach((issue: IssueData, issueIndex: number) => {
       const isLastIssue = issueIndex === epicIssues.length - 1;
       displayIssue(issue, isLastIssue, options);
 
       // Get related tasks for this issue
-      const issueTasks = tasks.filter((task: any) => task.issueId === issue.id);
-      const issuePRs = prs.filter((pr: any) => pr.issueId === issue.id);
+      const issueTasks = tasks.filter((task: TaskData) => task.issue_id === issue.issue_id);
+      const issuePRs = prs.filter((pr: PRData) => pr.issue_id === issue.issue_id);
 
-      issueTasks.forEach((task: any, taskIndex: number) => {
+      issueTasks.forEach((task: TaskData, taskIndex: number) => {
         const isLastTask = taskIndex === issueTasks.length - 1 && issuePRs.length === 0;
         displayTask(task, isLastIssue, isLastTask, options);
       });
 
-      issuePRs.forEach((pr: any, prIndex: number) => {
+      issuePRs.forEach((pr: PRData, prIndex: number) => {
         const isLastPR = prIndex === issuePRs.length - 1;
         displayPR(pr, isLastIssue, isLastPR, options);
       });
@@ -289,23 +313,23 @@ function displayHierarchicalView(data: any, options: BacklogOptions): void {
   });
 }
 
-function displayBacklogView(data: any, options: BacklogOptions): void {
+function displayBacklogView(data: BacklogData, options: BacklogOptions): void {
   const { epics, issues, tasks, prs } = data;
 
   console.log(Formatter.subheader('📋 Backlog Overview'));
 
   // Group all items by status
-  const allItems = [...epics, ...issues, ...tasks, ...prs]
-    .map((item) => ({
+  const allItems: BacklogItem[] = [...epics, ...issues, ...tasks, ...prs]
+    .map((item: AnyItemData): BacklogItem => ({
       ...item,
-      type: getItemType(item.id),
-    }))
-    .sort((a, b) => {
+      type: getItemType(getItemId(item)),
+      lastModified: item.updated_date,
+    } as BacklogItem))
+    .sort((a: BacklogItem, b: BacklogItem) => {
       // Sort by priority first, then by last modified
-      const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+      const priorityOrder: Record<Priority, number> = { critical: 4, high: 3, medium: 2, low: 1 };
       const priorityDiff =
-        priorityOrder[b.priority as keyof typeof priorityOrder] -
-        priorityOrder[a.priority as keyof typeof priorityOrder];
+        priorityOrder[b.priority] - priorityOrder[a.priority];
       if (priorityDiff !== 0) return priorityDiff;
 
       return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
@@ -318,12 +342,12 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
 
   // Group by status
   const grouped = allItems.reduce(
-    (acc, item) => {
+    (acc: Record<string, BacklogItem[]>, item: BacklogItem) => {
       if (!acc[item.status]) acc[item.status] = [];
       acc[item.status].push(item);
       return acc;
     },
-    {} as Record<string, any[]>
+    {} as Record<string, BacklogItem[]>
   );
 
   // Display each status group
@@ -334,7 +358,7 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
         Formatter.subheader(`${statusEmoji} ${status.toUpperCase()} (${statusItems.length})`)
       );
 
-      statusItems.forEach((item: any, index: number) => {
+      statusItems.forEach((item: BacklogItem, index: number) => {
         displayBacklogItem(item, index, options);
       });
       console.log('');
@@ -342,43 +366,43 @@ function displayBacklogView(data: any, options: BacklogOptions): void {
   }
 }
 
-function displayEpic(epic: any, options: BacklogOptions): void {
+function displayEpic(epic: EpicData, options: BacklogOptions): void {
   const statusEmoji = getStatusEmoji(epic.status);
   const priorityColor = getPriorityColor(epic.priority);
   const completionInfo =
     epic.completion_percentage !== undefined ? ` (${epic.completion_percentage}%)` : '';
 
   console.log(
-    `🎯 ${statusEmoji} ${priorityColor(epic.priority.toUpperCase())} ${Formatter.highlight(epic.title)}${completionInfo} ${Formatter.dim(`(${epic.id})`)}`
+    `🎯 ${statusEmoji} ${priorityColor(epic.priority.toUpperCase())} ${Formatter.highlight(epic.title)}${completionInfo} ${Formatter.dim(`(${epic.epic_id})`)}`
   );
 
   if (options.detailed) {
     console.log(`   Assignee: ${epic.assignee || 'unassigned'}`);
     if (epic.milestone) console.log(`   Milestone: ${epic.milestone}`);
     if (epic.tags?.length) console.log(`   Tags: ${epic.tags.join(', ')}`);
-    console.log(`   Modified: ${new Date(epic.lastModified).toLocaleString()}`);
+    console.log(`   Modified: ${new Date(epic.updated_date).toLocaleString()}`);
   }
 }
 
-function displayIssue(issue: any, isLast: boolean, options: BacklogOptions): void {
+function displayIssue(issue: IssueData, isLast: boolean, options: BacklogOptions): void {
   const prefix = isLast ? '└── ' : '├── ';
   const statusEmoji = getStatusEmoji(issue.status);
   const priorityColor = getPriorityColor(issue.priority);
 
   console.log(
-    `${prefix}📋 ${statusEmoji} ${priorityColor(issue.priority.toUpperCase())} ${issue.title} ${Formatter.dim(`(${issue.id})`)}`
+    `${prefix}📋 ${statusEmoji} ${priorityColor(issue.priority.toUpperCase())} ${issue.title} ${Formatter.dim(`(${issue.issue_id})`)}`
   );
 
   if (options.detailed) {
     const indent = isLast ? '    ' : '│   ';
     console.log(`${indent}Assignee: ${issue.assignee || 'unassigned'}`);
     if (issue.tags?.length) console.log(`${indent}Tags: ${issue.tags.join(', ')}`);
-    console.log(`${indent}Modified: ${new Date(issue.lastModified).toLocaleString()}`);
+    console.log(`${indent}Modified: ${new Date(issue.updated_date).toLocaleString()}`);
   }
 }
 
 function displayTask(
-  task: any,
+  task: TaskData,
   issueIsLast: boolean,
   isLast: boolean,
   options: BacklogOptions
@@ -389,7 +413,7 @@ function displayTask(
   const priorityColor = getPriorityColor(task.priority);
 
   console.log(
-    `${issuePrefix}${taskPrefix}✅ ${statusEmoji} ${priorityColor(task.priority.toUpperCase())} ${task.title} ${Formatter.dim(`(${task.id})`)}`
+    `${issuePrefix}${taskPrefix}✅ ${statusEmoji} ${priorityColor(task.priority.toUpperCase())} ${task.title} ${Formatter.dim(`(${task.task_id})`)}`
   );
 
   if (options.detailed) {
@@ -400,14 +424,14 @@ function displayTask(
   }
 }
 
-function displayPR(pr: any, issueIsLast: boolean, isLast: boolean, options: BacklogOptions): void {
+function displayPR(pr: PRData, issueIsLast: boolean, isLast: boolean, options: BacklogOptions): void {
   const issuePrefix = issueIsLast ? '    ' : '│   ';
   const prPrefix = isLast ? '└── ' : '├── ';
   const statusEmoji = getStatusEmoji(pr.status);
   const priorityColor = getPriorityColor(pr.priority);
 
   console.log(
-    `${issuePrefix}${prPrefix}🔄 ${statusEmoji} ${priorityColor(pr.priority.toUpperCase())} ${pr.title} ${Formatter.dim(`(${pr.id})`)}`
+    `${issuePrefix}${prPrefix}🔄 ${statusEmoji} ${priorityColor(pr.priority.toUpperCase())} ${pr.title} ${Formatter.dim(`(${pr.pr_id})`)}`
   );
 
   if (options.detailed) {
@@ -418,7 +442,7 @@ function displayPR(pr: any, issueIsLast: boolean, isLast: boolean, options: Back
   }
 }
 
-function displayBacklogItem(item: any, index: number, options: BacklogOptions): void {
+function displayBacklogItem(item: BacklogItem, index: number, options: BacklogOptions): void {
   const typeEmoji = getTypeEmoji(item.type);
   const statusEmoji = getStatusEmoji(item.status);
   const priorityColor = getPriorityColor(item.priority);
@@ -426,7 +450,7 @@ function displayBacklogItem(item: any, index: number, options: BacklogOptions): 
   const tagsInfo = item.tags?.length ? ` [${item.tags.join(', ')}]` : '';
 
   console.log(
-    `  ${(index + 1).toString().padStart(3, ' ')}. ${typeEmoji} ${statusEmoji} ${priorityColor(item.priority.toUpperCase())} ${item.title}${assigneeInfo}${tagsInfo} ${Formatter.dim(`(${item.id})`)}`
+    `  ${(index + 1).toString().padStart(3, ' ')}. ${typeEmoji} ${statusEmoji} ${priorityColor(item.priority.toUpperCase())} ${item.title}${assigneeInfo}${tagsInfo} ${Formatter.dim(`(${getItemId(item)})`)}`
   );
 
   if (options.detailed) {
@@ -440,7 +464,7 @@ function displayBacklogItem(item: any, index: number, options: BacklogOptions): 
   }
 }
 
-async function exportBacklog(data: any, filename: string): Promise<void> {
+async function exportBacklog(data: BacklogData, filename: string): Promise<void> {
   const exportData = {
     exportTime: new Date().toISOString(),
     summary: {
@@ -458,12 +482,22 @@ async function exportBacklog(data: any, filename: string): Promise<void> {
 }
 
 // Helper functions
-function getItemType(id: string): string {
+// Helper function to get item ID based on type
+function getItemId(item: AnyItemData): string {
+  if ('epic_id' in item) return item.epic_id;
+  if ('issue_id' in item) return item.issue_id;
+  if ('task_id' in item) return item.task_id;
+  if ('pr_id' in item) return item.pr_id;
+  if ('project_id' in item) return item.project_id;
+  throw new Error('Unknown item type');
+}
+
+function getItemType(id: string): 'epic' | 'issue' | 'task' | 'pr' {
   if (id.startsWith('EP-')) return 'epic';
   if (id.startsWith('ISS-')) return 'issue';
   if (id.startsWith('TSK-')) return 'task';
   if (id.startsWith('PR-')) return 'pr';
-  return 'unknown';
+  throw new Error(`Unknown item type for ID: ${id}`);
 }
 
 function getTypeEmoji(type: string): string {

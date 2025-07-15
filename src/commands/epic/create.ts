@@ -22,6 +22,7 @@ interface CreateOptions {
   template?: string;
   estimatedTokens?: number;
   tags?: string;
+  labels?: string;
   milestone?: string;
   project?: string;
   dryRun?: boolean;
@@ -45,6 +46,7 @@ export function createEpicCreateCommand(): Command {
     .option('-t, --template <name>', 'template to use', 'default')
     .option('-e, --estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
+    .option('--labels <labels>', 'comma-separated labels (alias for --tags)')
     .option('-m, --milestone <name>', 'milestone name')
     .option('--project <name>', 'project name (for multi-project mode)')
     .option('--dry-run', 'show what would be created without creating')
@@ -100,8 +102,9 @@ async function createEpic(title: string, options: CreateOptions): Promise<void> 
     throw new Error(`Epic template '${options.template || 'default'}' not found`);
   }
 
-  // Parse tags
-  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  // Parse tags (support both --tags and --labels)
+  const tagsInput = options.tags || options.labels;
+  const tags = tagsInput ? tagsInput.split(',').map((tag) => tag.trim()) : [];
 
   // Create epic frontmatter with project context
   const now = new Date().toISOString();

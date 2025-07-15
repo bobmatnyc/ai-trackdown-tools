@@ -17,6 +17,7 @@ interface ListOptions {
   issue?: string;
   epic?: string;
   tags?: string;
+  labels?: string;
   search?: string;
   format?: 'table' | 'json' | 'yaml';
   sortBy?: 'created' | 'updated' | 'title' | 'priority' | 'status';
@@ -36,6 +37,7 @@ export function createTaskListCommand(): Command {
     .option('-i, --issue <issue-id>', 'filter by issue ID')
     .option('-e, --epic <epic-id>', 'filter by epic ID')
     .option('-t, --tags <tags>', 'filter by tags (comma-separated)')
+    .option('--labels <labels>', 'filter by labels (comma-separated, alias for --tags)')
     .option('--search <term>', 'search in title, description, and content')
     .option('-f, --format <type>', 'output format (table|json|yaml)', 'table')
     .option('--sort-by <field>', 'sort by field (created|updated|title|priority|status)', 'created')
@@ -86,8 +88,9 @@ async function listTasks(options: ListOptions): Promise<void> {
     filters.assignee = options.assignee;
   }
 
-  if (options.tags) {
-    const tags = options.tags.split(',').map((t) => t.trim());
+  if (options.tags || options.labels) {
+    const tagsInput = options.tags || options.labels;
+    const tags = tagsInput.split(',').map((t) => t.trim());
     filters.tags = tags.length === 1 ? tags[0] : tags;
   }
 

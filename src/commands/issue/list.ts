@@ -16,6 +16,7 @@ interface ListOptions {
   assignee?: string;
   epic?: string;
   tags?: string[];
+  labels?: string[];
   format?: 'table' | 'json' | 'yaml';
   limit?: number;
   offset?: number;
@@ -35,6 +36,7 @@ export function createIssueListCommand(): Command {
     .option('--assignee <assignee>', 'filter by assignee')
     .option('--epic <epic-id>', 'filter by epic ID')
     .option('--tags <tags...>', 'filter by tags')
+    .option('--labels <labels...>', 'filter by labels (alias for --tags)')
     .option('-f, --format <type>', 'output format (table|json|yaml)', 'table')
     .option('--limit <number>', 'limit number of results', '50')
     .option('--offset <number>', 'offset for pagination', '0')
@@ -96,9 +98,10 @@ async function listIssues(options: ListOptions): Promise<void> {
     });
   }
 
-  if (options.tags && options.tags.length > 0) {
+  if ((options.tags && options.tags.length > 0) || (options.labels && options.labels.length > 0)) {
+    const tagsToFilter = options.tags || options.labels || [];
     issues = issues.filter(
-      (issue) => issue.tags && options.tags?.some((tag) => issue.tags.includes(tag))
+      (issue) => issue.tags && tagsToFilter.some((tag) => issue.tags.includes(tag))
     );
   }
 

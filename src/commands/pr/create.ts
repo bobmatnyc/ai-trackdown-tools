@@ -23,6 +23,7 @@ interface CreateOptions {
   template?: string;
   estimatedTokens?: number;
   tags?: string;
+  labels?: string;
   branchName?: string;
   sourceBranch?: string;
   targetBranch?: string;
@@ -51,6 +52,7 @@ export function createPRCreateCommand(): Command {
     .option('-t, --template <name>', 'template to use', 'default')
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
+    .option('--labels <labels>', 'comma-separated labels (alias for --tags)')
     .option('-b, --branch-name <name>', 'branch name for the PR')
     .option('--source-branch <name>', 'source branch name')
     .option('--target-branch <name>', 'target branch name (default: main)')
@@ -109,8 +111,9 @@ async function createPR(title: string, options: CreateOptions): Promise<void> {
     throw new Error(`PR template '${options.template || 'default'}' not found`);
   }
 
-  // Parse tags, reviewers, and dependencies
-  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  // Parse tags, reviewers, and dependencies (support both --tags and --labels)
+  const tagsInput = options.tags || options.labels;
+  const tags = tagsInput ? tagsInput.split(',').map((tag) => tag.trim()) : [];
   const reviewers = options.reviewers ? options.reviewers.split(',').map((r) => r.trim()) : [];
   const dependencies = options.dependencies
     ? options.dependencies.split(',').map((dep) => dep.trim())

@@ -24,6 +24,7 @@ interface CreateOptions {
   estimatedTokens?: number;
   timeEstimate?: string;
   tags?: string;
+  labels?: string;
   dependencies?: string;
   dryRun?: boolean;
 }
@@ -48,6 +49,7 @@ export function createTaskCreateCommand(): Command {
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
     .option('--time-estimate <duration>', 'estimated time (e.g., 2h, 30m, 1d)')
     .option('--tags <tags>', 'comma-separated tags')
+    .option('--labels <labels>', 'comma-separated labels (alias for --tags)')
     .option('--dependencies <ids>', 'comma-separated dependency IDs')
     .option('--dry-run', 'show what would be created without creating')
     .action(async (titleArg: string | undefined, options: CreateOptions) => {
@@ -104,8 +106,9 @@ async function createTask(title: string, options: CreateOptions): Promise<void> 
     throw new Error(`Task template '${options.template || 'default'}' not found`);
   }
 
-  // Parse tags and dependencies
-  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  // Parse tags and dependencies (support both --tags and --labels)
+  const tagsInput = options.tags || options.labels;
+  const tags = tagsInput ? tagsInput.split(',').map((tag) => tag.trim()) : [];
   const dependencies = options.dependencies
     ? options.dependencies.split(',').map((dep) => dep.trim())
     : [];

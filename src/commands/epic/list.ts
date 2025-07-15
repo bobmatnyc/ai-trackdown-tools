@@ -15,6 +15,7 @@ interface ListOptions {
   priority?: string;
   assignee?: string;
   tags?: string;
+  labels?: string;
   milestone?: string;
   search?: string;
   format?: 'table' | 'json' | 'yaml';
@@ -37,6 +38,7 @@ export function createEpicListCommand(): Command {
     .option('-p, --priority <priorities>', 'filter by priority (comma-separated)')
     .option('-a, --assignee <username>', 'filter by assignee')
     .option('-t, --tags <tags>', 'filter by tags (comma-separated)')
+    .option('--labels <labels>', 'filter by labels (comma-separated, alias for --tags)')
     .option('-m, --milestone <name>', 'filter by milestone')
     .option('--search <term>', 'search in title, description, and content')
     .option('-f, --format <type>', 'output format (table|json|yaml)', 'table')
@@ -99,8 +101,9 @@ async function listEpics(options: ListOptions): Promise<void> {
     filters.assignee = options.assignee;
   }
 
-  if (options.tags) {
-    const tags = options.tags.split(',').map((t) => t.trim());
+  if (options.tags || options.labels) {
+    const tagsInput = options.tags || options.labels;
+    const tags = tagsInput.split(',').map((t) => t.trim());
     filters.tags = tags.length === 1 ? tags[0] : tags;
   }
 

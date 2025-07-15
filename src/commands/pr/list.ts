@@ -17,6 +17,7 @@ interface ListOptions {
   issue?: string;
   epic?: string;
   tags?: string;
+  labels?: string;
   reviewer?: string;
   branch?: string;
   repository?: string;
@@ -42,6 +43,7 @@ export function createPRListCommand(): Command {
     .option('-i, --issue <issue-id>', 'filter by issue ID')
     .option('-e, --epic <epic-id>', 'filter by epic ID')
     .option('-t, --tags <tags>', 'filter by tags (comma-separated)')
+    .option('--labels <labels>', 'filter by labels (comma-separated, alias for --tags)')
     .option('-r, --reviewer <username>', 'filter by reviewer')
     .option('-b, --branch <name>', 'filter by branch name')
     .option('--repository <url>', 'filter by repository URL')
@@ -73,13 +75,13 @@ export function createPRListCommand(): Command {
 async function listPRs(options: ListOptions): Promise<void> {
   const configManager = new ConfigManager();
   const config = configManager.getConfig();
-  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
 
   // Get CLI tasks directory from parent command options
   const cliTasksDir = process.env.CLI_TASKS_DIR;
 
   // Get absolute paths with CLI override
   const paths = configManager.getAbsolutePaths(cliTasksDir);
+  const relationshipManager = new RelationshipManager(config, paths.projectRoot, cliTasksDir);
 
   // Get all PRs
   const allPRs = relationshipManager.getAllPRs();
@@ -116,8 +118,9 @@ async function listPRs(options: ListOptions): Promise<void> {
     filteredPRs = filteredPRs.filter((pr) => pr.epic_id === options.epic);
   }
 
-  if (options.tags) {
-    const filterTags = options.tags.split(',').map((tag) => tag.trim());
+  if (options.tags || options.labels) {
+    const tagsInput = options.tags || options.labels;
+    const filterTags = tagsInput.split(',').map((tag) => tag.trim());
     filteredPRs = filteredPRs.filter((pr) => pr.tags?.some((tag) => filterTags.includes(tag)));
   }
 

@@ -4,6 +4,8 @@
  */
 
 import { Command } from 'commander';
+import type { AnyItemData } from '../../types/ai-trackdown.js';
+import { isEpicData, isIssueData, isTaskData } from '../../types/ai-trackdown.js';
 import { ConfigManager } from '../../utils/config-manager.js';
 import { Formatter } from '../../utils/formatter.js';
 import { FrontmatterParser } from '../../utils/frontmatter-parser.js';
@@ -17,6 +19,12 @@ interface TrackOptions {
   operation?: 'add' | 'set';
   report?: boolean;
   format?: 'table' | 'json' | 'summary';
+}
+
+interface TokenUpdates {
+  updated_date: string;
+  estimated_tokens?: number;
+  actual_tokens?: number;
 }
 
 export function createAiTrackTokensCommand(): Command {
@@ -80,13 +88,17 @@ async function updateItemTokens(
   options: TrackOptions
 ): Promise<void> {
   // Find the item
-  const searchResult = relationshipManager.search({ content_search: options.itemId! });
+  if (!options.itemId) {
+    throw new Error('Item ID is required for token updates');
+  }
+
+  const searchResult = relationshipManager.search({ content_search: options.itemId });
   const item = searchResult.items.find((item) => {
-    if (options.itemId?.startsWith('EP-') && 'epic_id' in item)
+    if (options.itemId?.startsWith('EP-') && isEpicData(item))
       return item.epic_id === options.itemId;
-    if (options.itemId?.startsWith('ISS-') && 'issue_id' in item)
+    if (options.itemId?.startsWith('ISS-') && isIssueData(item))
       return item.issue_id === options.itemId;
-    if (options.itemId?.startsWith('TSK-') && 'task_id' in item)
+    if (options.itemId?.startsWith('TSK-') && isTaskData(item))
       return item.task_id === options.itemId;
     return false;
   });
@@ -96,7 +108,7 @@ async function updateItemTokens(
   }
 
   // Prepare updates
-  const updates: any = {
+  const updates: TokenUpdates = {
     updated_date: new Date().toISOString(),
   };
 
@@ -157,11 +169,11 @@ async function showTokenReport(
     items = items.filter((item) => {
       switch (typeFilter) {
         case 'epic':
-          return 'epic_id' in item && !('issue_id' in item);
+          return isEpicData(item);
         case 'issue':
-          return 'issue_id' in item && !('task_id' in item);
+          return isIssueData(item);
         case 'task':
-          return 'task_id' in item;
+          return isTaskData(item);
         default:
           return true;
       }
@@ -217,7 +229,7 @@ async function showTokenReport(
           acc[type].push(item);
           return acc;
         },
-        {} as Record<string, any[]>
+        {} as Record<string, AnyItemData[]>
       );
 
       for (const [type, typeItems] of Object.entries(byType)) {
@@ -287,17 +299,17 @@ async function showTokenReport(
   }
 }
 
-function getItemId(item: any): string {
-  if (item.epic_id && !item.issue_id && !item.task_id) return item.epic_id;
-  if (item.issue_id && !item.task_id) return item.issue_id;
-  if (item.task_id) return item.task_id;
+function getItemId(item: AnyItemData): string {
+  if (isEpicData(item)) return item.epic_id;
+  if (isIssueData(item)) return item.issue_id;
+  if (isTaskData(item)) return item.task_id;
   return 'UNKNOWN';
 }
 
-function getItemType(item: any): string {
-  if (item.epic_id && !item.issue_id && !item.task_id) return 'epic';
-  if (item.issue_id && !item.task_id) return 'issue';
-  if (item.task_id) return 'task';
+function getItemType(item: AnyItemData): string {
+  if (isEpicData(item)) return 'epic';
+  if (isIssueData(item)) return 'issue';
+  if (isTaskData(item)) return 'task';
   return 'unknown';
 }
 

@@ -26,6 +26,7 @@ interface CreateOptions {
   template?: string;
   estimatedTokens?: number;
   tags?: string;
+  labels?: string;
   milestone?: string;
   dependencies?: string;
   project?: string;
@@ -55,6 +56,7 @@ export function createIssueCreateCommand(): Command {
     .option('-t, --template <name>', 'template to use', 'default')
     .option('--estimated-tokens <number>', 'estimated token usage', '0')
     .option('--tags <tags>', 'comma-separated tags')
+    .option('--labels <labels>', 'comma-separated labels (alias for --tags)')
     .option('-m, --milestone <name>', 'milestone name')
     .option('--dependencies <ids>', 'comma-separated dependency IDs')
     .option('--project <name>', 'project name (for multi-project mode)')
@@ -145,8 +147,9 @@ async function createIssue(title: string, options: CreateOptions): Promise<void>
     throw new Error(`Issue template '${options.template || 'default'}' not found`);
   }
 
-  // Parse tags and dependencies
-  const tags = options.tags ? options.tags.split(',').map((tag) => tag.trim()) : [];
+  // Parse tags and dependencies (support both --tags and --labels)
+  const tagsInput = options.tags || options.labels;
+  const tags = tagsInput ? tagsInput.split(',').map((tag) => tag.trim()) : [];
   const dependencies = options.dependencies
     ? options.dependencies.split(',').map((dep) => dep.trim())
     : [];
