@@ -23,6 +23,7 @@ import { createSyncCommand } from './commands/sync.js';
 import { createTaskCommand } from './commands/task.js';
 import { createTrackCommand } from './commands/track.js';
 import { createVersionCommand } from './commands/version.js';
+import { createCommentCommand } from './commands/comment/index.js';
 import { Formatter } from './utils/formatter.js';
 import { VersionManager } from './utils/version.js';
 
@@ -123,6 +124,7 @@ async function main(): Promise<void> {
   program.addCommand(createIssueCommand());
   program.addCommand(createTaskCommand());
   program.addCommand(createPRCommand());
+  program.addCommand(createCommentCommand());
   program.addCommand(createAiCommand());
   program.addCommand(createSyncCommand());
 

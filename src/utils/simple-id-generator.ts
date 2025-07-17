@@ -13,11 +13,13 @@ export class IdGenerator {
     issue: number;
     task: number;
     pr: number;
+    comment: number;
   } = {
     epic: 1,
     issue: 1,
     task: 1,
     pr: 1,
+    comment: 1,
   };
 
   constructor() {
@@ -67,6 +69,16 @@ export class IdGenerator {
   }
 
   /**
+   * Generate unique Comment ID
+   */
+  public generateCommentId(): string {
+    const id = `COMMENT-${this.counters.comment.toString().padStart(4, '0')}`;
+    this.counters.comment++;
+    this.saveCounters();
+    return id;
+  }
+
+  /**
    * Load counters from file
    */
   private loadCounters(): void {
@@ -79,6 +91,7 @@ export class IdGenerator {
         this.counters.issue = Math.max(1, loaded.issue || 1);
         this.counters.task = Math.max(1, loaded.task || 1);
         this.counters.pr = Math.max(1, loaded.pr || 1);
+        this.counters.comment = Math.max(1, loaded.comment || 1);
       }
     } catch (_error) {
       // Keep default values

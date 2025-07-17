@@ -2,6 +2,7 @@
 
 // Export new AI-Trackdown types
 export * from './ai-trackdown.js';
+export * from './comment.js';
 
 export interface CommandOptions {
   verbose?: boolean;

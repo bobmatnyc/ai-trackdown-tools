@@ -597,3 +597,9 @@ export function formatBadge(
 
   return colors[color](`[${text}]`);
 }
+
+export function formatComment(comment: any): string {
+  // Format comment body with proper indentation
+  const lines = comment.body.split('\n');
+  return lines.map((line: string) => `  ${line}`).join('\n');
+}
