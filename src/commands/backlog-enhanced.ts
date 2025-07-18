@@ -34,7 +34,7 @@ interface BacklogData {
 }
 
 interface BacklogItem extends AnyItemData {
-  type: 'epic' | 'issue' | 'task' | 'pr';
+  type: 'epic' | 'issue' | 'task' | 'pr' | 'project';
   lastModified: string;
 }
 
@@ -484,19 +484,27 @@ async function exportBacklog(data: BacklogData, filename: string): Promise<void>
 // Helper functions
 // Helper function to get item ID based on type
 function getItemId(item: AnyItemData): string {
-  if ('epic_id' in item) return item.epic_id;
-  if ('issue_id' in item) return item.issue_id;
-  if ('task_id' in item) return item.task_id;
-  if ('pr_id' in item) return item.pr_id;
-  if ('project_id' in item) return item.project_id;
+  // Handle items from the index manager which use 'id' field
+  if ('id' in item && typeof item.id === 'string') return item.id;
+  
+  // Handle typed data structures
+  if ('epic_id' in item && item.epic_id) return item.epic_id;
+  if ('issue_id' in item && item.issue_id) return item.issue_id;
+  if ('task_id' in item && item.task_id) return item.task_id;
+  if ('pr_id' in item && item.pr_id) return item.pr_id;
+  // Note: project_id in items like issues/tasks is a reference, not the item's own ID
+  // Only ProjectData has project_id as its own ID
+  if ('type' in item && item.type === 'project' && 'project_id' in item) return item.project_id;
+  
   throw new Error('Unknown item type');
 }
 
-function getItemType(id: string): 'epic' | 'issue' | 'task' | 'pr' {
+function getItemType(id: string): 'epic' | 'issue' | 'task' | 'pr' | 'project' {
   if (id.startsWith('EP-')) return 'epic';
   if (id.startsWith('ISS-')) return 'issue';
   if (id.startsWith('TSK-')) return 'task';
   if (id.startsWith('PR-')) return 'pr';
+  if (id.startsWith('PRJ-')) return 'project';
   throw new Error(`Unknown item type for ID: ${id}`);
 }
 
@@ -510,6 +518,8 @@ function getTypeEmoji(type: string): string {
       return '✅';
     case 'pr':
       return '🔄';
+    case 'project':
+      return '📁';
     default:
       return '📄';
   }

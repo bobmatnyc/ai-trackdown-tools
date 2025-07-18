@@ -139,7 +139,7 @@ export class GitHubSyncEngine {
   /**
    * Pull changes from GitHub
    */
-  async pullFromGitHub(): Promise<SyncResult> {
+  async pullFromGitHub(options: { since?: string } = {}): Promise<SyncResult> {
     const result: SyncResult = {
       success: false,
       operations: [],
@@ -152,7 +152,10 @@ export class GitHubSyncEngine {
     };
 
     try {
-      const githubIssues = await this.client.getAllIssues();
+      const githubIssues = await this.client.getAllIssues({
+        state: 'all',
+        since: options.since,
+      });
       const localIssues = await this.getLocalIssues();
 
       // Create ID mappings

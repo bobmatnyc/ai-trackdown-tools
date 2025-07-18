@@ -39,6 +39,8 @@ export function createSyncCommand(): Command {
     console.log('  aitrackdown sync setup --repository owner/repo --token ghp_xxx');
     console.log('  aitrackdown sync push --verbose');
     console.log('  aitrackdown sync pull --dry-run');
+    console.log('  aitrackdown sync pull --days 7              # Pull issues updated in last 7 days');
+    console.log('  aitrackdown sync pull --since 2024-01-01   # Pull issues updated since date');
     console.log('  aitrackdown sync bidirectional');
     console.log('  aitrackdown sync status --verbose');
     console.log('  aitrackdown sync auto --enable');

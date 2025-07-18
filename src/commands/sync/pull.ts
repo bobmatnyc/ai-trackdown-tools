@@ -17,6 +17,8 @@ export function createSyncPullCommand(): Command {
     .option('--dry-run', 'Show what would be pulled without making changes')
     .option('--force', 'Force pull even with conflicts')
     .option('--verbose', 'Show detailed progress information')
+    .option('--since <date>', 'Only pull issues updated after this date (ISO 8601 format)')
+    .option('--days <number>', 'Only pull issues updated in the last N days', parseInt)
     .action(async (options) => {
       try {
         const configManager = new ConfigManager();
@@ -48,11 +50,26 @@ export function createSyncPullCommand(): Command {
 
         spinner.succeed('GitHub connection verified');
 
+        // Calculate date filter if provided
+        let sinceDate: string | undefined;
+        if (options.since) {
+          sinceDate = options.since;
+        } else if (options.days) {
+          const date = new Date();
+          date.setDate(date.getDate() - options.days);
+          sinceDate = date.toISOString();
+        }
+
+        if (sinceDate) {
+          console.log(Formatter.info(`Filtering issues updated since: ${sinceDate}`));
+          console.log('');
+        }
+
         // Perform pull operation
         const pullSpinner = ora('Pulling changes from GitHub...').start();
 
         try {
-          const result = await syncEngine.pullFromGitHub();
+          const result = await syncEngine.pullFromGitHub({ since: sinceDate });
 
           if (options.dryRun) {
             pullSpinner.succeed('Dry run completed');
