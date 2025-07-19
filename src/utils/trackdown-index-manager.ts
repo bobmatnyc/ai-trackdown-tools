@@ -26,6 +26,7 @@ import type {
 import { FrontmatterParser } from './frontmatter-parser.js';
 import { type ProjectDetectionResult, ProjectDetector } from './project-detector.js';
 import { UnifiedPathResolver } from './unified-path-resolver.js';
+import { TicketComplianceFixer } from './ticket-compliance-fixer.js';
 
 // Async file operations for better performance
 const readFile = promisify(fs.readFile);
@@ -154,6 +155,7 @@ export class TrackdownIndexManager {
     this.pathResolver = new UnifiedPathResolver(config, projectPath, cliTasksDir);
     this.frontmatterParser = new FrontmatterParser();
     this.projectDetector = new ProjectDetector(projectPath);
+    this.complianceFixer = new TicketComplianceFixer();
 
     // Check test mode flags for performance optimization
     this.isTestMode =
@@ -424,6 +426,9 @@ export class TrackdownIndexManager {
         return;
       }
 
+      // Fix compliance issues before parsing
+      await this.complianceFixer.fixTicketCompliance(filePath);
+      
       // Parse the updated file
       const itemData = this.frontmatterParser.parseAnyItem(filePath);
 
@@ -1081,6 +1086,11 @@ export class TrackdownIndexManager {
       const batchPromises = batch.map(async (file) => {
         try {
           const filePath = path.join(dirPath, file);
+          
+          // Fix compliance issues before parsing
+          await this.complianceFixer.fixTicketCompliance(filePath);
+          
+          // Now parse the potentially fixed file
           return this.frontmatterParser.parseAnyItem(filePath);
         } catch (error) {
           console.warn(

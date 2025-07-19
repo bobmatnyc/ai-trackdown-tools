@@ -9,7 +9,7 @@ This document defines the authoritative data structures for the AI Trackdown Too
 ```typescript
 interface Issue {
   id: string;              // Format: ISS-XXXX (e.g., ISS-0001)
-  epicId?: string;         // Format: EPIC-XXXX (optional)
+  epicId?: string;         // Format: EP-XXXX (optional)
   title: string;
   description: string;
   status: 'planning' | 'in-progress' | 'completed' | 'closed';
@@ -32,7 +32,7 @@ interface Issue {
 
 ```typescript
 interface Epic {
-  id: string;              // Format: EPIC-XXXX (e.g., EPIC-0001)
+  id: string;              // Format: EP-XXXX (e.g., EP-0001)
   title: string;
   description: string;
   status: 'planning' | 'in-progress' | 'completed' | 'closed';
@@ -141,7 +141,7 @@ interface IdTracker {
 
 ### Epics
 - Location: `tasks/epics/`
-- Filename: `EPIC-XXXX-<slugified-title>.md`
+- Filename: `EP-XXXX-<slugified-title>.md`
 - Format: Markdown with YAML frontmatter
 
 ### Comments
@@ -158,7 +158,7 @@ interface IdTracker {
 
 ### ID Formats
 - Issues: `ISS-` followed by 4-digit zero-padded number
-- Epics: `EPIC-` followed by 4-digit zero-padded number
+- Epics: `EP-` followed by 4-digit zero-padded number
 - Comments: `COMMENT-` followed by 4-digit zero-padded number
 - Relationships: `REL-` followed by 4-digit zero-padded number
 
@@ -188,7 +188,7 @@ title: Issue Title
 status: planning
 priority: high
 labels: [bug, urgent]
-epicId: EPIC-0001
+epicId: EP-0001
 assignee: username
 createdAt: 2024-01-15T10:30:00-05:00
 updatedAt: 2024-01-15T10:30:00-05:00
@@ -224,6 +224,35 @@ Comment body text here...
 
 The schema is designed to be compatible with GitHub's issue tracking system where applicable, allowing for potential future integration or migration.
 
+## Relationship Management
+
+### How Relationships Work
+
+1. **Hierarchical Structure**:
+   - Epics are top-level containers
+   - Issues belong to Epics (via `epicId` in frontmatter)
+   - Tasks belong to Issues (via `issueId` in frontmatter)
+   - Comments belong to Issues (via `issueId` in frontmatter and directory structure)
+
+2. **Relationship Storage**:
+   - Parent-child relationships are stored in YAML frontmatter ONLY
+   - No parent IDs should be duplicated in the ticket body content
+   - This ensures a single source of truth and prevents inconsistencies
+
+3. **Comment Organization**:
+   - Comments use simple `COMMENT-XXXX` IDs
+   - Parent relationship is defined by:
+     - Directory structure: `tasks/issues/comments/ISS-XXXX/`
+     - Frontmatter field: `issueId: ISS-XXXX`
+   - This keeps IDs short while maintaining clear relationships
+
+4. **Dependency Tracking**:
+   - Items can have `dependencies`, `blocked_by`, and `blocks` arrays in frontmatter
+   - These reference other item IDs to create cross-cutting relationships
+   - The RelationshipManager validates these to prevent circular dependencies
+
 ## Version History
 
 - v1.0.0 - Initial schema definition with Issues, Epics, Comments, and Relationships
+- v1.0.1 - Updated Epic ID format from EPIC-XXXX to EP-XXXX to match implementation
+- v1.0.2 - Clarified relationship management patterns and best practices

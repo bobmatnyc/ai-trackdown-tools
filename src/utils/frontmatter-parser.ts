@@ -27,6 +27,71 @@ const FRONTMATTER_REGEX = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
 
 export class FrontmatterParser {
   /**
+   * Parse raw content with YAML frontmatter
+   * This is the generic parse method that parses content directly
+   */
+  public parse(content: string): { frontmatter: AnyFrontmatter; content: string } {
+    const match = content.match(FRONTMATTER_REGEX);
+
+    if (!match) {
+      // Try legacy format where content might be in frontmatter
+      try {
+        const frontmatter = YAML.parse(content) as AnyFrontmatter;
+        // Check if it has a content field (legacy format)
+        if ('content' in frontmatter && typeof frontmatter.content === 'string') {
+          const actualContent = frontmatter.content;
+          delete (frontmatter as any).content;
+          return {
+            frontmatter,
+            content: actualContent,
+          };
+        }
+      } catch {
+        // Not valid YAML, treat as plain content
+      }
+      
+      // No frontmatter found, return empty frontmatter
+      return {
+        frontmatter: {} as AnyFrontmatter,
+        content: content.trim(),
+      };
+    }
+
+    const [, yamlContent, markdownContent] = match;
+
+    try {
+      const frontmatter = YAML.parse(yamlContent) as AnyFrontmatter;
+      
+      // Handle legacy format where content might be in frontmatter
+      if ('content' in frontmatter && typeof frontmatter.content === 'string' && !markdownContent.trim()) {
+        const actualContent = frontmatter.content;
+        delete (frontmatter as any).content;
+        return {
+          frontmatter,
+          content: actualContent,
+        };
+      }
+      
+      return {
+        frontmatter,
+        content: markdownContent.trim(),
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to parse YAML frontmatter: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Stringify frontmatter and content to file format
+   * This is the public version of serializeWithFrontmatter
+   */
+  public stringify(frontmatter: AnyFrontmatter, content: string): string {
+    return this.serializeWithFrontmatter(frontmatter, content);
+  }
+
+  /**
    * Parse an Epic file with YAML frontmatter
    */
   public parseEpic(filePath: string): EpicData {
@@ -290,23 +355,12 @@ export class FrontmatterParser {
     }
 
     const fileContent = fs.readFileSync(filePath, 'utf8');
-    const match = fileContent.match(FRONTMATTER_REGEX);
-
-    if (!match) {
-      throw new Error(`No valid YAML frontmatter found in file: ${filePath}`);
-    }
-
-    const [, yamlContent, markdownContent] = match;
-
+    
     try {
-      const frontmatter = YAML.parse(yamlContent) as AnyFrontmatter;
-      return {
-        frontmatter,
-        content: markdownContent.trim(),
-      };
+      return this.parse(fileContent);
     } catch (error) {
       throw new Error(
-        `Failed to parse YAML frontmatter in ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to parse file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

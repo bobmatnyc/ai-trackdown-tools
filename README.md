@@ -4,8 +4,11 @@
 [![npm downloads](https://img.shields.io/npm/dm/@bobmatnyc/ai-trackdown-tools.svg)](https://www.npmjs.com/package/@bobmatnyc/ai-trackdown-tools)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Node Version](https://img.shields.io/node/v/@bobmatnyc/ai-trackdown-tools.svg)](https://www.npmjs.com/package/@bobmatnyc/ai-trackdown-tools)
+[![AI-Trackdown Compatibility](https://img.shields.io/badge/ai--trackdown-%5E1.0.0-brightgreen.svg)](https://github.com/bobmatnyc/ai-trackdown)
 
 A professional CLI tool for AI-first project management with hierarchical Epic→Issue→Task workflows, comprehensive Pull Request management, token tracking, and YAML frontmatter support.
+
+**Compatible with ai-trackdown schema v1.0.0 and above**
 
 ## What's New in v1.1.7
 
