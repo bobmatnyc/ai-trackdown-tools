@@ -101,11 +101,6 @@ async function handleCloseIssue(issueId: string, options: IssueCloseOptions): Pr
     updated_date: new Date().toISOString(),
   };
 
-  // Add comment if provided
-  if (options.comment) {
-    updates.closing_comment = options.comment;
-  }
-
   // Show what would be updated
   console.log(Formatter.info(`${options.dryRun ? 'Dry run - ' : ''}Closing issue:`));
   console.log(`  Issue: ${issue.issue_id} - ${issue.title}`);
@@ -120,9 +115,17 @@ async function handleCloseIssue(issueId: string, options: IssueCloseOptions): Pr
     return;
   }
 
+  // Build append content from comment
+  let appendContent = '';
+  if (options.comment) {
+    const timestamp = new Date().toISOString();
+    appendContent = `\n## Closed: ${timestamp}\n`;
+    appendContent += `**Comment**: ${options.comment}\n`;
+  }
+
   // Perform update
   try {
-    const updatedIssue = parser.updateFile(issue.file_path, updates);
+    const updatedIssue = parser.updateFile(issue.file_path, updates, appendContent || undefined);
 
     // Refresh cache
     relationshipManager.rebuildCache();

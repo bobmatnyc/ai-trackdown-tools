@@ -169,10 +169,27 @@ async function completeIssue(issueId: string, options: CompleteOptions): Promise
     return;
   }
 
+  // Build append content from completion notes and comment
+  let appendContent = '';
+  const timestamp = new Date().toISOString();
+  
+  if (options.completionNotes || options.comment) {
+    appendContent += `\n## Completion: ${timestamp}\n`;
+    appendContent += `**Status**: completed\n`;
+    
+    if (options.completionNotes) {
+      appendContent += `**Notes**: ${options.completionNotes}\n`;
+    }
+    
+    if (options.comment) {
+      appendContent += `**Comment**: ${options.comment}\n`;
+    }
+  }
+
   // Perform updates
   try {
-    // Update issue
-    const updatedIssue = parser.updateFile(issue.file_path, updates);
+    // Update issue with append content
+    const updatedIssue = parser.updateFile(issue.file_path, updates, appendContent || undefined);
 
     // Update tasks if auto-complete is enabled
     for (const task of taskUpdates) {

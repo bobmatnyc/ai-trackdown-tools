@@ -10,8 +10,14 @@ A professional CLI tool for AI-first project management with hierarchical Epic�
 
 **Compatible with ai-trackdown schema v1.0.0 and above**
 
-## What's New in v1.1.7
+## What's New in v1.3.0
 
+🚀 **Audit Trail Support**: New `--notes` and `--reason` options for issue/task updates  
+🚀 **State Change Tracking**: Document reasons for status changes with `--reason`  
+🚀 **General Notes**: Add timestamped notes to any issue/task with `--notes`  
+🚀 **Completion Notes**: Track completion details with `--completion-notes`  
+
+### Previous v1.1.7 Features
 🚀 **CLI Index Corruption Fix**: Resolved "No items found" errors in status and backlog commands  
 🚀 **Index Auto-Repair System**: Automatic detection and repair of corrupted index files  
 🚀 **New index-health Command**: Diagnostic command for CLI index validation and repair  
@@ -113,6 +119,37 @@ aitrackdown ai context --item-id EP-0001 --add "requirements context"
 aitrackdown index-health --verbose
 aitrackdown index-health --repair
 ```
+
+## Audit Trail Support (v1.3.0+)
+
+Track changes and maintain comprehensive audit trails with timestamped notes and state change reasons:
+
+```bash
+# Add general notes to any issue or task
+aitrackdown issue update ISS-0001 --notes "Discussed with team, approach approved"
+aitrackdown task update TSK-0001 --notes "Found edge case, adding additional validation"
+
+# Document reasons for state changes
+aitrackdown issue update ISS-0001 --status active --reason "Requirements finalized, starting implementation"
+aitrackdown issue update ISS-0001 --state ready_for_qa --reason "All tests passing, code review completed"
+
+# Combine notes and reasons in a single update
+aitrackdown issue update ISS-0001 --status completed --reason "All acceptance criteria met" --notes "Performance optimized, 50% faster than baseline"
+
+# Add completion notes when finishing work
+aitrackdown issue complete ISS-0001 --completion-notes "Implemented with caching strategy, reduced API calls by 80%"
+aitrackdown task complete TSK-0001 --completion-notes "Refactored for better maintainability"
+
+# Close issues with comments
+aitrackdown issue close ISS-0002 --comment "Duplicate of ISS-0001, consolidating work"
+```
+
+All notes and reasons are appended to the issue/task content with timestamps, creating a permanent audit trail in the markdown files. This is perfect for:
+- Tracking decision rationale
+- Documenting progress and blockers
+- Creating accountability records
+- Supporting compliance requirements
+- Facilitating team communication
 
 ## Pull Request Management
 
@@ -345,15 +382,23 @@ aitrackdown migrate --from-csv tasks.csv
 - `issue create` - Create issue with optional epic assignment (`--epic` is optional)
 - `issue assign` - Assign issue to team member
 - `issue update` - Update issue properties including epic assignment
+  - `--notes <text>` - Add timestamped notes to the issue
+  - `--reason <text>` - Document reason for state/status changes
 - `issue complete` - Complete issue with auto-task completion
+  - `--completion-notes <text>` - Add completion notes to the issue
+- `issue close` - Close issue (mark as completed)
+  - `--comment <text>` - Add closing comment
 - `issue list` - List issues (basic listing)
 - `issue show` - Show detailed issue information
 
 ### Task Commands
 - `task create` - Create task linked to issue
 - `task complete` - Complete task with time/token tracking
+  - `--completion-notes <text>` - Add completion notes to the task
 - `task list` - List tasks (basic listing)
 - `task update` - Update task status and metadata
+  - `--notes <text>` - Add timestamped notes to the task
+  - `--reason <text>` - Document reason for state/status changes
 
 ### Pull Request Commands (v2.0.0+)
 - `pr create` - Create PR from templates with auto-linking

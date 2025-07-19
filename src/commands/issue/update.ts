@@ -33,6 +33,7 @@ interface UpdateOptions {
   removeBlocks?: string;
   progress?: number;
   reason?: string;
+  notes?: string;
   reviewer?: string;
   dryRun?: boolean;
 }
@@ -64,6 +65,7 @@ export function createIssueUpdateCommand(): Command {
     .option('--remove-blocks <ids>', 'remove blocks (comma-separated IDs)')
     .option('--progress <percentage>', 'update completion percentage (0-100)')
     .option('--reason <text>', 'reason for state change (recommended for state updates)')
+    .option('--notes <text>', 'add general notes to the issue')
     .option('--reviewer <username>', 'reviewer who approved the change (for state updates)')
     .option('--dry-run', 'show what would be updated without updating')
     .action(async (issueId: string, options: UpdateOptions) => {
@@ -274,13 +276,16 @@ async function updateIssue(issueId: string, options: UpdateOptions): Promise<voi
     updates.blocks = newBlocks.length > 0 ? newBlocks : undefined;
   }
 
+  // Check if we have any updates (including notes/reason)
+  const hasUpdates = Object.keys(updates).length > 0 || options.notes || (options.reason && (options.state || options.status));
+  
   // Show what would be updated (dry run or verbose)
-  if (options.dryRun || Object.keys(updates).length === 0) {
+  if (options.dryRun || !hasUpdates) {
     console.log(Formatter.info(`${options.dryRun ? 'Dry run - ' : ''}Issue would be updated:`));
     console.log(Formatter.debug(`Issue ID: ${issueId}`));
     console.log(Formatter.debug(`File: ${filePath}`));
 
-    if (Object.keys(updates).length === 0) {
+    if (!hasUpdates) {
       console.log(Formatter.warning('No updates specified'));
       return;
     }
@@ -298,8 +303,33 @@ async function updateIssue(issueId: string, options: UpdateOptions): Promise<voi
   // Update the updated_date
   updates.updated_date = new Date().toISOString();
 
-  // Update the file
-  const updatedIssue = parser.updateFile(filePath, updates);
+  // Build append content from notes and reason
+  let appendContent = '';
+  const timestamp = new Date().toISOString();
+  
+  // Add reason if it's a state/status change and reason is provided
+  if (options.reason && (options.state || options.status)) {
+    appendContent += `\n## State Change: ${timestamp}\n`;
+    appendContent += `**Reason**: ${options.reason}\n`;
+    if (options.state) {
+      appendContent += `**New State**: ${options.state}\n`;
+    } else if (options.status) {
+      appendContent += `**New Status**: ${options.status}\n`;
+    }
+    if (options.reviewer) {
+      appendContent += `**Reviewer**: ${options.reviewer}\n`;
+    }
+  }
+  
+  // Add general notes if provided
+  if (options.notes) {
+    if (appendContent) appendContent += '\n';
+    appendContent += `\n## Note: ${timestamp}\n`;
+    appendContent += `${options.notes}\n`;
+  }
+
+  // Update the file with append content
+  const updatedIssue = parser.updateFile(filePath, updates, appendContent || undefined);
 
   // Refresh cache
   relationshipManager.rebuildCache();

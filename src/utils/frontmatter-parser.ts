@@ -282,7 +282,11 @@ export class FrontmatterParser {
   /**
    * Update existing file with new frontmatter data
    */
-  public updateFile(filePath: string, updates: Partial<AnyFrontmatter>): AnyItemData {
+  public updateFile(
+    filePath: string, 
+    updates: Partial<AnyFrontmatter>, 
+    appendContent?: string
+  ): AnyItemData {
     const existing = this.parseAnyItem(filePath);
 
     // Merge updates with existing data
@@ -291,16 +295,26 @@ export class FrontmatterParser {
       ...updates,
       updated_date: new Date().toISOString(),
     };
+    
+    // Update content if append content is provided
+    let finalContent = existing.content;
+    if (appendContent) {
+      // Ensure content ends with newline before appending
+      if (!finalContent.endsWith('\n')) {
+        finalContent += '\n';
+      }
+      finalContent += appendContent;
+    }
 
     // Write back to file
     if ('epic_id' in updated && !('issue_id' in updated)) {
-      this.writeEpic(filePath, updated as EpicFrontmatter, existing.content);
+      this.writeEpic(filePath, updated as EpicFrontmatter, finalContent);
     } else if ('issue_id' in updated && !('task_id' in updated) && !('pr_id' in updated)) {
-      this.writeIssue(filePath, updated as IssueFrontmatter, existing.content);
+      this.writeIssue(filePath, updated as IssueFrontmatter, finalContent);
     } else if ('task_id' in updated) {
-      this.writeTask(filePath, updated as TaskFrontmatter, existing.content);
+      this.writeTask(filePath, updated as TaskFrontmatter, finalContent);
     } else if ('pr_id' in updated) {
-      this.writePR(filePath, updated as PRFrontmatter, existing.content);
+      this.writePR(filePath, updated as PRFrontmatter, finalContent);
     }
 
     return updated;
